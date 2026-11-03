@@ -1,0 +1,876 @@
+<title>FH1 Boards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=Saira+Condensed:wght@600;700&display=swap">
+<style>
+/* Layout: the same bench sheet as the bridge board page — title strip, filter chips, the faces of both boards, the side section, then the key and the parts. The board art keeps fixed PCB colours; the page around it follows the viewer's theme. */
+:root {
+  --bg: #eef1ec;
+  --panel: #ffffff;
+  --fg: #18211b;
+  --muted: #59665d;
+  --line: #cfd8d1;
+  --accent: #1b7a43;
+  --chip: #e3ebe5;
+  --warn: #b4540a;
+  --tip-bg: #18211b;
+  --tip-fg: #f1f6f2;
+  --font-display: "Saira Condensed", "Arial Narrow", sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101512; --panel: #18201b; --fg: #e3ebe5; --muted: #95a59a; --line: #2c3a31; --accent: #4cc27f;
+    --chip: #222d26; --warn: #ffab5e; --tip-bg: #e3ebe5; --tip-fg: #101512;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101512; --panel: #18201b; --fg: #e3ebe5; --muted: #95a59a; --line: #2c3a31; --accent: #4cc27f;
+  --chip: #222d26; --warn: #ffab5e; --tip-bg: #e3ebe5; --tip-fg: #101512;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; margin: 0; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 48px; display: grid; gap: 24px; }
+header { display: grid; gap: 6px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(34px, 6vw, 56px); line-height: 1; margin: 0; text-wrap: balance; letter-spacing: .01em; }
+.lede { margin: 0; color: var(--muted); max-width: 70ch; }
+.specs { display: flex; flex-wrap: wrap; gap: 8px 20px; font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); }
+.specs b { color: var(--fg); font-weight: 600; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.filters span.lbl { font-family: var(--font-mono); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+.chipbtn { font: 600 13px var(--font-body); border: 1px solid var(--line); background: var(--chip); color: var(--fg); border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+.chipbtn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #ffffff; }
+.chipbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.views { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 20px; }
+figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 10px; min-width: 0; align-content: start; }
+figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+figcaption h2 { font-family: var(--font-display); font-weight: 600; font-size: 24px; margin: 0; letter-spacing: .02em; }
+figcaption span { font-size: 13px; color: var(--muted); }
+.art { overflow-x: auto; }
+.art svg { display: block; width: 100%; max-width: 520px; margin-inline: auto; height: auto; }
+.wide .art svg { max-width: 1100px; min-width: 520px; }
+#wiring svg, #wiring2 svg { max-width: 760px; min-width: 420px; }
+.faded { opacity: .38; }
+.part { transition: opacity .12s ease; cursor: default; }
+.part:focus { outline: none; }
+.part:focus-visible .hit { stroke: #ffffff; stroke-width: .6; }
+svg.focused .part:not(.on) { opacity: .14; }
+@media (prefers-reduced-motion: reduce) { .part { transition: none; } }
+#tip { position: fixed; z-index: 10; pointer-events: none; background: var(--tip-bg); color: var(--tip-fg); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; line-height: 1.35; max-width: 300px; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+#tip b { display: block; font-size: 13px; }
+#tip .size { font-family: var(--font-mono); font-size: 12px; }
+#tip .face { opacity: .75; font-size: 11.5px; }
+.key { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 10px 22px; padding: 0; margin: 0; list-style: none; }
+.key li { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: start; font-size: 13.5px; }
+.sw { height: 10px; border-radius: 3px; margin-top: 6px; outline: 1px solid var(--line); }
+.sw.dash { background: transparent !important; border: 1.5px dashed #8a968d; height: 8px; }
+.sw.hatch { background: repeating-linear-gradient(45deg, #e8b04a 0 2px, transparent 2px 6px) !important; outline: 1px solid #e8b04a; }
+.key b { display: block; font-weight: 600; }
+.key small { color: var(--muted); font-size: 12.5px; }
+section h2 { font-family: var(--font-display); font-weight: 600; font-size: 26px; margin: 0 0 10px; letter-spacing: .02em; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+td code, .note code { font-family: var(--font-mono); font-size: 12.5px; }
+.note { font-size: 13px; color: var(--muted); max-width: 84ch; margin: 0; }
+.micros { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: 16px; }
+.micros figcaption h3 { font-family: var(--font-display); font-weight: 600; font-size: 19px; margin: 0; letter-spacing: .02em; }
+.micros .art svg { min-width: 0; max-width: 420px; margin-inline: auto; }
+.micros ul { margin: 0; padding-left: 18px; font-size: 13px; display: grid; gap: 3px; }
+.micros li b { font-weight: 600; }
+.alert { border-left: 3px solid var(--warn); padding: 8px 12px; background: var(--panel); border-radius: 0 8px 8px 0; font-size: 13.5px; max-width: 90ch; }
+.alert b { color: var(--warn); }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">FH1 · hardware · layout draft 5 (placement)</div>
+    <h1>FH1 Boards</h1>
+    <p class="lede">The handheld as two stacked perfboards: screen and controls on the main board's front, the S3 mini board and the other modules on its back, the 18650 between the boards at the bottom. Nothing is wired yet, so this page shows where things go. Hover or tap a part to see what it is; pick a group to see only its parts.</p>
+    <div class="specs">
+      <span><b>2 × 80 × 120 mm</b> perfboard (1.2 mm), <b>30 × 42</b> holes</span>
+      <span><b>2.8"</b> IPS 320 × 240, SPI</span>
+      <span>gap <b>25 mm</b> (metal spacers, 20 + 5)</span>
+      <span><b>18650</b> loaded from the bottom edge</span>
+      <span>about <b>41 mm</b> thick, display socketed</span>
+    </div>
+  </header>
+
+  <div class="filters" id="filters" role="group" aria-label="Show the parts of one group"><span class="lbl">Show</span></div>
+
+  <p class="alert"><b>Between the boards:</b> the gap is 25 mm for now (20 + 5 mm spacers; it may slim down during the build). It holds the cell, and also the speaker and, later, the 2.4 GHz LoRa radio and the camera coprocessor, all hanging from the second board. Only the two antennas and the camera window stay on the outer face. The battery holder takes the bottom corners, so the bottom pair of spacers sits just above it (two M3 holes drilled through both boards).</p>
+
+  <div class="views">
+    <figure>
+      <figcaption><h2>Main board · front</h2><span>What the user sees and touches.</span></figcaption>
+      <div class="art" id="front"></div>
+    </figure>
+    <figure>
+      <figcaption><h2>Main board · back</h2><span>Seen with the board flipped over (left and right swap). Modules sit on sockets.</span></figcaption>
+      <div class="art" id="back"></div>
+    </figure>
+    <figure>
+      <figcaption><h2>Second board · inner face</h2><span>Faces the main board's back; seen from the front, like the front view. The speaker, radio and camera hang from it.</span></figcaption>
+      <div class="art" id="inner"></div>
+    </figure>
+    <figure>
+      <figcaption><h2>Second board · outer face</h2><span>The device's back; seen from behind, like the back view. Only antennas, the camera window and the speaker holes. Dashed = later.</span></figcaption>
+      <div class="art" id="outer"></div>
+    </figure>
+  </div>
+  <figure class="wide">
+    <figcaption><h2>Main board · back · wiring (draft 3)</h2><span>Seen from the back; modules faded, wires on top, every pin on the 30 × 42 hole grid. Solid = back face, dashed = front face (under the display). Signal routes from <code>hardware/wiring.md</code>; power drawn as trunks. Hover a wire for its signal and ends.</span></figcaption>
+    <div class="art" id="wiring"></div>
+  </figure>
+  <figure class="wide">
+    <figcaption><h2>Second board · inner face · wiring (V1)</h2><span>Seen from the front, like the inner-face view. The V1 parts: the RTC and IMU through the board-to-board header (column 0 here), and the E28 LoRa radio through its own header on row 0 plus three control lanes. The speaker and battery come with their own leads; the camera is left out.</span></figcaption>
+    <div class="art" id="wiring2"></div>
+  </figure>
+
+  <section>
+    <h2>The AO3401 adapter boards</h2>
+    <p class="note" style="margin-bottom:12px">Four identical boards: an AO3401 P-MOSFET (SOT-23) on a CNIM SOT-23 → SIP3 adapter, its three pins in one row at 2.54 mm. The AO3401's SOT-23 pins are <b>1 = gate, 2 = source, 3 = drain</b>, and the adapter brings pad n to hole n. Check the adapter's numbering against its silkscreen before soldering, and meter each FET once mounted: gate to source should read open both ways, and the drain–source diode should conduct from drain to source. Every gate gets a 100 kΩ resistor (1/4 W, from stock) as drawn.</p>
+    <div class="micros">
+      <figure>
+        <figcaption><h3>Q1 · off switch</h3><span>cuts VSYS to everything downstream</span></figcaption>
+        <div class="art" id="m-q1"></div>
+        <ul><li><b>S</b> ← power-path output (VSYS before the switch)</li><li><b>D</b> → VSYS: buck-boost VIN, codec VCC, LED feed</li><li><b>G</b> → slide switch common; 100 kΩ from G to S. Switch to GND = on; open = off</li><li>Charging still works with it off: the charger sits before it</li></ul>
+      </figure>
+      <figure>
+        <figcaption><h3>Q2 · power path</h3><span>battery feeds the system only without USB</span></figcaption>
+        <div class="art" id="m-q2"></div>
+        <ul><li><b>D</b> ← charger OUT+ (the protected cell)</li><li><b>S</b> → power-path output, which also gets USB 5 V through a 1N5819</li><li><b>G</b> ← USB 5 V (charger IN+), 100 kΩ to GND</li><li>USB in: G high, Q2 off, the system runs from USB and the cell only charges. No USB: G low, Q2 on</li></ul>
+      </figure>
+      <figure>
+        <figcaption><h3>Q3 · reverse polarity</h3><span>a backwards cell does no harm</span></figcaption>
+        <div class="art" id="m-q3"></div>
+        <ul><li><b>D</b> ← holder red lead (cell +)</li><li><b>S</b> → charger B+ (and the battery divider)</li><li><b>G</b> → GND through 100 kΩ</li><li>Cell the right way: the body diode starts it, then G at −Vcell turns it fully on (both ways, so charging passes). Reversed: it stays off</li></ul>
+      </figure>
+      <figure>
+        <figcaption><h3>Q4 · button-LED brightness</h3><span>PWM on the four LEDs' feed</span></figcaption>
+        <div class="art" id="m-q4"></div>
+        <ul><li><b>S</b> ← VSYS</li><li><b>D</b> → LED feed: the four 270 Ω to the LED anodes</li><li><b>G</b> → BS170 drain; 100 kΩ from G to S</li><li>BS170 (TO-92, from stock): gate ← GPIO44 PWM, source GND. GPIO high = LEDs fed; each LED then on or off by MCP #1 GPB0–3</li></ul>
+      </figure>
+    </div>
+  </section>
+
+  <figure class="wide">
+    <figcaption><h2>Side section</h2><span>Cut along the length, top edge on the left; front faces up. Thickness is to scale with the length.</span></figcaption>
+    <div class="art" id="side"></div>
+  </figure>
+  <div id="tip" hidden></div>
+
+  <section>
+    <h2>Key</h2>
+    <ul class="key" id="key"></ul>
+  </section>
+
+  <section>
+    <h2>Parts, as placed</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Part</th><th>Size (mm)</th><th>Where</th><th>Notes</th></tr></thead>
+        <tbody id="parts"></tbody>
+      </table>
+    </div>
+  </section>
+  <p class="note"><b>Approximate placement.</b> Only the display and the S3 mini board come from real drawings (<code>hardware/modules/</code>). Every other size is a typical breakout size and moves once the parts arrive. The ES8311 + NS4150B and TCA9555 boards are the least certain. The plan of record is <code>hardware/layout.md</code>; the parts and their reasons are in <code>hardware/parts.md</code>, the pin budget in <code>hardware/architecture.md</code>.</p>
+</div>
+
+<script>
+(() => {
+  const W = 80, H = 120;
+  const PAD = { l: 6, r: 6, t: 6, b: 6 };
+  const GROUP = {
+    display:  { c: '#5aa9ff', name: 'Display', sub: '2.8" IPS ST7789 module and its header' },
+    controls: { c: '#ff8a3d', name: 'Controls', sub: 'Thumbstick, lit A B X Y, plain Start/Select, Menu, slide switch' },
+    mcu:      { c: '#c9c9c4', name: 'MCU', sub: 'ESP32-S3 mini board (S3R8, USB-C, RST/BOOT on board) and the Wi-Fi flex antenna' },
+    power:    { c: '#ff4d4d', name: 'Power', sub: 'Charger, power path, reverse FET, buck-boost, battery divider' },
+    audio:    { c: '#c98cff', name: 'Audio', sub: 'ES8311 + NS4150B codec module (with mic) and the speaker' },
+    io:       { c: '#2ee6c4', name: 'I/O', sub: 'Two MCP23017 expanders, micro-SD, RTC, IMU, board-to-board header' },
+    battery:  { c: '#ffd23f', name: 'Battery', sub: '18650 in a spring holder, on its side between the boards' },
+    frame:    { c: '#a0a6ad', name: 'Structure', sub: 'Corner spacers, keep-out zones, lead areas' },
+    later:    { c: '#7fe0a0', name: 'Later', sub: 'L/R, camera coprocessor', dash: true },
+  };
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
+  const views = [];
+
+  // ── Parts: x, y, w, h in mm, in the coordinates of the view they are drawn in (origin top-left of the board as seen) ──
+  // Front coordinates for the main board's front and the second board's inner face; back coordinates (x mirrored) for the main
+  // board's back and the second board's outer face. Through-hole leads from the front show on the back at x' = 80 − x.
+  // ── The perfboard grid: 30 × 42 holes (as measured on the bridge's board of the same type), centred on the 80 × 120 board,
+  // so the front and back views share the same holes (x_back = 80 − x_front maps column i to column 29 − i).
+  const gx = i => +(3.17 + 2.54 * i).toFixed(2), gy = j => +(7.93 + 2.54 * j).toFixed(2);
+  const P = (i, j) => [gx(i), gy(j)];
+  // 12 × 12 mm illuminated switches (hardware/modules/button-12mm-illuminated.md): SNES colours, white LED under a coloured cap
+  const BTN = { X: [60.32, 63.81], Y: [47.62, 76.51], A: [73.02, 76.51], B: [60.32, 89.21] };   // centres half-way between columns, on a row
+  const CAP = { A: '#e23b3b', B: '#f2c531', X: '#3f7fe8', Y: '#3cb371', Start: '#f2f2f2', Select: '#f2f2f2' };
+  const SS = { Select: [18.41, 94.29], Start: [31.11, 94.29] };   // 2-pin 8 mm switches: centre on a hole column, legs one column either side
+  const MENU = [40.0, 61.27];
+  // The display module (hardware/modules/display-2.8in-st7789.md): PCB 81.28 × 54.74, landscape, header on the right, top edge 0.92 mm
+  // below the board's top edge (two rows higher than draft 2, so its top holes sit on the board's top corner holes).
+  const DISP = { x: -2.15, y: 0.89, w: 81.28, h: 54.74 };   // header on column 29, rows 4–11; 2.15 mm over the left edge, 0.87 mm in from the right
+  const DISP_PINS = Array.from({ length: 9 }, (_, k) => [DISP.x + 78.98, DISP.y + 17.2 + 2.54 * k]);   // GND, VCC, SCL, SDA, RST, DC, CS, BL, SDA-O
+  const STICK_PINS = Array.from({ length: 4 }, (_, k) => P(5 + k, 22));
+  const tactLeads = ([cx, cy]) => [[cx - 2.54, cy], [cx + 2.54, cy]];
+  const btnLeads = ([cx, cy]) => [[cx - 3.81, cy - 2.54], [cx + 3.81, cy - 2.54], [cx - 3.81, cy + 2.54], [cx + 3.81, cy + 2.54]];
+  // TS-G010: legs 6.5 × 5 mm bent onto 7.62 × 5.08 holes; the two tab pins (9 mm apart) onto the diagonal holes ±(1.27, 5.08)
+  const bigLeads = ([cx, cy]) => [[cx - 3.81, cy - 2.54], [cx + 3.81, cy - 2.54], [cx - 3.81, cy + 2.54], [cx + 3.81, cy + 2.54], [cx - 1.27, cy - 5.08], [cx + 1.27, cy + 5.08]];
+  const mirror = pts => pts.map(([x, y]) => [W - x, y]);
+  const SPACERS = [
+    { x: 3, y: 3 }, { x: 77, y: 3 },
+    { x: 3, y: 94.5, moved: true }, { x: 77, y: 94.5, moved: true },
+  ];
+  const spacerParts = (backView, nylonAt) => SPACERS.map((s, i) => {
+    const x = backView ? W - s.x : s.x;
+    const nylon = nylonAt.includes(i);
+    return { g: 'frame', kind: 'spacer', x, y: s.y, nylon, moved: s.moved,
+      name: nylon ? 'Nylon M3 spacer, 25 mm (antenna corner)' : 'Metal M3 spacer, 25 mm (20 + 5)',
+      size: 'M3 hex, ~5.5 across',
+      note: (nylon ? 'Nylon here: an antenna sits in this corner of the second board. ' : '') + (s.moved ? 'Moved up from the corner: the battery holder takes the bottom band, so two M3 holes are drilled here.' : 'Corner hole of the perfboard; the display\'s top holes share it.') };
+  });
+  // Both antennas sit at the top corners of the second board's outer face, so the two top spacers are nylon.
+  const NYLON = [0, 1];
+
+  const FRONT = [
+    { g: 'display', kind: 'display', ...DISP, name: '2.8" IPS display module (ST7789, 240 × 320, SPI)', size: '81.28 × 54.74 × 4.4 (PCB); active 57.6 × 43.2', note: 'Landscape, two rows higher than draft 2 so its top holes share the board\'s top corner holes. 9-pin header (GND, VCC, SCL, SDA, RST, DC, CS, BL, SDA-O) on the right short edge, on column 29. Socketed while developing (~12 mm stack), soldered in the final build. Dimensions: hardware/modules/display-2.8in-st7789.md.' },
+    { g: 'controls', kind: 'stick', x: 6.27, y: 62.41, w: 25.8, h: 25.8, name: 'Thumbstick: Deek-Robot JOYSTICK-02 (PSP-style)', size: '25.8 × 25.8 board, height TBD', note: 'Two 10 kΩ pots to ADC1, no click. Its right-angle header is swapped for straight pins down through the board; M2 screws through its corner holes. VCC switched by the first expander. Notes: hardware/modules/joystick-psp-deek-robot.md.' },
+    ...Object.entries(BTN).map(([n, [cx, cy]]) => ({ g: 'controls', kind: 'big', cx, cy, label: n, cap: CAP[n], name: `${n} button (illuminated)`, size: 'TS-G010: 12 × 12 body, 15 over the tabs, Ø6.9 cap, 7.3 tall', note: 'SNES diamond. Switch read through the first TCA9555; its white LED (under the coloured cap) switched by the second TCA9555, with global PWM brightness. Any press can wake the S3.' })),
+    ...Object.entries(SS).map(([n, [cx, cy]]) => ({ g: 'controls', kind: 'tact8', cx, cy, label: n, name: `${n} button (plain, 2-pin)`, size: '7.8 × 7.8, Ø3.5 actuator, 5.5 tall', note: 'No LED. Legs 5.1 mm apart on two holes, one column either side. One leg to its MCP #1 input, the other to GND. Notes: hardware/modules/button-8mm-tact.md.' })),
+    { g: 'controls', kind: 'btn', cx: MENU[0], cy: MENU[1], small: true, label: 'menu', name: 'Menu button (= BOOT, GPIO0)', size: '4 × 4 or 6 × 6, recessed', note: 'Wakes the S3 from deep sleep. Hold it and tap reset for USB download mode.' },
+    { g: 'controls', kind: 'slide', x: 75.8, y: 57, w: 4.2, h: 9, name: 'Off slide switch', size: 'SS12D00 class', note: 'Drives the AO3401 that cuts VSYS: true off for everything after the charger, and the cell still charges.' },
+    { g: 'battery', kind: 'ghost', x: 2.5, y: 102, w: 75, h: 18, label: '18650 behind, between the boards', name: '18650 in its holder (behind this face)', size: 'holder ~77 × 21', note: 'Loaded from the bottom edge. Drawn here only to show which controls sit over it.' },
+    { g: 'mcu', kind: 'edge', side: 'right', y: 16.1, h: 9, label: 'USB-C', name: 'USB-C (the S3 mini board\'s, on the back)', size: '—', note: 'Flashing, console and charging. The S3 board now sits two columns in from the edge, so the socket is ~5 mm inside it: the case needs a recess, or a short USB-C extension.' },
+    { g: 'power', kind: 'edge', side: 'left', y: 77, h: 9, label: 'charge', name: 'Charging port (USB-C on the charger board, on the back)', size: '—', note: 'Power only. The S3 board\'s USB-C (right edge) also charges.' },
+    { g: 'io', kind: 'edge', side: 'left', y: 12, h: 15, label: 'SD', name: 'micro-SD slot', size: '—', note: 'The breakout sits on the back with its slot at this edge.' },
+    { g: 'battery', kind: 'edge', side: 'bottom', x: 30, w: 20, label: 'cell in', name: 'Battery opening', size: '—', note: 'The cell is pushed in from the bottom edge into the side-mounted holder.' },
+    ...spacerParts(false, NYLON),
+  ];
+
+  const BACK = [
+    { g: 'mcu', kind: 'mini', x: 5.25, y: 9.43, w: 32, h: 22.4, name: 'ESP32-S3 mini board (ESP32-S3R8, 8 MB PSRAM in package)', size: '32 × 22.4, on sockets (~12 tall)', note: 'Pins on columns 2–12, rows 1–2 and 8–9 (two columns in from the edge). USB-C ~5 mm in from the side edge. IPEX end inward: U.FL cable to the Wi-Fi antenna. GPIO26 and 33–37 stay unconnected (PSRAM). Notes: hardware/modules/esp32-s3-mini.md.' },
+    { g: 'display', kind: 'pins', pts: mirror(DISP_PINS), name: 'Display header leads', size: '8 × 2.54', note: 'Through the board, under the mini board\'s USB end: its sockets leave ~8 mm above them.' },
+    { g: 'audio', kind: 'mod', x: 39.67, y: 6.31, w: 17, h: 26.1, fill: '#141414', label: 'ES8311', name: 'ES8311 + NS4150B audio module', size: '26.1 × 17', note: 'Upright, header on column 15, rows 0–9, turned so GND is at the top and SDA at the bottom (GND, VCC, 3V3, DO, WS, DI, BCK, MCK, SCL, SDA). VCC (amp) from VSYS; PA_EN to MCP #2. Notes: hardware/modules/audio-es8311-ns4150b.md.' },
+    { g: 'io', kind: 'mod', x: 57.45, y: 8.13, w: 22, h: 25, fill: '#141414', label: 'micro-SD', name: 'micro-SD SPI/SDIO breakout (Adafruit 4682 layout)', size: '25 × 22', note: 'Header on column 22, rows 1–9 (3V, GND, CLK, D0, CMD, D3, D1, DAT2, DET); slot at the side edge. 1-bit SDMMC. Notes: hardware/modules/micro-sd-sdio-board.md.' },
+    { g: 'io', kind: 'mcp', x: 32.05, y: 36.81, w: 21, h: 26, label: '#1 · 0x20', name: 'MCP23017 module #1 (0x20)', size: '26 × 21, upright', note: 'Single row on column 12, double rows on columns 18 (A) and 19 (B), rows 12–21. GPA: the six button inputs, SD detect, stick power (out). GPB: the four button-LED cathodes (sinking). It sits next to the buttons. Notes: hardware/modules/mcp23017-module.md.' },
+    { g: 'power', kind: 'perf', x: 19, y: 50, w: 11, h: 6, label: 'batt div', name: 'Battery-voltage divider (2 × 220 kΩ + 100 nF)', size: 'on the perfboard', note: 'From the cell\'s B+ (after the reverse FET) into an ADC1 pin. ~10 µA. Replaces the MAX17048 fuel gauge.' },
+
+
+    { g: 'power', kind: 'mod', x: 4.5, y: 34, w: 12.8, h: 25.8, fill: '#141414', label: 'TPS63802', name: 'TPS63802 buck-boost module (3V3 jumper)', size: '25.8 × 12.8', note: 'VOUT/GND at the top (towards the S3), VIN/GND at the bottom (towards the power path); wired by its end pads, not on the grid. Power-save mode for ~11 µA idle. Notes: hardware/modules/buck-boost-tps63802.md.' },
+    { g: 'io', kind: 'mcp', x: 54.91, y: 36.81, w: 21, h: 26, label: '#2 · 0x21', name: 'MCP23017 module #2 (0x21)', size: '26 × 21, upright', note: 'Single row on column 21, double rows on columns 27 (A) and 28 (B), rows 12–21. GPA: amp enable, L/R, the radio NRESET and RX_EN (later), charger STDBY/CHRG. GPB: camera PWDN, BT, RTC INT and IMU INT (one-hole hops from the board-to-board header), the radio TX_EN (later). A0 tied to 3V3.' },
+    { g: 'power', kind: 'perf', x: 66, y: 67, w: 9.5, h: 6, label: 'path+off', name: 'Power path (AO3401 + SS14) and off-switch P-FET (AO3401)', size: 'on the perfboard', note: 'Load sharing makes VSYS from USB or the cell; the second AO3401, driven by the slide switch, cuts VSYS to everything downstream.' },
+    { g: 'controls', kind: 'perf', x: 19, y: 40, w: 11, h: 6, label: 'LED pwm', name: 'Button-LED brightness switch (AO3401 + BS170)', size: 'on the perfboard', note: 'High-side switch on the LEDs\' VSYS feed, PWM from GPIO44.' },
+    { g: 'power', kind: 'perf', x: 68, y: 90, w: 5.6, h: 7, label: 'rev', name: 'Reverse-polarity P-MOSFET', size: 'on the perfboard', note: 'Right next to the holder wires: a cell put in backwards does no harm.' },
+    { g: 'power', kind: 'mod', x: 60, y: 74, w: 20, h: 15, fill: '#141414', label: 'charger', name: 'Mini charger + protection board (TP4056-type, USB-C)', size: '20 × 15 × 5', note: 'Its USB-C, at the side edge, is the charging port. IN+ also gets the S3 board\'s VIN through an SS14; B+/B− from the holder through the reverse FET; protected OUT+/OUT− into the power path. CHRG/STDBY wired from its LEDs to the expander. Notes: hardware/modules/charger-tp4056-mini.md.' },
+    { g: 'power', kind: 'edge', side: 'right', y: 77, h: 9, label: 'charge', name: 'Charging port (the charger board\'s USB-C)', size: '—', note: 'Power only. Seen from the front, at the left edge just above the battery band.' },
+    { g: 'io', kind: 'hheader', i0: 3, j: 0, n: 9, name: 'Radio header (to the E28 on the second board)', size: '1 × 9, 2.54, row 0, columns 3–11', note: 'Directly above the S3\'s top outer pins: GND, 3V3, GPIO21 (camera CS, later), 17 DIO1, 15 BUSY, 13 NSS, 11 MISO, 9 MOSI, 7 SCK. Each is a one-hole hop from the S3 pin below it.' },
+    { g: 'io', kind: 'header', x: 76.83, y: 43.49, n: 10, name: 'Board-to-board header (to the second board)', size: '1 × 10, 2.54', note: 'V1: the RTC and IMU lines (I2C, two interrupts, 3V3, GND); the radio gets a second header later. The battery wires go through 2 + 2 pins or their own JST.' },
+    { g: 'controls', kind: 'pins', pts: mirror(Object.values(BTN).flatMap(bigLeads)), name: 'A B X Y leads (switch + LED)', size: '6 per switch', note: 'Trimmed flush. Modules may sit over them on sockets but not in their holes.' },
+    { g: 'controls', kind: 'pins', pts: mirror([...Object.values(SS).flatMap(tactLeads), ...btnLeads(MENU)]), name: 'Start, Select and Menu leads', size: '—', note: 'Start and Select: two legs each. Trim flush and cover with Kapton.' },
+    { g: 'controls', kind: 'pins', pts: mirror(STICK_PINS), name: 'Thumbstick header', size: '1 × 4', note: 'GND, X, Y, VCC (switched). Straight pins replace the right-angle ones.' },
+    { g: 'battery', kind: 'holder', x: 2.5, y: 102, w: 75, h: 18, name: '18650 holder (pre-wired), on its side', size: '75 × 20 × 18', note: 'Between the boards, open face toward the bottom edge; its 20 mm width sits in the 25 mm gap. Glued to the second board by a side wall. Red lead to the reverse FET, black to B−. Notes: hardware/modules/battery-holder-18650.md.' },
+    { g: 'battery', kind: 'edge', side: 'bottom', x: 30, w: 20, label: 'cell in', name: 'Battery opening', size: '—', note: 'The cell goes in from the bottom edge of the device.' },
+    { g: 'mcu', kind: 'edge', side: 'left', y: 16.1, h: 9, label: 'USB', name: 'USB-C, ~5 mm in from the side edge', size: '—', note: 'The S3 board sits two columns in, so the case needs a recess or a short extension.' },
+    ...spacerParts(true, NYLON),
+  ];
+
+  // ── Wiring, draft 2 (hardware/wiring.md), on the hole grid. Back-view coordinates; P(column, row), half steps allowed ──
+  const MINI_ROWS = {
+    to: { j: 1, n: ['VIN','GND','3V3','21','17','15','13','11','9','7','0'] },
+    ti: { j: 2, n: ['VIN','GND','3V3','26','18','16','14','12','10','8','EN'] },
+    bi: { j: 8, n: ['48','33','35','36','39','46','44','43','6','4','1'] },
+    bo: { j: 9, n: ['47','34','37','38','40','41','42','45','5','2','3'] },
+  };
+  const S = (name, row) => { for (const r of row ? [row] : ['to','ti','bi','bo']) { const k = MINI_ROWS[r].n.indexOf(name); if (k >= 0) return P(2 + k, MINI_ROWS[r].j); } throw name; };
+  const col = (names, i, j0) => n => P(i, j0 + names.indexOf(n));
+  const DH = col(['GND','VCC','SCL','SDA','RES','DC','CS','BLK','MISO'], 0, 4);
+  const CP = col(['GND','VCC','3V3','DO','WS','DI','BCK','MCK','SCL','SDA'], 15, 0);
+  const SDP = col(['3V','GND','CLK','D0','CMD','D3','D1','DAT2','DET'], 22, 1);
+  const mcp = (i0) => ({
+    s: col(['A2','A1','A0','RST','NC1','NC2','SDA','SCL','GND','VCC'], i0, 12),
+    i: col(['GND','ITA','A0','A1','A2','A3','A4','A5','A6','A7'], i0 + 6, 12),
+    o: col(['VCC','ITB','B0','B1','B2','B3','B4','B5','B6','B7'], i0 + 7, 12),
+  });
+  const M1 = mcp(12), M2 = mcp(21);
+  const ST = n => P(24 - ['GND','X','Y','VCC'].indexOf(n), 22);
+  const MENU_B = [P(13, 20), P(16, 20)];   // the Menu switch's legs seen from the back
+  const NETC = { radio: '#ffa94d', disp: '#5aa9ff', sd: '#2ee6c4', i2s: '#c98cff', i2c: '#ffd23f', int: '#ff8a3d', adc: '#7fe0a0', pwm: '#ff7eb6', boot: '#ff8a3d', btn: '#f2f2f2', led: '#ff6b6b', v33: '#f2f2f2', vsys: '#ff4d4d', gnd: '#101410' };
+  const wire = (g, net, name, a, b, pts, note = '', front = false) => ({ g, kind: 'wire', net, pts, name, size: `${a} → ${b}`, note: (front ? 'Front face, under the display. ' : '') + note, front });
+  const WIRES = [
+    // display: header on column 0, rows 4–11 (GND, VCC, SCL, SDA, RES, DC, CS, BLK)
+    wire('display','disp','Display SCK (GPIO18)','S3 GPIO18','display SCL',[S('18'), P(6, 6), DH('SCL')]),
+    wire('display','disp','Display MOSI (GPIO39)','S3 GPIO39','display SDA',[S('39'), P(6, 7), DH('SDA')]),
+    wire('display','disp','Display RES (GPIO48)','S3 GPIO48','display RES',[S('48'), DH('RES')], 'Straight across, two holes.'),
+    wire('display','disp','Display DC (GPIO47)','S3 GPIO47','display DC',[S('47'), DH('DC')], 'Straight across, two holes.'),
+    wire('display','disp','Display CS (GPIO38)','S3 GPIO38','display CS',[S('38'), P(5, 10), DH('CS')]),
+    wire('display','disp','Display backlight PWM (GPIO40)','S3 GPIO40','display BLK',[S('40'), P(6, 11), DH('BLK')]),
+    // I2S: five drops from the top inner row into the free rows 3–7, straight across to the codec (no crossings)
+    wire('audio','i2s','I2S data in (GPIO8)','S3 GPIO8','codec DO',[S('8'), P(11, 3), CP('DO')]),
+    wire('audio','i2s','I2S WS (GPIO10)','S3 GPIO10','codec WS',[S('10'), P(10, 4), CP('WS')]),
+    wire('audio','i2s','I2S data out (GPIO12)','S3 GPIO12','codec DI',[S('12'), P(9, 5), CP('DI')]),
+    wire('audio','i2s','I2S BCK (GPIO14)','S3 GPIO14','codec BCK',[S('14'), P(8, 6), CP('BCK')]),
+    wire('audio','i2s','Codec MCK (GPIO16)','S3 GPIO16','codec MCK',[S('16'), P(7, 7), CP('MCK')]),
+    // I2C: straight across on rows 8 and 9, then trunks down to both expanders
+    wire('io','i2c','I2C SCL (GPIO1)','S3 GPIO1','codec SCL',[S('1'), CP('SCL')], 'Straight across, three holes.'),
+    wire('io','i2c','I2C SDA (GPIO3)','S3 GPIO3','codec SDA',[S('3'), CP('SDA')], 'Straight across, three holes.'),
+    wire('io','i2c','I2C SDA to MCP #1 and #2','codec SDA','MCP #1 SDA, MCP #2 SDA',[CP('SDA'), P(15.5, 9.5), P(15.5, 17.5), P(12, 17.5), M1.s('SDA'), P(12, 17.5), P(21, 17.5), M2.s('SDA')], 'Trunk half a column right of the codec header; along half-row 17.5 between the MCP pins. Crosses the SD lanes and the INT lane.'),
+    wire('io','i2c','I2C SCL to MCP #1 and #2','codec SCL','MCP #1 SCL, MCP #2 SCL',[CP('SCL'), P(16.5, 8), P(16.5, 18.5), P(12, 18.5), M1.s('SCL'), P(12, 18.5), P(21, 18.5), M2.s('SCL')]),
+    // micro-SD: three lanes below the S3 (rows 10, 10.5, 11), turning up at columns 19, 20, 21 (no crossings among them)
+    wire('io','sd','SD CLK (GPIO43)','S3 GPIO43','SD CLK',[S('43'), P(9.5, 8.5), P(9.5, 10), P(19, 10), P(19, 3), SDP('CLK')], 'Jogs half a column between GPIO45 and GPIO5 to get past the outer row.'),
+    wire('io','sd','SD D0 (GPIO42)','S3 GPIO42','SD D0',[S('42'), P(8, 10.5), P(20, 10.5), P(20, 4), SDP('D0')]),
+    wire('io','sd','SD CMD (GPIO41)','S3 GPIO41','SD CMD',[S('41'), P(7, 11), P(21, 11), P(21, 5), SDP('CMD')]),
+    wire('io','sd','SD card detect','SD DET','MCP #1 GPA6',[SDP('DET'), P(22, 11.5), P(20, 11.5), P(20, 20.5), P(18.5, 20.5), M1.i('A6')], 'Down column 20, between the two expanders.'),
+    // shared interrupt (RTC GPIO5)
+    wire('io','int','Expander INT (GPIO5)','S3 GPIO5','MCP #1 INTA, MCP #2 INTA',[S('5'), P(10, 12.5), P(17.5, 12.5), P(17.5, 13), M1.i('ITA'), P(17.5, 13), P(17.5, 12.5), P(26.5, 12.5), P(26.5, 13), M2.i('ITA')], 'Along half-row 12.5, between the expanders\' first two pin rows.'),
+    // analog: stick and battery
+    wire('controls','adc','Stick X (GPIO2)','S3 GPIO2','stick X',[S('2'), P(11, 23), P(23, 23), ST('X')], 'Down column 11, just left of MCP #1, then up into the stick header from below.'),
+    wire('controls','adc','Stick Y (GPIO4)','S3 GPIO4','stick Y',[S('4'), P(11.5, 8.5), P(11.5, 22.5), P(22, 22.5), ST('Y')], 'Jogs between GPIO2 and GPIO3, then down half-column 11.5.'),
+    wire('power','adc','Battery voltage (GPIO6)','S3 GPIO6','battery divider tap',[S('6'), P(10.5, 8.5), P(10.5, 17.5)], 'Jogs between GPIO5 and GPIO2, then down into the divider.'),
+    wire('controls','pwm','Button-LED brightness (GPIO44)','S3 GPIO44','LED brightness switch',[S('44'), P(8.5, 8.5), P(8.5, 13.5)]),
+    // Menu (BOOT, GPIO0): on the front face, under the display, to the Menu switch
+    wire('controls','boot','Menu / BOOT (GPIO0)','S3 GPIO0','Menu switch',[S('0'), P(12.5, 1.5), P(12.5, 19.5), P(13, 19.5), MENU_B[0]], 'The other leg of the switch goes to GND.', true),
+    // power, on the front face under the display (simplified trunks)
+    wire('power','v33','3V3 trunk','buck-boost VOUT','S3 3V3',[[6.2, 35.3], [6.2, gy(11.5)], [gx(1.5), gy(11.5)], [gx(1.5), gy(1.5)], P(4, 1.5), S('3V3','to')], '', true),
+    wire('power','v33','3V3 to the codec, SD and MCPs','S3 3V3','codec 3V3, SD 3V, MCP #1/#2 VCC',[S('3V3','ti'), P(4, 2.5), P(15, 2.5), CP('3V3'), P(15, 2.5), P(21.5, 2.5), P(21.5, 1), SDP('3V'), P(21.5, 1), P(21.5, 2.5), P(17, 2.5), P(17, 21.5), P(12, 21.5), M1.s('VCC'), P(12, 21.5), P(21, 21.5), M2.s('VCC')], 'Half-row 2.5 between the pin rows, then down column 17.', true),
+    wire('power','v33','3V3 to the display','3V3 trunk','display VCC',[[gx(1.5), gy(5)], DH('VCC')], '', true),
+    wire('power','vsys','VSYS to the buck-boost','power path (after the off switch)','buck-boost VIN',[[66, 68], [gx(25), 68], [gx(25), gy(24.5)], [gx(1.5), gy(24.5)], [gx(1.5), 58.5], [6.2, 58.5]], 'Along half-row 24.5, between the button rows.'),
+    // ── draft 3: buttons → MCP #1 GPA0–5 (signal on one corner leg, GND on the diagonal leg: always across the switch)
+    wire('controls','btn','A button → MCP #1 GPA0','A switch (corner leg)','MCP #1 GPA0',[P(3, 26), P(3, 23.5), P(13.5, 23.5), P(13.5, 14), M1.i('A0')], 'Lane order (left column → top pin) keeps the button lanes from crossing each other.'),
+    wire('controls','btn','B button → MCP #1 GPA1','B switch (corner leg)','MCP #1 GPA1',[P(8, 31), P(8.5, 30.5), P(14.5, 30.5), P(14.5, 15), M1.i('A1')]),
+    wire('controls','btn','X button → MCP #1 GPA2','X switch (corner leg)','MCP #1 GPA2',[P(8, 21), P(8.5, 20.5), P(15, 20.5), P(15, 16), M1.i('A2')]),
+    wire('controls','btn','Y button → MCP #1 GPA3','Y switch (corner leg)','MCP #1 GPA3',[P(13, 26), P(17, 26), P(17, 17), M1.i('A3')]),
+    wire('controls','btn','Start → MCP #1 GPA4','Start switch','MCP #1 GPA4',[P(17, 34), P(17.5, 33.5), P(17.5, 18), M1.i('A4')]),
+    wire('controls','btn','Select → MCP #1 GPA5','Select switch','MCP #1 GPA5',[P(22, 34), P(22.5, 33.5), P(22.5, 23.5), P(18.5, 23.5), P(18.5, 19.5), M1.i('A5')]),
+    // button LEDs: anodes from the switched LED feed through 270 Ω (resistor at each anode), cathodes → MCP #1 GPB0–3
+    Object.assign(wire('controls','led','LED feed → X LED (270 Ω)','LED brightness switch','X LED anode',[P(7, 15), P(7, 20)], 'LED pins assumed: the upper tab is the anode. Check on arrival.'), { res: P(7, 18.9) }),
+    Object.assign(wire('controls','led','LED feed → A LED (270 Ω)','LED feed','A LED anode',[P(7, 18.5), P(6, 18.5), P(6, 22), P(2, 22), P(2, 25)]), { res: P(2, 23.6) }),
+    Object.assign(wire('controls','led','LED feed → B LED (270 Ω)','LED feed','B LED anode',[P(3.5, 22), P(3.5, 29.5), P(7, 29.5), P(7, 30)]), { res: P(5.5, 29.5) }),
+    Object.assign(wire('controls','led','LED feed → Y LED (270 Ω)','LED feed','Y LED anode',[P(7, 18.5), P(12.5, 18.5), P(12.5, 24.5), P(12, 25)]), { res: P(12.5, 21.9) }),
+    wire('controls','led','A LED cathode → MCP #1 GPB0','A LED cathode','MCP #1 GPB0',[P(1, 29), P(1, 31.5), P(23.5, 31.5), P(23.5, 14.5), P(19.5, 14.5), M1.o('B0')], 'Cathodes reach the GPB column from the right, each up its own column (19.5–23.5).'),
+    wire('controls','led','B LED cathode → MCP #1 GPB1','B LED cathode','MCP #1 GPB1',[P(6, 34), P(6.5, 33.5), P(21.5, 33.5), P(21.5, 15.5), P(19.5, 15.5), M1.o('B1')]),
+    wire('controls','led','X LED cathode → MCP #1 GPB2','X LED cathode','MCP #1 GPB2',[P(6, 24), P(6, 25.5), P(20.5, 25.5), P(20.5, 16.5), P(19.5, 16.5), M1.o('B2')]),
+    wire('controls','led','Y LED cathode → MCP #1 GPB3','Y LED cathode','MCP #1 GPB3',[P(11, 29), P(11, 28.5), P(19.5, 28.5), P(19.5, 17.5), M1.o('B3')]),
+    // ground returns: a bus along row 35, a trunk down half-column 4.5 to the buck-boost's GND pad
+    wire('power','gnd','GND bus (buttons, stick)','buck-boost GND','A, B, X, Y, Start, Select, Menu, stick',[[15.6, 58.5], P(4.5, 19.9), P(4.5, 35), P(24.5, 35)], 'Row 35, just above the battery band.'),
+    wire('power','gnd','A GND leg','A switch (diagonal leg)','GND bus',[P(0, 28), P(0, 35), P(4.5, 35)]),
+    wire('power','gnd','X GND leg','X switch (diagonal leg)','GND trunk',[P(5, 23), P(4.5, 23)]),
+    wire('power','gnd','B GND leg','B switch (diagonal leg)','GND trunk',[P(5, 33), P(4.5, 33)]),
+    wire('power','gnd','Y GND leg','Y switch (diagonal leg)','GND bus',[P(10, 28), P(10, 35)]),
+    wire('power','gnd','Start GND leg','Start switch','GND bus',[P(19, 34), P(19, 35)]),
+    wire('power','gnd','Select and stick GND','Select switch, stick GND','GND bus',[P(24, 22), P(24.5, 22.5), P(24.5, 35)]),
+    wire('power','gnd','Menu GND leg','Menu switch','GND bus',[P(16, 20), P(16, 35)]),
+    // stick power from MCP #1 GPA7 (output)
+    wire('controls','adc','Stick VCC (MCP #1 GPA7)','MCP #1 GPA7 (out)','stick VCC',[M1.i('A7'), P(18.5, 21.5), P(21, 21.5), ST('VCC')], 'The expander pin powers the pots (0.66 mA): off in sleep.'),
+    // MCP #2 and the board-to-board header (rows matched so the interrupts are one-hole hops)
+    wire('io','i2c','I2C SDA to the board-to-board header','MCP #2 SDA lane','B2B pin 5 (SDA)',[P(21, 17.5), P(28.5, 17.5), P(28.5, 18), [gx(29), gy(18)]], 'Second board: RTC and IMU.'),
+    wire('io','i2c','I2C SCL to the board-to-board header','MCP #2 SCL lane','B2B pin 6 (SCL)',[P(21, 18.5), P(28.5, 18.5), P(28.5, 19), [gx(29), gy(19)]]),
+    wire('io','int','IMU INT → MCP #2 GPB2','B2B pin 3 (IMU INT)','MCP #2 GPB2',[[gx(29), gy(16)], M2.o('B2')], 'One-hole hop.'),
+    wire('io','int','RTC INT → MCP #2 GPB3','B2B pin 4 (RTC INT)','MCP #2 GPB3',[[gx(29), gy(17)], M2.o('B3')], 'One-hole hop.'),
+    wire('audio','i2s','Amp enable (PA_EN) → MCP #2 GPA0','codec PA_EN pad (after lifting R8)','MCP #2 GPA0',[P(21, 10), P(21.5, 10.5), P(27.5, 10.5), P(27.5, 13.5), M2.i('A0')], 'Thin wire from the pad on the codec board.'),
+    wire('power','int','Charger CHRG → MCP #2 GPA6','charger CHRG LED','MCP #2 GPA6',[P(25.5, 26.5), P(25.5, 26), P(26.5, 26), P(26.5, 20.5), M2.i('A6')], 'Thin wire from the charger\'s LED cathode.'),
+    wire('power','int','Charger STDBY → MCP #2 GPA5','charger STDBY LED','MCP #2 GPA5',[P(26.5, 26.5), P(27.5, 26), P(27.5, 19.5), M2.i('A5')]),
+    // ── E28 radio (V1): one-hole hops from the S3's top outer row to the radio header on row 0
+    ...[['GND',3,'gnd'],['3V3',4,'v33'],['21',5,'radio'],['17',6,'radio'],['15',7,'radio'],['13',8,'radio'],['11',9,'radio'],['9',10,'radio'],['7',11,'radio']].map(([n, c, net]) =>
+      wire('io', net, `Radio header ← S3 ${n === 'GND' || n === '3V3' ? n : 'GPIO' + n}`, `S3 ${n}`, `radio header column ${c}`, [P(c, 1), P(c, 0)], { '21': 'Camera CS (later).', '17': 'DIO1: a received packet can wake the S3.', '15': 'BUSY.', '13': 'NSS.', '11': 'MISO.', '9': 'MOSI.', '7': 'SCK.', 'GND': 'Radio GND.', '3V3': 'Radio supply: 580 mA TX bursts.' }[n])),
+    wire('io','radio','E28 NRESET ← MCP #2 GPA3','MCP #2 GPA3','B2B row 15',[M2.i('A3'), P(27.5, 16.5), P(27.5, 14.5), P(28.5, 14.5), P(28.5, 15), [gx(29), gy(15)]], 'Between the expander\'s pin columns, then across between GPB0 and GPB1.'),
+    wire('io','radio','E28 TX_EN ← MCP #2 GPB7','MCP #2 GPB7 (out)','B2B row 22',[M2.o('B7'), P(28.5, 21.5), P(28.5, 22), [gx(29), gy(22)]]),
+    wire('io','radio','E28 RX_EN ← MCP #2 GPA7','MCP #2 GPA7 (out)','B2B row 23',[M2.i('A7'), P(27, 23), [gx(29), gy(23)]], 'Crosses the charger STDBY lane once.'),
+    // power stage (bottom right), simplified
+    wire('power','vsys','Cell + → reverse FET → charger B+','holder red lead','charger B+',[[77, 104], [72, 97.5], [71, 93.5], [72, 88]], 'Holder lead in, through the AO3401, up to B+.'),
+    wire('power','gnd','Cell − → charger B−','holder black lead','charger B−',[[3, 104], [3, 100], [62, 100], [62, 89]]),
+    wire('power','vsys','Charger OUT+ → power path','charger OUT+','power path / off-switch FET',[[64, 74], [64, 72], [67, 71.5]]),
+    wire('power','vsys','B+ → battery divider','after the reverse FET','divider top',[[69, 93.5], P(25.5, 35.6), P(10.5, 35.6), P(10.5, 18.9)], 'Taps the cell after the reverse FET, so it reads the battery with USB in.'),
+    wire('power','vsys','VSYS → LED brightness switch','VSYS lane','LED switch',[P(9.5, 24.5), P(9.5, 15)]),
+    wire('power','vsys','VSYS → codec VCC (amp)','VSYS','codec VCC',[P(25, 24.5), P(25.5, 23.5), P(25.5, 1.5), P(15.5, 1.5), CP('VCC')], 'Front face; half-row 1.5, between the GND and 3V3 lanes.', true),
+    wire('power','vsys','S3 VIN → 1N5819 → charger IN+','S3 VIN (USB 5 V)','charger IN+',[S('VIN','to'), P(2, -0.5), P(29.4, -0.5), P(29.4, 26), [78, 78]], 'Front face, in the top margin above the first hole row and down the edge margin; the 1N5819 sits at the charger end.', true),
+    wire('controls','pwm','Off switch → off FET gate','slide switch','off-switch P-FET gate',[[2.2, 61.5], P(0.3, 20.8), P(0.3, 36.3), P(26, 36.3), [70, 71.5]], 'Front face from the switch, then along the bottom.', true),
+    wire('power','gnd','GND, front face trunk','buck-boost GND (top)','S3, display, codec, SD, MCPs, B2B',[[15.6, 35.3], P(4.5, 10.8), P(1, 10.8), P(1, 4), DH('GND'), P(1, 4), P(1, 0.5), P(3, 0.5), S('GND','to'), P(3, 0.5), P(14.5, 0.5), CP('GND'), P(14.5, 0.5), P(22.5, 0.5), P(22.5, 2), SDP('GND'), P(22.5, 2), P(22.5, 11.5), P(18.5, 11.5), M1.i('GND'), P(18.5, 11.5), P(26.5, 11.5), M2.i('GND'), P(26.5, 11.5), P(28.6, 11.5), P(28.6, 20), [gx(29), gy(20)]], 'Half-row 0.5 along the top; down half-column 22.5 beside the SD header; half-row 11.5 above the expanders.', true),
+    wire('power','v33','3V3 to the board-to-board header','MCP #2 VCC','B2B pin 8 (3V3)',[P(21, 21.5), P(28.4, 21.5), P(28.4, 21), [gx(29), gy(21)]], 'For the RTC and IMU on the second board.', true),
+
+  ];
+
+  const INNER = [
+    { g: 'battery', kind: 'holder', x: 2.5, y: 102, w: 75, h: 18, name: '18650 holder anchoring', size: '~77 × 21', note: 'The holder is fixed to this face (glue or two screws through its base), so the main board\'s button leads stay free.' },
+    { g: 'io', kind: 'header', x: 3.17, y: 43.49, n: 10, name: 'Board-to-board header (mating half)', size: '1 × 10, 2.54', note: 'Mirrors the main board\'s header.' },
+    { g: 'audio', kind: 'speaker', x: 25, y: 70.5, w: 36, h: 25, name: 'Speaker, 36 × 25 mm, 8 Ω 2 W', size: '36 × 25 × 6.5', note: 'Between the boards, its adhesive gasket stuck to this face, firing through a field of drilled holes to a grille in the back cover. Closed box. Notes: hardware/modules/speaker-36x25.md.' },
+    { g: 'io', kind: 'pins', pts: Array.from({ length: 6 }, (_, k) => P(2 + k, 22)), name: 'RTC header (VCC, GND, SDA, SCL, COT, INT)', size: '6 × 2.54, row 22, columns 2–7', note: 'The module stands with its header at the bottom; COT unused.' },
+    { g: 'io', kind: 'mod', x: 6.1, y: 22.1, w: 17, h: 43, fill: '#1d4fa8', label: 'RTC', name: 'PCF8563 RTC module (coin cell)', size: '43 × 17', note: 'Upright beside the board-to-board header: I2C, 3V3, GND and INT (to MCP #2 GPB2) through it. Coin cell keeps time while the device is off. Notes: hardware/modules/rtc-pcf8563-module.md.' },
+    { g: 'io', kind: 'imu', x: 8.25, y: 66.35 - 1.1, w: 2.54 * 8, h: 2.2, name: 'QMI8658A IMU module, standing upright', size: '~21 × 16 board, 8 pins on one row', note: 'Moved here from the main board (its row was in the way of the button wires). Shares the RTC\'s I2C, 3V3 and GND from the board-to-board header; INT to MCP #2 GPB3. Glue it as well as soldering it. Notes: hardware/modules/imu-qmi8658-module.md.' },
+    { g: 'io', kind: 'hheader', i0: 18, j: 0, n: 9, name: 'Radio header, mating half', size: '1 × 9, row 0, columns 18–26', note: 'Mirrors the main board\'s radio header: SCK, MOSI, MISO, NSS, BUSY, DIO1, camera CS (later), 3V3, GND (left to right, seen from the front).' },
+    { g: 'io', kind: 'mod', x: 52, y: 11, w: 26.5, h: 15, fill: '#b02a2a', label: 'E28 LoRa', name: 'EBYTE E28-2G4M27S 2.4 GHz LoRa radio (V1)', size: '26.5 × 15 × 2.85', note: 'Glued flat, antenna end to the right (IPEX next to the SMA corner). 28 AWG leads from its castellated pads to the radio header above it and to the three control lanes below. 470 µF + 100 nF at its VCC pad. Notes: hardware/modules/radio-e28-2g4m27s.md.' },
+    { g: 'later', kind: 'ghost', x: 30.5, y: 10.5, w: 21, h: 17.5, label: 'camera', name: 'Camera coprocessor: XIAO ESP32S3 Sense (later)', size: '21 × 17.5, ~15 tall with the camera', note: 'Top centre, between the boards, its lens through a hole in this board and the back cover. Linked over SPI, power-gated.' },
+    { g: 'frame', kind: 'zone', x: 0, y: 0, w: 30, h: 18, label: 'Wi-Fi keep-out', name: 'Wi-Fi antenna keep-out (this face)', size: '30 × 18', note: 'Nothing metal under the antenna on the other face: it is only 1.6 mm away.' },
+    { g: 'frame', kind: 'zone', x: 62, y: 0, w: 18, h: 60, label: 'LoRa ant.', name: 'LoRa antenna corner (this face)', size: '18 × 60', note: 'The SMA bulkhead and the pigtail run here; keep it clear of other modules.' },
+    ...spacerParts(false, NYLON),
+  ];
+
+  const OUTER = [
+    { g: 'mcu', kind: 'antenna', x: 52, y: 5, w: 26, h: 8, label: 'Wi-Fi', name: 'Wi-Fi/BT flex antenna (2.4 GHz, IPEX)', size: '~26 × 8, adhesive', note: 'Top right (seen from the back), U.FL cable from the S3. As far as possible from the LoRa antenna (top left): same band. Plastic back cover over it.' },
+    { g: 'io', kind: 'antenna', x: 3, y: 6, w: 10, h: 30, label: 'LoRa SMA', name: 'LoRa antenna: TX2400-JKS-IPX20 on an SMA bulkhead (V1)', size: 'rubber duck, sticks out above the case', note: 'Top left (seen from the back), as far from the Wi-Fi antenna as the case allows. Same 2.4 GHz band: the firmware never transmits on both at once.' },
+    { g: 'frame', kind: 'zone', x: 50, y: 0, w: 30, h: 18, label: 'Wi-Fi keep-out', name: 'Wi-Fi antenna keep-out', size: '30 × 18', note: 'No modules, wires or spacers here on either face of this board.' },
+    { g: 'frame', kind: 'zone', x: 0, y: 0, w: 18, h: 60, label: 'LoRa ant.', name: 'LoRa antenna corner', size: '18 × 60', note: 'No modules or wires here on either face of this board.' },
+    { g: 'later', kind: 'ghost', x: 33.5, y: 12.5, w: 15, h: 13, label: 'lens', name: 'Camera window (later)', size: '~15 × 13 hole', note: 'Hole for the coprocessor\'s lens, top centre.' },
+    { g: 'audio', kind: 'grille', x: 19, y: 70.5, w: 36, h: 25, name: 'Speaker sound holes', size: '30 × 20', note: 'Drilled through this board over the speaker, under the back-cover grille.' },
+    { g: 'later', kind: 'ghost', x: 18, y: -1.5, w: 10, h: 5, label: 'L', name: 'L shoulder button (later)', size: 'right-angle tactile', note: 'On the top edge, reaching past the back, just inside the LoRa antenna corner. Its expander input is reserved.' },
+    { g: 'later', kind: 'ghost', x: 52, y: -1.5, w: 10, h: 5, label: 'R', name: 'R shoulder button (later)', size: 'right-angle tactile', note: 'On the top edge, beside the Wi-Fi antenna (a small switch, little metal). Its expander input is reserved.' },
+    ...spacerParts(true, NYLON),
+  ];
+
+  // ── Drawing ──
+  let uid = 0;
+  function defs(svg) {
+    const id = 'v' + (uid++);
+    const d = el('defs', {}, svg);
+    const holes = el('pattern', { id: id + 'holes', width: 2.54, height: 2.54, patternUnits: 'userSpaceOnUse', x: 1.9, y: 6.66 }, d);
+    el('rect', { width: 2.54, height: 2.54, fill: '#1f6b3c' }, holes);
+    el('circle', { cx: 1.27, cy: 1.27, r: 0.72, fill: '#c9a24e' }, holes);
+    el('circle', { cx: 1.27, cy: 1.27, r: 0.34, fill: '#0e2f1b' }, holes);
+    const hatch = el('pattern', { id: id + 'hatch', width: 3, height: 3, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' }, d);
+    el('rect', { width: 1, height: 3, fill: '#e8b04a', opacity: .55 }, hatch);
+    return id;
+  }
+  function text(svg, txt, x, y, o = {}) {
+    const t = el('text', { x, y, fill: o.fill || '#f2f2f2', 'font-size': o.size || 2.4, 'font-family': 'IBM Plex Mono, monospace',
+      'font-weight': o.weight || 600, 'text-anchor': o.anchor || 'middle', 'dominant-baseline': 'middle', 'pointer-events': 'none' }, svg);
+    if (o.rotate) t.setAttribute('transform', `rotate(${o.rotate} ${x} ${y})`);
+    t.textContent = txt;
+    return t;
+  }
+  function drawPart(svg, p, id) {
+    const g = el('g', { class: 'part', tabindex: 0 }, svg);
+    g._part = p;
+    const gc = GROUP[p.g].c;
+    switch (p.kind) {
+      case 'display': {
+        // relative to the PCB's top-left (landscape, header on the right); see hardware/modules/display-2.8in-st7789.md
+        const o = (rx, ry) => [p.x + rx, p.y + ry];
+        el('rect', { class: 'hit', x: p.x, y: p.y, width: p.w, height: p.h, rx: 1.2, fill: '#16305e', stroke: '#0c1d3d', 'stroke-width': .5 }, g);
+        const [bx, by] = o(5.54, 1.87); el('rect', { x: bx, y: by, width: 70.2, height: 51, rx: .5, fill: '#8d949c', stroke: '#5d636a', 'stroke-width': .3 }, g);
+        const [vx, vy] = o(10.41, 4.24); el('rect', { x: vx, y: vy, width: 65.15, height: 46.26, rx: .3, fill: '#0b0d12' }, g);
+        const [ax, ay] = o(14.18, 5.77); el('rect', { x: ax, y: ay, width: 57.6, height: 43.2, fill: '#06080c', stroke: '#2a3550', 'stroke-width': .3 }, g);
+        el('rect', { x: ax + 7.2, y: ay + 2.16, width: 43.2, height: 38.88, fill: '#9bbc0f', opacity: .18 }, g);
+        text(g, '2.8" IPS 320×240', ax + 28.8, ay + 19.5, { size: 3.2, fill: '#9fb3d9' });
+        text(g, 'GBC 1.5× = 240×216', ax + 28.8, ay + 24.5, { size: 2.1, fill: '#6f84ad', weight: 400 });
+        for (const [x, y] of DISP_PINS) el('rect', { x: x - .7, y: y - .7, width: 1.4, height: 1.4, fill: '#d6b25c' }, g);
+        for (const [rx, ry] of [[2.5, 2.5], [78.78, 2.5], [2.5, 52.24], [78.78, 52.24]]) { const [x, y] = o(rx, ry); el('circle', { cx: x, cy: y, r: 1.1, fill: '#0b130e', stroke: '#c9a24e', 'stroke-width': .3 }, g); }
+        break;
+      }
+      case 'stick': {
+        el('rect', { class: 'hit', x: p.x, y: p.y, width: p.w, height: p.h, rx: .8, fill: '#1f7fb0', stroke: '#145a7d', 'stroke-width': .4 }, g);
+        for (const [dx, dy] of [[2.2, 2.2], [p.w - 2.2, 2.2], [2.2, p.h - 2.2], [p.w - 2.2, p.h - 2.2]]) el('circle', { cx: p.x + dx, cy: p.y + dy, r: 1.2, fill: '#0b130e', stroke: '#e8e8e8', 'stroke-width': .3 }, g);
+        const cx = p.x + p.w / 2, cy = p.y + p.h / 2 + .8;
+        el('rect', { x: cx - 9, y: cy - 9, width: 18, height: 18, rx: 1.6, fill: '#a9adb2', stroke: '#6f7377', 'stroke-width': .4 }, g);
+        el('circle', { cx, cy, r: 7.2, fill: '#202020', stroke: gc, 'stroke-width': .5 }, g);
+        el('circle', { cx, cy, r: 5.4, fill: 'none', stroke: '#333', 'stroke-width': .3 }, g);
+        for (const [x, y] of STICK_PINS) el('rect', { x: x - .6, y: y - .6, width: 1.2, height: 1.2, fill: '#d6b25c' }, g);
+        break;
+      }
+      case 'btn': {
+        const s = p.small ? 2.2 : 3;
+        el('rect', { class: 'hit', x: p.cx - s, y: p.cy - s, width: 2 * s, height: 2 * s, rx: .4, fill: '#2a2a2a', stroke: '#555', 'stroke-width': .3 }, g);
+        el('circle', { cx: p.cx, cy: p.cy, r: p.small ? 1.8 : 4.4, fill: p.small ? '#444' : '#3a3a3a', stroke: gc, 'stroke-width': .5 }, g);
+        text(g, p.label, p.cx, p.cy + .1, { size: p.small ? 1.4 : 3, fill: '#ffd9bf' });
+        break;
+      }
+      case 'big': {
+        el('rect', { class: 'hit', x: p.cx - 6, y: p.cy - 6, width: 12, height: 12, rx: .6, fill: '#1d1d1d', stroke: '#444', 'stroke-width': .3 }, g);
+        el('rect', { x: p.cx - 2.2, y: p.cy - 7.5, width: 1.6, height: 2, fill: '#e8e4da' }, g);
+        el('rect', { x: p.cx + .6, y: p.cy + 5.5, width: 1.6, height: 2, fill: '#e8e4da' }, g);
+        for (const dy of [-4.5, 4.5]) el('circle', { cx: p.cx, cy: p.cy + dy, r: .5, fill: '#d6b25c' }, g);
+        el('rect', { x: p.cx - 4.8, y: p.cy - 4.8, width: 9.6, height: 9.6, rx: .4, fill: '#e8e4da' }, g);
+        for (const [dx, dy] of [[-3.8, -3.8], [3.8, -3.8], [-3.8, 3.8], [3.8, 3.8]]) el('circle', { cx: p.cx + dx, cy: p.cy + dy, r: .55, fill: '#1d1d1d' }, g);
+        el('circle', { cx: p.cx, cy: p.cy, r: 3.45, fill: p.cap, 'fill-opacity': .88, stroke: gc, 'stroke-width': .4 }, g);
+        el('circle', { cx: p.cx - 1.2, cy: p.cy - 1.2, r: 1.3, fill: '#ffffff', opacity: .35 }, g);
+        text(g, p.label.length > 1 ? p.label : p.label, p.cx, p.label.length > 1 ? p.cy + 8.6 : p.cy + .1, { size: p.label.length > 1 ? 2 : 3, fill: p.label.length > 1 ? '#ffd9bf' : '#1a1a1a' });
+        break;
+      }
+      case 'tact8': {
+        el('rect', { class: 'hit', x: p.cx - 3.9, y: p.cy - 3.9, width: 7.8, height: 7.8, rx: .5, fill: '#1d1d1d', stroke: '#444', 'stroke-width': .3 }, g);
+        el('circle', { cx: p.cx, cy: p.cy, r: 3.1, fill: 'none', stroke: '#3a3a3a', 'stroke-width': .5 }, g);
+        el('circle', { cx: p.cx, cy: p.cy, r: 1.75, fill: '#b9bcc0', stroke: gc, 'stroke-width': .4 }, g);
+        for (const dx of [-2.54, 2.54]) el('circle', { cx: p.cx + dx, cy: p.cy, r: .5, fill: '#d6b25c' }, g);
+        text(g, p.label, p.cx, p.cy + 6.2, { size: 2, fill: '#ffd9bf' });
+        break;
+      }
+      case 'pill': {
+        el('rect', { class: 'hit', x: p.cx - 3, y: p.cy - 3, width: 6, height: 6, rx: .4, fill: '#2a2a2a', stroke: '#555', 'stroke-width': .3 }, g);
+        el('rect', { x: p.cx - 5, y: p.cy - 1.8, width: 10, height: 3.6, rx: 1.8, fill: '#3a3a3a', stroke: gc, 'stroke-width': .5, transform: `rotate(-20 ${p.cx} ${p.cy})` }, g);
+        text(g, p.label, p.cx, p.cy + 5.4, { size: 2, fill: '#ffd9bf' });
+        break;
+      }
+      case 'slide':
+        el('rect', { class: 'hit', x: p.x, y: p.y, width: p.w, height: p.h, rx: .5, fill: '#b9bcc0', stroke: '#6f7377', 'stroke-width': .3 }, g);
+        el('rect', { x: p.x + p.w - .2, y: p.y + 1.4, width: 2.4, height: 2.4, fill: '#2a2a2a' }, g);
+        text(g, 'off/on', p.x + p.w + 4, p.y + p.h / 2, { size: 1.8, fill: '#ffd9bf', rotate: -90 });
+        break;
+      case 'mini': {
+        el('rect', { class: 'hit', x: p.x, y: p.y, width: p.w, height: p.h, rx: .8, fill: '#141414', stroke: '#3a3a3a', 'stroke-width': .5 }, g);
+        for (let k = 0; k < 11; k++) for (const y of [p.y + 1.04, p.y + 3.58, p.y + 18.82, p.y + 21.36]) el('circle', { cx: p.x + 3 + 2.54 * k, cy: y, r: .55, fill: '#d6b25c' }, g);
+        el('rect', { x: p.x + 10.5, y: p.y + 6.6, width: 9, height: 9, rx: .3, fill: '#2a2a2a', stroke: '#444', 'stroke-width': .2 }, g);
+        el('rect', { x: p.x + p.w - 2.6, y: p.y + 6.5, width: 2.2, height: 10, rx: .3, fill: '#cfd8e8' }, g);
+        el('circle', { cx: p.x + p.w - 3.6, cy: p.y + p.h - 6, r: .9, fill: '#d8b864', stroke: '#7a6630', 'stroke-width': .25 }, g);
+        el('rect', { x: p.x - 1, y: p.y + 6.7, width: 7.5, height: 9, rx: 1.4, fill: '#b9bcc0', stroke: '#6f7377', 'stroke-width': .3 }, g);
+        text(g, 'S3R8', p.x + 15, p.y + 11.1, { size: 1.8, fill: '#9a9a9a' });
+        text(g, 'S3 mini', p.x + 24, p.y + 11.1, { size: 1.8, fill: '#e8e8e8' });
+        break;
+      }
+      case 'antenna': {
+        const vert = p.h > p.w;
+        el('rect', { class: 'hit', x: p.x, y: p.y, width: p.w, height: p.h, rx: .6, fill: '#c69a3a', stroke: '#7a5a1a', 'stroke-width': .3, 'stroke-dasharray': p.g === 'later' ? '1.2 .6' : 'none', opacity: p.g === 'later' ? .75 : 1 }, g);
+        const n = Math.floor((vert ? p.h : p.w) / 6);
+        let d = vert ? `M ${p.x + p.w / 2} ${p.y + 2}` : `M ${p.x + 2} ${p.y + p.h / 2}`;
+        for (let k = 0; k < n; k++) d += vert ? ` h ${k % 2 ? -2.4 : 2.4} v 3 h ${k % 2 ? 2.4 : -2.4} v 3` : ` v ${k % 2 ? -2.4 : 2.4} h 3 v ${k % 2 ? 2.4 : -2.4} h 3`;
+        el('path', { d, stroke: '#7a5a1a', 'stroke-width': .45, fill: 'none' }, g);
+        text(g, p.label, p.x + p.w / 2, p.y + p.h / 2, { size: 1.9, fill: '#2a1e05', rotate: vert ? -90 : 0 });
+        break;
+      }
+      case 'imu': {
+        el('rect', { class: 'hit', x: p.x - 1.27, y: p.y, width: p.w, height: p.h, rx: .4, fill: '#7a2fb0', stroke: gc, 'stroke-width': .4 }, g);
+        for (let k = 0; k < 8; k++) el('circle', { cx: p.x + 2.54 * k, cy: p.y + p.h / 2, r: .55, fill: '#d6b25c' }, g);
+        text(g, 'IMU (upright)', p.x + 2.54 * 3.5, p.y + p.h + 2.2, { size: 1.9, fill: '#bff5ea' });
+        break;
+      }
+      case 'mcp': {
+        el('rect', { class: 'hit', x: p.x, y: p.y, width: p.w, height: p.h, rx: .5, fill: '#141414', stroke: gc, 'stroke-width': .4 }, g);
+        for (let k = 0; k < 10; k++) {
+          const y = p.y + 1.6 + 2.54 * k;
+          el('circle', { cx: p.x + 1.6, cy: y, r: .55, fill: '#d6b25c' }, g);
+          for (const x of [p.x + p.w - 1.6, p.x + p.w - 4.14]) el('circle', { cx: x, cy: y, r: .55, fill: '#d6b25c' }, g);
+        }
+        el('rect', { x: p.x + 7, y: p.y + 6, width: 5.3, height: 10.2, rx: .2, fill: '#2b2b2b' }, g);
+        text(g, 'MCP23017', p.x + p.w / 2 - 1, p.y + 19.5, { size: 1.7, fill: '#e8e8e8' });
+        text(g, p.label, p.x + p.w / 2 - 1, p.y + 22.4, { size: 1.7, fill: '#bff5ea' });
+        break;
+      }
+      case 'cap':
+        el('circle', { class: 'hit', cx: p.cx, cy: p.cy, r: p.r, fill: '#1b2d5c', stroke: gc, 'stroke-width': .4 }, g);
+        el('circle', { cx: p.cx, cy: p.cy, r: p.r * .55, fill: 'none', stroke: '#8fa6d8', 'stroke-width': .25 }, g);
+        text(g, p.label, p.cx, p.cy, { size: 1.3, fill: '#e8eefc' });
+        break;
+      case 'wire': {
+        const d = 'M ' + p.pts.map(([x, y]) => `${x} ${y}`).join(' L ');
+        el('path', { class: 'hit', d, fill: 'none', stroke: 'transparent', 'stroke-width': 2.2, 'stroke-linejoin': 'round' }, g);
+        el('path', { d, fill: 'none', stroke: '#06100a', 'stroke-width': .95, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, g);
+        el('path', { d, fill: 'none', stroke: NETC[p.net], 'stroke-width': .6, 'stroke-linejoin': 'round', 'stroke-linecap': 'round', 'stroke-dasharray': p.front ? '1.4 .7' : 'none' }, g);
+        for (const q of [p.pts[0], p.pts[p.pts.length - 1]]) el('circle', { cx: q[0], cy: q[1], r: .55, fill: NETC[p.net], stroke: '#06100a', 'stroke-width': .25 }, g);
+        if (p.res) { const [rx, ry] = p.res; el('rect', { x: rx - .9, y: ry - .9, width: 1.8, height: 1.8, rx: .3, fill: '#c9a87a', stroke: '#6b4f22', 'stroke-width': .2 }, g); }
+        break;
+      }
+      case 'mod':
+        el('rect', { class: 'hit', x: p.x, y: p.y, width: p.w, height: p.h, rx: 1, fill: p.fill, stroke: gc, 'stroke-width': .5 }, g);
+        text(g, p.label, p.x + p.w / 2, p.y + p.h / 2, { size: p.w < 20 ? 2 : 2.4 });
+        break;
+      case 'perf':
+        el('rect', { class: 'hit', x: p.x, y: p.y, width: p.w, height: p.h, rx: .6, fill: 'none', stroke: gc, 'stroke-width': .5, 'stroke-dasharray': '1 .6' }, g);
+        text(g, p.label, p.x + p.w / 2, p.y + p.h / 2, { size: 1.9, fill: '#ffd0d0' });
+        break;
+      case 'zone':
+        el('rect', { class: 'hit', x: p.x, y: p.y, width: p.w, height: p.h, fill: `url(#${id}hatch)`, stroke: '#e8b04a', 'stroke-width': .4 }, g);
+        text(g, p.label, p.x + p.w / 2, p.y + p.h - 3, { size: 1.9, fill: '#ffe2a8' });
+        break;
+      case 'ghost':
+        el('rect', { class: 'hit', x: p.x, y: p.y, width: p.w, height: p.h, rx: 1, fill: 'rgba(0,0,0,.22)', stroke: gc, 'stroke-width': .5, 'stroke-dasharray': '1.6 1' }, g);
+        text(g, p.label, p.x + p.w / 2, p.y + p.h / 2, { size: p.w < 12 ? 1.8 : 2.2, fill: '#e8f2ea', weight: 400, rotate: p.h > p.w * 1.6 ? -90 : 0 });
+        break;
+      case 'holder': {
+        el('rect', { class: 'hit', x: p.x, y: p.y, width: p.w, height: p.h, rx: 1.2, fill: '#202020', stroke: gc, 'stroke-width': .5 }, g);
+        el('rect', { x: p.x + 5, y: p.y + (p.h - 17) / 2, width: 65, height: 17, rx: 3, fill: '#3d6fd1', stroke: '#1d3f8a', 'stroke-width': .3 }, g);
+        el('rect', { x: p.x + 1.2, y: p.y + p.h / 2 - 4.5, width: 3.2, height: 9, fill: '#d0d0d0' }, g);
+        el('rect', { x: p.x + p.w - 4.4, y: p.y + p.h / 2 - 4.5, width: 3.2, height: 9, fill: '#d0d0d0' }, g);
+        text(g, '18650 · between the boards', p.x + p.w / 2, p.y + p.h / 2, { size: 2.6, fill: '#eaf0ff' });
+        break;
+      }
+      case 'hheader': {
+        const x0 = 3.17 + 2.54 * p.i0, y = 7.93 + 2.54 * p.j;
+        el('rect', { class: 'hit', x: x0 - 1.3, y: y - 1.3, width: 2.54 * p.n, height: 2.6, rx: .3, fill: '#151515', stroke: gc, 'stroke-width': .4 }, g);
+        for (let k = 0; k < p.n; k++) el('circle', { cx: x0 + 2.54 * k, cy: y, r: .55, fill: '#d6b25c' }, g);
+        break;
+      }
+      case 'header':
+        el('rect', { class: 'hit', x: p.x - 1.3, y: p.y - 1.3, width: 2.6, height: 2.54 * p.n, rx: .3, fill: '#151515', stroke: gc, 'stroke-width': .4 }, g);
+        for (let k = 0; k < p.n; k++) el('circle', { cx: p.x, cy: p.y + 2.54 * k, r: .55, fill: '#d6b25c' }, g);
+        text(g, 'B2B', p.x < 40 ? p.x + 3.2 : p.x - 3.2, p.y + 1.27 * p.n, { size: 1.7, fill: '#bff5ea', rotate: -90 });
+        break;
+      case 'pins':
+        { const xs = p.pts.map(q => q[0]), ys = p.pts.map(q => q[1]);
+          el('rect', { class: 'hit', x: Math.min(...xs) - 1.2, y: Math.min(...ys) - 1.2, width: Math.max(...xs) - Math.min(...xs) + 2.4, height: Math.max(...ys) - Math.min(...ys) + 2.4, fill: 'transparent' }, g); }
+        for (const [x, y] of p.pts) el('circle', { cx: x, cy: y, r: .7, fill: '#e2c070', stroke: gc, 'stroke-width': .35 }, g);
+        break;
+      case 'speaker':
+        el('rect', { class: 'hit', x: p.x, y: p.y, width: p.w, height: p.h, rx: 4, fill: '#1b1b1b', stroke: gc, 'stroke-width': .5 }, g);
+        el('ellipse', { cx: p.x + p.w / 2, cy: p.y + p.h / 2, rx: p.w / 3.2, ry: p.h / 3.2, fill: '#2e2e2e' }, g);
+        text(g, 'speaker', p.x + p.w / 2, p.y + p.h / 2, { size: 2, fill: '#ead5ff', weight: 400 });
+        break;
+      case 'grille':
+        el('rect', { class: 'hit', x: p.x, y: p.y, width: p.w, height: p.h, rx: 4, fill: 'rgba(0,0,0,.25)', stroke: gc, 'stroke-width': .4 }, g);
+        for (let gx = p.x + 3; gx < p.x + p.w - 1; gx += 3) for (let gy = p.y + 3; gy < p.y + p.h - 1; gy += 3) el('circle', { cx: gx, cy: gy, r: .7, fill: '#0b0b0b' }, g);
+        text(g, 'speaker holes', p.x + p.w / 2, p.y + p.h + 2.4, { size: 1.9, fill: '#ead5ff', weight: 400 });
+        break;
+      case 'spacer': {
+        const hex = Array.from({ length: 6 }, (_, k) => { const a = Math.PI / 3 * k; return `${p.x + 2.9 * Math.cos(a)},${p.y + 2.9 * Math.sin(a)}`; }).join(' ');
+        el('polygon', { class: 'hit', points: hex, fill: p.nylon ? '#efe9d8' : '#b8bec4', stroke: p.moved ? '#ff8a3d' : '#5b6066', 'stroke-width': p.moved ? .6 : .3 }, g);
+        el('circle', { cx: p.x, cy: p.y, r: 1.3, fill: '#0b130e' }, g);
+        break;
+      }
+      case 'edge': {
+        const c = gc;
+        if (p.side === 'bottom') {
+          el('rect', { class: 'hit', x: p.x, y: H - .2, width: p.w, height: 3.6, fill: 'transparent' }, g);
+          el('path', { d: `M ${p.x + p.w / 2} ${H + 4.8} l 0 -4 m -1.6 1.6 l 1.6 -1.6 l 1.6 1.6`, stroke: c, 'stroke-width': .5, fill: 'none' }, g);
+          text(g, p.label, p.x + p.w / 2 + 2.4, H + 3.4, { size: 2, fill: c, anchor: 'start' });
+        } else {
+          const x = p.side === 'left' ? -1 : W + 1;
+          el('rect', { class: 'hit', x: x - 1.4, y: p.y, width: 2.8, height: p.h, rx: .5, fill: c }, g);
+          text(g, p.label, p.side === 'left' ? -3.6 : W + 3.6, p.y + p.h / 2, { size: 2, fill: c, rotate: -90 });
+        }
+        break;
+      }
+    }
+    return g;
+  }
+  function board(target, parts, aria, wires) {
+    const svg = el('svg', { viewBox: `${-PAD.l} ${-PAD.t} ${W + PAD.l + PAD.r} ${H + PAD.t + PAD.b}`, role: 'img', 'aria-label': aria }, target);
+    const id = defs(svg);
+    el('rect', { x: 0, y: 0, width: W, height: H, rx: 1.4, fill: '#1f6b3c', stroke: '#164f2c', 'stroke-width': .5 }, svg);
+    el('rect', { x: 1.9, y: 6.66, width: 2.54 * 30, height: 2.54 * 42, fill: `url(#${id}holes)` }, svg);
+    const host = wires ? el('g', { class: 'faded' }, svg) : svg;
+    for (const p of parts) drawPart(host, p, id);
+    if (wires) for (const p of wires) drawPart(svg, p, id);
+    views.push(svg);
+  }
+  board(document.getElementById('front'), FRONT, 'Main board front: display on top, thumbstick and A B X Y below, Start and Select at the bottom');
+  board(document.getElementById('back'), BACK, 'Main board back: S3 mini board with its USB-C at the side edge, modules in rows, battery holder across the bottom');
+  // Second board, inner face (front coordinates; header column 0 = main-board column 29)
+  const BB = r => P(0, r);
+  const RTCP = n => P(2 + ['VCC','GND','SDA','SCL','COT','INT'].indexOf(n), 22);
+  const IMUP = n => P(2 + ['VCC','GND','SCL','SDA','XDA','XCL','AD0','INT'].indexOf(n), 23);
+  const WIRES2 = [
+    wire('io','int','IMU INT','B2B row 16','IMU INT',[BB(16), P(9.5, 16), P(9.5, 22.5), IMUP('INT')], 'Header rows chosen so the RTC and IMU lanes don\'t cross each other.'),
+    wire('io','int','RTC INT','B2B row 17','RTC INT',[BB(17), P(7, 17), RTCP('INT')]),
+    wire('io','i2c','I2C SDA','B2B row 18','RTC SDA',[BB(18), P(4, 18), RTCP('SDA')], 'Crosses SCL once (insulated).'),
+    wire('io','i2c','I2C SCL','B2B row 19','RTC SCL',[BB(19), P(5, 19), RTCP('SCL')]),
+    wire('power','gnd','GND','B2B row 20','RTC GND',[BB(20), P(3, 20), RTCP('GND')]),
+    wire('power','v33','3V3','B2B row 21','RTC VCC',[BB(21), P(2, 21), RTCP('VCC')]),
+    wire('power','v33','IMU VCC','RTC VCC','IMU VCC',[RTCP('VCC'), IMUP('VCC')], 'One-hole hop.'),
+    wire('power','gnd','IMU GND','RTC GND','IMU GND',[RTCP('GND'), IMUP('GND')], 'One-hole hop.'),
+    wire('io','i2c','IMU SDA','RTC SDA','IMU SDA',[RTCP('SDA'), IMUP('SDA')], 'Short diagonal; crosses the SCL jumper.'),
+    wire('io','i2c','IMU SCL','RTC SCL','IMU SCL',[RTCP('SCL'), IMUP('SCL')]),
+    wire('power','gnd','IMU AD0 → GND (0x6A)','IMU AD0','IMU GND',[IMUP('AD0'), P(8, 23.5), P(3, 23.5), IMUP('GND')]),
+    // E28 radio: pad leads from the radio header (row 0) to the module's top edge, control lines from the B2B header
+    ...['SCK','MOSI','MISO','NSS','BUSY','DIO1','cam CS','3V3','GND'].map((n, k) => n === 'cam CS' ? null :
+      wire('io', n === '3V3' ? 'v33' : n === 'GND' ? 'gnd' : 'radio', `Radio ${n}`, `radio header column ${18 + k}`, `E28 ${n} pad`, [P(18 + k, 0), [Math.max(53, gx(18 + k)), 11]], 'Short 28 AWG lead to the castellated pad (pads 2–4: check the full pin table).')).filter(Boolean),
+    wire('io','radio','E28 NRESET','B2B row 15','E28 NRESET pad',[BB(15), P(20, 15), P(20, 7.3)], 'Row 15, above the RTC lanes; up column 20 to the module\'s bottom edge.'),
+    wire('io','radio','E28 TX_EN','B2B row 22','E28 TX_EN pad',[BB(22), P(0.5, 22.5), P(21, 22.5), P(21, 7.3)], 'Half-row 22.5, between the RTC header and the IMU pins; crosses the IMU INT lane once.'),
+    wire('io','radio','E28 RX_EN','B2B row 23','E28 RX_EN pad',[BB(23), P(0, 24), P(22, 24), P(22, 7.3)], 'Row 24, just below the IMU and above the speaker.'),
+    { g: 'power', kind: 'cap', cx: 76, cy: 30.5, r: 3, label: '470µ', name: 'Radio bulk cap, 10 V 470 µF polymer', size: 'Ø6 × 8', note: 'Across the E28 VCC and GND, for its 580 mA TX bursts.' },
+  ];
+  board(document.getElementById('wiring2'), INNER.filter(p => p.g !== 'later' && p.kind !== 'zone'), 'Second board inner face with the V1 wiring', WIRES2);
+  const CAPS = [
+    { g: 'power', kind: 'cap', cx: gx(2.6), cy: gy(21.6), r: 3, label: '470µ', name: 'VSYS bulk cap, 10 V 470 µF polymer (6 × 8)', size: 'Ø6 × 8', note: 'Across VSYS and GND at the buck-boost input.' },
+    { g: 'power', kind: 'cap', cx: gx(0.4), cy: gy(1.5), r: 2.5, label: '100µ', name: '3V3 bulk cap, 16 V 100 µF polymer (5 × 7)', size: 'Ø5 × 7', note: 'Across 3V3 and GND at the S3 board\'s 3V3 pins.' },
+  ];
+  board(document.getElementById('wiring'), BACK.filter(p => p.kind !== 'pins' || p.g !== 'controls'), 'Main board back with the wire routes', WIRES.concat(CAPS));
+  board(document.getElementById('inner'), INNER, 'Second board inner face: holder anchoring and the board-to-board header');
+  board(document.getElementById('outer'), OUTER, 'Second board outer face: speaker, and later the LoRa antenna, camera and shoulder buttons');
+
+  // ── Side section: length along x (top edge at 0), thickness along y (front up; main board front face at 0) ──
+  (() => {
+    const target = document.getElementById('side');
+    const svg = el('svg', { viewBox: '-8 -18 152 56', role: 'img', 'aria-label': 'Side section: display, main board, 25 mm gap with modules, the cell, the speaker and later the radio and camera, second board, antennas' }, target);
+    const id = defs(svg);
+    const part = (p, draw) => { const g = el('g', { class: 'part', tabindex: 0 }, svg); g._part = p; draw(g); return g; };
+    const R = (g, x, y, w, h, a) => el('rect', { class: 'hit', x, y, width: w, height: h, ...a }, g);
+    // boards
+    part({ g: 'frame', name: 'Main board', size: '80 × 120 × 1.6', note: 'Front face up.' }, g => R(g, 0, 0, 120, 1.6, { fill: '#1f6b3c', stroke: '#164f2c', 'stroke-width': .2 }));
+    part({ g: 'frame', name: 'Second board', size: '80 × 120 × 1.6', note: '25 mm below the main board.' }, g => R(g, 0, 26.6, 120, 1.6, { fill: '#1f6b3c', stroke: '#164f2c', 'stroke-width': .2 }));
+    // spacers (top corner at 3, moved bottom pair at 94.5)
+    for (const [x, moved] of [[3, false], [94.5, true]]) part({ g: 'frame', name: moved ? 'Spacers, moved up (bottom pair)' : 'Spacers, top pair', size: 'M3 hex, 20 + 5 mm', note: moved ? 'The holder fills the bottom band, so these sit just above it.' : 'Corner holes, shared with the display\'s top holes.' },
+      g => { R(g, x - 2.75, 1.6, 5.5, 25, { fill: '#b8bec4', stroke: moved ? '#ff8a3d' : '#5b6066', 'stroke-width': .3 }); el('line', { x1: x - 2.75, x2: x + 2.75, y1: 21.6, y2: 21.6, stroke: '#5b6066', 'stroke-width': .3 }, g); });
+    // front side
+    part({ g: 'display', name: 'Display on sockets', size: '4.4 module + ~7.6 sockets', note: 'About 12 mm above the board while socketed; ~5 mm once soldered.' }, g => {
+      R(g, 6, -12, 55, 4.4, { fill: '#16305e', stroke: '#0c1d3d', 'stroke-width': .2 });
+      for (let x = 7; x < 60; x += 2.54) el('rect', { x, y: -7.6, width: .6, height: 7.6, fill: '#d6b25c', opacity: .5 }, g);
+      text(g, 'display 2.8"', 33.5, -9.8, { size: 2.2, fill: '#9fb3d9' });
+    });
+    part({ g: 'controls', name: 'Thumbstick', size: '~5 over its breakout', note: 'Stick top about 8 mm above the board.' }, g => {
+      R(g, 65, -1.7, 25.4, 1.7, { fill: '#1d1d1d' }); el('rect', { x: 73, y: -8, width: 9, height: 6.3, rx: 2, fill: '#3b3b3b', stroke: GROUP.controls.c, 'stroke-width': .3 }, g);
+    });
+    part({ g: 'controls', name: 'Illuminated buttons', size: '12 × 12, Ø6.9 cap', note: '7.3 mm from the board to the top of the cap (TS-G010 datasheet).' }, g => {
+      for (const x of [68, 82, 96]) { R(g, x - 6, -4, 12, 4, { fill: '#2a2a2a' }); el('rect', { x: x - 3.45, y: -7.3, width: 6.9, height: 3.3, rx: 1.2, fill: '#e23b3b', 'fill-opacity': .8, stroke: GROUP.controls.c, 'stroke-width': .3 }, g); }
+    });
+    // gap: back of main board
+    part({ g: 'mcu', name: 'S3 mini board on sockets', size: '~12 tall from the board', note: 'Top-left of the back face (seen from the back).' }, g => {
+      R(g, 3, 1.6, 26, 8.5, { fill: '#2a2a2a', opacity: .7 }); el('rect', { x: 3, y: 10.1, width: 26, height: 1.6, fill: '#123a24' }, g);
+      el('rect', { x: 6, y: 11.7, width: 19.2, height: 3.2, fill: '#c8c8c3' }, g);
+      text(g, 'S3', 16, 6, { size: 2, fill: '#c9c9c4' });
+    });
+    part({ g: 'mcu', name: 'Antennas on the outer face', size: '~0.2 thick', note: 'Wi-Fi top right and the LoRa SMA (later) top left, seen from the back; keep-outs on both faces of the second board.' }, g => {
+      R(g, 4, 28.2, 14, .8, { fill: '#c69a3a' });
+      text(g, 'antennas', 11, 31, { size: 1.8, fill: '#c69a3a', weight: 400 });
+    });
+    part({ g: 'later', name: 'Camera coprocessor (later)', size: '~15 tall with the camera', note: 'Hangs from the second board at the top centre, lens through a hole.' }, g => {
+      R(g, 2, 12, 17.5, 14.6, { fill: 'none', stroke: GROUP.later.c, 'stroke-width': .3, 'stroke-dasharray': '1.2 .8' });
+      text(g, 'camera', 10.7, 19, { size: 1.8, fill: '#c8f5d6', weight: 400 });
+    });
+    part({ g: 'later', name: 'E28 LoRa radio (later)', size: '2.85 thick', note: 'Glued flat to the second board\'s inner face.' }, g => {
+      R(g, 24, 23.7, 26.5, 2.9, { fill: 'none', stroke: GROUP.later.c, 'stroke-width': .3, 'stroke-dasharray': '1.2 .8' });
+      text(g, 'radio (later)', 37, 21.6, { size: 1.9, fill: '#c8f5d6', weight: 400 });
+    });
+    part({ g: 'io', name: 'Module rows (expander, codec, SD, power)', size: '~10–14 tall on sockets', note: 'About 11 mm left above them in the 25 mm gap, for whatever hangs from the second board.' }, g => {
+      R(g, 37, 1.6, 50, 12, { fill: 'rgba(46,230,196,.18)', stroke: GROUP.io.c, 'stroke-width': .3, 'stroke-dasharray': '1 .6' });
+      text(g, 'modules on sockets', 62, 7.6, { size: 2, fill: '#bff5ea', weight: 400 });
+    });
+    part({ g: 'battery', name: '18650 in its holder, on its side', size: 'holder ~20–21 wide', note: '75 × 20 × 18: its 20 mm width sits in the 25 mm gap, glued to the second board.' }, g => {
+      R(g, 102, 6.6, 18, 20, { fill: '#202020', stroke: GROUP.battery.c, 'stroke-width': .3 });
+      el('circle', { cx: 111, cy: 16.6, r: 8.5, fill: '#3d6fd1', stroke: '#1d3f8a', 'stroke-width': .3 }, g);
+      text(g, '18650', 111, 16.6, { size: 2.2, fill: '#eaf0ff' });
+      el('path', { d: 'M 125 16.6 l -3.6 0 m 1.4 -1.4 l -1.4 1.4 l 1.4 1.4', stroke: GROUP.battery.c, 'stroke-width': .4, fill: 'none' }, g);
+      text(g, 'in', 127, 16.6, { size: 2, fill: GROUP.battery.c, anchor: 'start' });
+    });
+    // back side
+    part({ g: 'audio', name: 'Speaker, between the boards', size: '36 × 25 × 6.5', note: 'Hangs from the second board, firing out through drilled holes.' }, g => {
+      R(g, 68, 20.1, 25, 6.5, { fill: '#1b1b1b', stroke: GROUP.audio.c, 'stroke-width': .3 });
+      text(g, 'speaker', 80.5, 23.4, { size: 1.8, fill: '#ead5ff', weight: 400 });
+    });
+    part({ g: 'later', name: 'L/R (later)', size: 'right-angle tactile', note: 'Top edge of the second board.' }, g => {
+      R(g, -1.5, 25, 5, 6, { fill: 'none', stroke: GROUP.later.c, 'stroke-width': .3, 'stroke-dasharray': '1.2 .8' });
+      text(g, 'L/R', 1, 33, { size: 1.8, fill: '#c8f5d6', weight: 400 });
+    });
+    // dimension marks
+    const dim = (y1, y2, x, label) => {
+      el('path', { d: `M ${x} ${y1} L ${x} ${y2} M ${x - 1} ${y1} L ${x + 1} ${y1} M ${x - 1} ${y2} L ${x + 1} ${y2}`, stroke: '#8a968d', 'stroke-width': .25, fill: 'none' }, svg);
+      text(svg, label, x + 1.4, (y1 + y2) / 2, { size: 1.8, fill: '#8a968d', anchor: 'start', weight: 400 });
+    };
+    dim(-12, 0, 131, '~12');
+    dim(1.6, 26.6, 131, '25 gap');
+    dim(26.6, 29, 131, '~1–2');
+    text(svg, 'top edge', 0, -15.5, { size: 2, fill: '#8a968d', anchor: 'start', weight: 400 });
+    text(svg, 'bottom edge', 120, -15.5, { size: 2, fill: '#8a968d', anchor: 'end', weight: 400 });
+    text(svg, 'front ↑   back ↓', 60, -15.5, { size: 2, fill: '#8a968d', weight: 400 });
+    views.push(svg);
+  })();
+
+  // ── AO3401 on a SOT-23 → SIP3 adapter, drawn like the bridge's adapter panels ──
+  function adapter(target, v) {
+    const svg = el('svg', { viewBox: '-15.5 -1.6 27.5 11.6', role: 'img', 'aria-label': v.aria }, target);
+    const t = (txt, x, y, o = {}) => { const e = el('text', { x, y, fill: o.fill || '#f2f2f2', 'font-size': o.size || 1.0, 'font-family': 'IBM Plex Mono, monospace', 'font-weight': o.weight || 600, 'text-anchor': o.anchor || 'middle', 'dominant-baseline': 'middle' }, svg); e.textContent = txt; return e; };
+    const HX = 1.9, HY = [1.9, 4.44, 6.98];
+    el('rect', { x: 0, y: 0, width: 8.2, height: 8.9, rx: 0.3, fill: '#1c8a3e', stroke: '#126b30', 'stroke-width': 0.15 }, svg);
+    const pads = { 1: [4.6, 3.49], 2: [4.6, 5.39], 3: [6.5, 4.44] };
+    el('polyline', { points: `${pads[1][0]},${pads[1][1]} 3.4,${pads[1][1]} 3.4,${HY[0]} ${HX},${HY[0]}`, fill: 'none', stroke: '#3fb565', 'stroke-width': 0.28 }, svg);
+    el('polyline', { points: `${pads[2][0]},${pads[2][1]} 3.2,${pads[2][1]} ${HX},${HY[1]}`, fill: 'none', stroke: '#3fb565', 'stroke-width': 0.28 }, svg);
+    el('polyline', { points: `${pads[3][0]},${pads[3][1]} 7.4,${pads[3][1]} 7.4,7.9 3.4,7.9 ${HX},${HY[2]}`, fill: 'none', stroke: '#3fb565', 'stroke-width': 0.28 }, svg);
+    for (const n of [1, 2, 3]) { const [x, y] = pads[n]; el('rect', { x: x - 0.45, y: y - 0.3, width: 0.9, height: 0.6, fill: '#d9d9d6', stroke: '#8f8f8a', 'stroke-width': 0.06 }, svg); }
+    el('rect', { x: 4.85, y: 3.25, width: 1.4, height: 2.4, rx: 0.12, fill: '#1b1b1b', stroke: '#444', 'stroke-width': 0.06 }, svg);
+    t('A1', 5.55, 4.44, { size: 0.55, fill: '#9a9a9a' });
+    const role = { 1: 'G', 2: 'S', 3: 'D' };
+    for (const n of [1, 2, 3]) {
+      const y = HY[n - 1];
+      if (n === 1) el('rect', { x: HX - 0.8, y: y - 0.8, width: 1.6, height: 1.6, fill: '#e3e3e0' }, svg);
+      else el('circle', { cx: HX, cy: y, r: 0.8, fill: '#e3e3e0' }, svg);
+      el('circle', { cx: HX, cy: y, r: 0.42, fill: '#0b130e' }, svg);
+      t(`${n} ${role[n]}`, HX + 1.55, y - 0.95, { size: 0.8, fill: '#ffffff' });
+      t(v.nets[role[n]], -0.6, y, { anchor: 'end', size: 0.95, fill: '#e8f2ea', weight: 400 });
+    }
+    t(v.title, 4.1, 9.6, { size: 0.85, fill: '#ffe9a8', weight: 400 });
+  }
+  adapter(document.getElementById('m-q1'), { aria: 'Q1 off-switch FET adapter', title: 'Q1 · AO3401', nets: { G: 'slide switch, 100k→S', S: 'power path out', D: 'VSYS' } });
+  adapter(document.getElementById('m-q2'), { aria: 'Q2 power-path FET adapter', title: 'Q2 · AO3401', nets: { G: 'USB 5 V, 100k→GND', S: 'power path out', D: 'charger OUT+' } });
+  adapter(document.getElementById('m-q3'), { aria: 'Q3 reverse-polarity FET adapter', title: 'Q3 · AO3401', nets: { G: '100k → GND', S: 'charger B+', D: 'cell + (red lead)' } });
+  adapter(document.getElementById('m-q4'), { aria: 'Q4 LED-brightness FET adapter', title: 'Q4 · AO3401', nets: { G: 'BS170 drain, 100k→S', S: 'VSYS', D: 'LED feed (4 × 270 Ω)' } });
+
+  // ── Hover / tap tooltip ──
+  const tip = document.getElementById('tip');
+  function showTip(g, x, y) {
+    const p = g._part;
+    tip.innerHTML = '';
+    const b = document.createElement('b'); b.textContent = p.name;
+    const s = document.createElement('div'); s.className = 'size'; s.textContent = p.size;
+    const n = document.createElement('div'); n.textContent = p.note;
+    const f = document.createElement('div'); f.className = 'face'; f.textContent = GROUP[p.g].name;
+    tip.append(b, s, n, f);
+    tip.hidden = false;
+    const pad = 14, tw = tip.offsetWidth, th = tip.offsetHeight;
+    tip.style.left = Math.min(window.innerWidth - tw - 8, x + pad) + 'px';
+    tip.style.top = Math.max(8, Math.min(window.innerHeight - th - 8, y + pad)) + 'px';
+  }
+  function hilite(g, on) {
+    for (const svg of views) {
+      svg.classList.toggle('focused', on || !!filter);
+      for (const other of svg.querySelectorAll('.part')) other.classList.toggle('on', on ? other._part === g._part : groupMatch(other));
+    }
+  }
+  for (const svg of views) {
+    for (const g of svg.querySelectorAll('.part')) {
+      g.addEventListener('pointerenter', e => { hilite(g, true); showTip(g, e.clientX, e.clientY); });
+      g.addEventListener('pointermove', e => showTip(g, e.clientX, e.clientY));
+      g.addEventListener('pointerleave', () => { tip.hidden = true; hilite(g, false); });
+      g.addEventListener('focus', () => { const r = g.getBoundingClientRect(); hilite(g, true); showTip(g, r.right, r.top); });
+      g.addEventListener('blur', () => { tip.hidden = true; hilite(g, false); });
+    }
+  }
+
+  // ── Filter by group ──
+  let filter = null;
+  const groupMatch = g => !filter || g._part.g === filter;
+  const bar = document.getElementById('filters');
+  const buttons = [];
+  for (const k of ['all', ...Object.keys(GROUP)]) {
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'chipbtn'; btn.textContent = k === 'all' ? 'All' : GROUP[k].name; btn.dataset.k = k;
+    btn.setAttribute('aria-pressed', k === 'all' ? 'true' : 'false');
+    btn.addEventListener('click', () => {
+      filter = k === 'all' ? null : (filter === k ? null : k);
+      for (const b of buttons) b.setAttribute('aria-pressed', String(b.dataset.k === (filter || 'all')));
+      for (const svg of views) {
+        svg.classList.toggle('focused', !!filter);
+        for (const g of svg.querySelectorAll('.part')) g.classList.toggle('on', groupMatch(g));
+      }
+      try { localStorage.setItem('fh1.filter', filter || ''); } catch (e) { /* storage unavailable */ }
+    });
+    buttons.push(btn);
+    bar.append(btn);
+  }
+  try {
+    const saved = localStorage.getItem('fh1.filter');
+    if (saved && GROUP[saved]) buttons.find(b => b.dataset.k === saved).click();
+  } catch (e) { /* storage unavailable */ }
+
+  // ── Key ──
+  const key = document.getElementById('key');
+  for (const k in GROUP) {
+    const n = GROUP[k];
+    const li = document.createElement('li');
+    const sw = document.createElement('span');
+    sw.className = 'sw' + (n.dash ? ' dash' : '') + (k === 'frame' ? ' hatch' : '');
+    if (!n.dash) sw.style.background = n.c;
+    const txt = document.createElement('div');
+    const b = document.createElement('b'); b.textContent = n.name;
+    const s = document.createElement('small'); s.textContent = n.sub;
+    txt.append(b, s);
+    li.append(sw, txt);
+    key.append(li);
+  }
+
+  // ── Parts table, from the same data (one row per named part, first face it appears on) ──
+  const FACES = [['Main board · front', FRONT], ['Main board · back', BACK], ['Second board · inner', INNER], ['Second board · outer', OUTER]];
+  const seen = new Set();
+  const tbody = document.getElementById('parts');
+  for (const k in GROUP) {
+    const rows = [];
+    for (const [face, parts] of FACES) for (const p of parts) {
+      if (p.g !== k || seen.has(p.name) || p.kind === 'edge' || p.kind === 'pins' || p.kind === 'zone') continue;
+      seen.add(p.name);
+      rows.push([p.name, p.size, face, p.note]);
+    }
+    if (!rows.length) continue;
+    const hr = document.createElement('tr'); const th = document.createElement('th'); th.colSpan = 4; th.textContent = GROUP[k].name; hr.append(th); tbody.append(hr);
+    for (const r of rows) { const tr = document.createElement('tr'); for (const c of r) { const td = document.createElement('td'); td.textContent = c; tr.append(td); } tbody.append(tr); }
+  }
+})();
+</script>

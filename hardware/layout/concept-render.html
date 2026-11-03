@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FH1 V1 concept</title>
+<!-- Conceptual 3D view of the V1 build. Part positions come from board-render.html (front-view mm, 80 × 120 board);
+     wires from its WIRES / WIRES2 data. ?view=hero | open | back. Rendered to PNG with headless Chromium. -->
+<style>
+  html, body { margin: 0; height: 100%; background: #15171a; overflow: hidden; }
+  canvas { display: block; }
+  nav { position: fixed; top: 16px; left: 16px; display: flex; gap: 8px; font: 600 14px/1 system-ui, sans-serif; }
+  nav button { font: inherit; color: #e6e9ee; background: rgba(40, 44, 50, 0.85); border: 1px solid #4a5059; border-radius: 6px; padding: 9px 14px; cursor: pointer; }
+  nav button:hover { background: rgba(60, 66, 75, 0.9); }
+  nav button[aria-pressed="true"] { background: #e6e9ee; color: #15171a; border-color: #e6e9ee; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<nav aria-label="Views">
+  <button data-view="hero">Front</button>
+  <button data-view="open">Laid open</button>
+  <button data-view="back">Back</button>
+</nav>
+<!-- Wire paths exported from board-render.html (WIRES: back-view mm; WIRES2: second board inner face, front-view mm) -->
+<script type="application/json" id="wires">{"WIRES":[{"net":"disp","pts":[[18.41,13.01],[18.41,23.17],[3.17,23.17]],"front":false},{"net":"disp","pts":[[18.41,28.25],[18.41,25.71],[3.17,25.71]],"front":false},{"net":"disp","pts":[[8.25,28.25],[3.17,28.25]],"front":false},{"net":"disp","pts":[[8.25,30.79],[3.17,30.79]],"front":false},{"net":"disp","pts":[[15.87,30.79],[15.87,33.33],[3.17,33.33]],"front":false},{"net":"disp","pts":[[18.41,30.79],[18.41,35.87],[3.17,35.87]],"front":false},{"net":"i2s","pts":[[31.11,13.01],[31.11,15.55],[41.27,15.55]],"front":false},{"net":"i2s","pts":[[28.57,13.01],[28.57,18.09],[41.27,18.09]],"front":false},{"net":"i2s","pts":[[26.03,13.01],[26.03,20.63],[41.27,20.63]],"front":false},{"net":"i2s","pts":[[23.49,13.01],[23.49,23.17],[41.27,23.17]],"front":false},{"net":"i2s","pts":[[20.95,13.01],[20.95,25.71],[41.27,25.71]],"front":false},{"net":"i2c","pts":[[33.65,28.25],[41.27,28.25]],"front":false},{"net":"i2c","pts":[[33.65,30.79],[41.27,30.79]],"front":false},{"net":"i2c","pts":[[41.27,30.79],[42.54,32.06],[42.54,52.38],[33.65,52.38],[33.65,53.65],[33.65,52.38],[56.51,52.38],[56.51,53.65]],"front":false},{"net":"i2c","pts":[[41.27,28.25],[45.08,28.25],[45.08,54.92],[33.65,54.92],[33.65,56.19],[33.65,54.92],[56.51,54.92],[56.51,56.19]],"front":false},{"net":"sd","pts":[[26.03,28.25],[27.3,29.52],[27.3,33.33],[51.43,33.33],[51.43,15.55],[59.05,15.55]],"front":false},{"net":"sd","pts":[[23.49,30.79],[23.49,34.6],[53.97,34.6],[53.97,18.09],[59.05,18.09]],"front":false},{"net":"sd","pts":[[20.95,30.79],[20.95,35.87],[56.51,35.87],[56.51,20.63],[59.05,20.63]],"front":false},{"net":"sd","pts":[[59.05,30.79],[59.05,37.14],[53.97,37.14],[53.97,60],[50.16,60],[48.89,58.73]],"front":false},{"net":"int","pts":[[28.57,30.79],[28.57,39.68],[47.62,39.68],[47.62,40.95],[48.89,40.95],[47.62,40.95],[47.62,39.68],[70.48,39.68],[70.48,40.95],[71.75,40.95]],"front":false},{"net":"adc","pts":[[31.11,30.79],[31.11,66.35],[61.59,66.35],[61.59,63.81]],"front":false},{"net":"adc","pts":[[31.11,28.25],[32.38,29.52],[32.38,65.08],[59.05,65.08],[59.05,63.81]],"front":false},{"net":"adc","pts":[[28.57,28.25],[29.84,29.52],[29.84,52.38]],"front":false},{"net":"pwm","pts":[[23.49,28.25],[24.76,29.52],[24.76,42.22]],"front":false},{"net":"boot","pts":[[33.65,10.47],[34.92,11.74],[34.92,57.46],[36.19,57.46],[36.19,58.73]],"front":true},{"net":"v33","pts":[[6.2,35.3],[6.2,37.14],[6.98,37.14],[6.98,11.74],[13.33,11.74],[13.33,10.47]],"front":true},{"net":"v33","pts":[[13.33,13.01],[13.33,14.28],[41.27,14.28],[41.27,13.01],[41.27,14.28],[57.78,14.28],[57.78,10.47],[59.05,10.47],[57.78,10.47],[57.78,14.28],[46.35,14.28],[46.35,62.54],[33.65,62.54],[33.65,61.27],[33.65,62.54],[56.51,62.54],[56.51,61.27]],"front":true},{"net":"v33","pts":[[6.98,20.63],[3.17,20.63]],"front":true},{"net":"vsys","pts":[[66,68],[66.67,68],[66.67,70.16],[6.98,70.16],[6.98,58.5],[6.2,58.5]],"front":false},{"net":"btn","pts":[[10.79,73.97],[10.79,67.62],[37.46,67.62],[37.46,43.49],[48.89,43.49]],"front":false},{"net":"btn","pts":[[23.49,86.67],[24.76,85.4],[40,85.4],[40,46.03],[48.89,46.03]],"front":false},{"net":"btn","pts":[[23.49,61.27],[24.76,60],[41.27,60],[41.27,48.57],[48.89,48.57]],"front":false},{"net":"btn","pts":[[36.19,73.97],[46.35,73.97],[46.35,51.11],[48.89,51.11]],"front":false},{"net":"btn","pts":[[46.35,94.29],[47.62,93.02],[47.62,53.65],[48.89,53.65]],"front":false},{"net":"btn","pts":[[59.05,94.29],[60.32,93.02],[60.32,67.62],[50.16,67.62],[50.16,57.46],[48.89,56.19]],"front":false},{"net":"led","pts":[[20.95,46.03],[20.95,58.73]],"front":false},{"net":"led","pts":[[20.95,54.92],[18.41,54.92],[18.41,63.81],[8.25,63.81],[8.25,71.43]],"front":false},{"net":"led","pts":[[12.06,63.81],[12.06,82.86],[20.95,82.86],[20.95,84.13]],"front":false},{"net":"led","pts":[[20.95,54.92],[34.92,54.92],[34.92,70.16],[33.65,71.43]],"front":false},{"net":"led","pts":[[5.71,81.59],[5.71,87.94],[62.86,87.94],[62.86,44.76],[52.7,44.76],[51.43,43.49]],"front":false},{"net":"led","pts":[[18.41,94.29],[19.68,93.02],[57.78,93.02],[57.78,47.3],[52.7,47.3],[51.43,46.03]],"front":false},{"net":"led","pts":[[18.41,68.89],[18.41,72.7],[55.24,72.7],[55.24,49.84],[52.7,49.84],[51.43,48.57]],"front":false},{"net":"led","pts":[[31.11,81.59],[31.11,80.32],[52.7,80.32],[52.7,52.38],[51.43,51.11]],"front":false},{"net":"gnd","pts":[[15.6,58.5],[14.6,58.48],[14.6,96.83],[65.4,96.83]],"front":false},{"net":"gnd","pts":[[3.17,79.05],[3.17,96.83],[14.6,96.83]],"front":false},{"net":"gnd","pts":[[15.87,66.35],[14.6,66.35]],"front":false},{"net":"gnd","pts":[[15.87,91.75],[14.6,91.75]],"front":false},{"net":"gnd","pts":[[28.57,79.05],[28.57,96.83]],"front":false},{"net":"gnd","pts":[[51.43,94.29],[51.43,96.83]],"front":false},{"net":"gnd","pts":[[64.13,63.81],[65.4,65.08],[65.4,96.83]],"front":false},{"net":"gnd","pts":[[43.81,58.73],[43.81,96.83]],"front":false},{"net":"adc","pts":[[48.89,61.27],[50.16,62.54],[56.51,62.54],[56.51,63.81]],"front":false},{"net":"i2c","pts":[[56.51,52.38],[75.56,52.38],[75.56,53.65],[76.83,53.65]],"front":false},{"net":"i2c","pts":[[56.51,54.92],[75.56,54.92],[75.56,56.19],[76.83,56.19]],"front":false},{"net":"int","pts":[[76.83,48.57],[74.29,48.57]],"front":false},{"net":"int","pts":[[76.83,51.11],[74.29,51.11]],"front":false},{"net":"i2s","pts":[[56.51,33.33],[57.78,34.6],[73.02,34.6],[73.02,42.22],[71.75,43.49]],"front":false},{"net":"int","pts":[[67.94,75.24],[67.94,73.97],[70.48,73.97],[70.48,60],[71.75,58.73]],"front":false},{"net":"int","pts":[[70.48,75.24],[73.02,73.97],[73.02,57.46],[71.75,56.19]],"front":false},{"net":"gnd","pts":[[10.79,10.47],[10.79,7.93]],"front":false},{"net":"v33","pts":[[13.33,10.47],[13.33,7.93]],"front":false},{"net":"radio","pts":[[15.87,10.47],[15.87,7.93]],"front":false},{"net":"radio","pts":[[18.41,10.47],[18.41,7.93]],"front":false},{"net":"radio","pts":[[20.95,10.47],[20.95,7.93]],"front":false},{"net":"radio","pts":[[23.49,10.47],[23.49,7.93]],"front":false},{"net":"radio","pts":[[26.03,10.47],[26.03,7.93]],"front":false},{"net":"radio","pts":[[28.57,10.47],[28.57,7.93]],"front":false},{"net":"radio","pts":[[31.11,10.47],[31.11,7.93]],"front":false},{"net":"radio","pts":[[71.75,51.11],[73.02,49.84],[73.02,44.76],[75.56,44.76],[75.56,46.03],[76.83,46.03]],"front":false},{"net":"radio","pts":[[74.29,61.27],[75.56,62.54],[75.56,63.81],[76.83,63.81]],"front":false},{"net":"radio","pts":[[71.75,61.27],[71.75,66.35],[76.83,66.35]],"front":false},{"net":"vsys","pts":[[77,104],[72,97.5],[71,93.5],[72,88]],"front":false},{"net":"gnd","pts":[[3,104],[3,100],[62,100],[62,89]],"front":false},{"net":"vsys","pts":[[64,74],[64,72],[67,71.5]],"front":false},{"net":"vsys","pts":[[69,93.5],[67.94,98.35],[29.84,98.35],[29.84,55.94]],"front":false},{"net":"vsys","pts":[[27.3,70.16],[27.3,46.03]],"front":false},{"net":"vsys","pts":[[66.67,70.16],[67.94,67.62],[67.94,11.74],[42.54,11.74],[41.27,10.47]],"front":true},{"net":"vsys","pts":[[8.25,10.47],[8.25,6.66],[77.85,6.66],[77.85,73.97],[78,78]],"front":true},{"net":"pwm","pts":[[2.2,61.5],[3.93,60.76],[3.93,100.13],[69.21,100.13],[70,71.5]],"front":true},{"net":"gnd","pts":[[15.6,35.3],[14.6,35.36],[5.71,35.36],[5.71,18.09],[3.17,18.09],[5.71,18.09],[5.71,9.2],[10.79,9.2],[10.79,10.47],[10.79,9.2],[40,9.2],[41.27,7.93],[40,9.2],[60.32,9.2],[60.32,13.01],[59.05,13.01],[60.32,13.01],[60.32,37.14],[50.16,37.14],[48.89,38.41],[50.16,37.14],[70.48,37.14],[71.75,38.41],[70.48,37.14],[75.81,37.14],[75.81,58.73],[76.83,58.73]],"front":true},{"net":"v33","pts":[[56.51,62.54],[75.31,62.54],[75.31,61.27],[76.83,61.27]],"front":true}],"WIRES2":[{"net":"int","pts":[[3.17,48.57],[27.3,48.57],[27.3,65.08],[26.03,66.35]],"front":false},{"net":"int","pts":[[3.17,51.11],[20.95,51.11],[20.95,63.81]],"front":false},{"net":"i2c","pts":[[3.17,53.65],[13.33,53.65],[13.33,63.81]],"front":false},{"net":"i2c","pts":[[3.17,56.19],[15.87,56.19],[15.87,63.81]],"front":false},{"net":"gnd","pts":[[3.17,58.73],[10.79,58.73],[10.79,63.81]],"front":false},{"net":"v33","pts":[[3.17,61.27],[8.25,61.27],[8.25,63.81]],"front":false},{"net":"v33","pts":[[8.25,63.81],[8.25,66.35]],"front":false},{"net":"gnd","pts":[[10.79,63.81],[10.79,66.35]],"front":false},{"net":"i2c","pts":[[13.33,63.81],[15.87,66.35]],"front":false},{"net":"i2c","pts":[[15.87,63.81],[13.33,66.35]],"front":false},{"net":"gnd","pts":[[23.49,66.35],[23.49,67.62],[10.79,67.62],[10.79,66.35]],"front":false},{"net":"radio","pts":[[48.89,7.93],[53,11]],"front":false},{"net":"radio","pts":[[51.43,7.93],[53,11]],"front":false},{"net":"radio","pts":[[53.97,7.93],[53.97,11]],"front":false},{"net":"radio","pts":[[56.51,7.93],[56.51,11]],"front":false},{"net":"radio","pts":[[59.05,7.93],[59.05,11]],"front":false},{"net":"radio","pts":[[61.59,7.93],[61.59,11]],"front":false},{"net":"v33","pts":[[66.67,7.93],[66.67,11]],"front":false},{"net":"gnd","pts":[[69.21,7.93],[69.21,11]],"front":false},{"net":"radio","pts":[[3.17,46.03],[53.97,46.03],[53.97,26.47]],"front":false},{"net":"radio","pts":[[3.17,63.81],[4.44,65.08],[56.51,65.08],[56.51,26.47]],"front":false},{"net":"radio","pts":[[3.17,66.35],[3.17,68.89],[59.05,68.89],[59.05,26.47]],"front":false}]}</script>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+
+// ── Geometry from board-render.html (front-view mm; back-view x' = 80 − x) ──
+const W = 80, H = 120, T = 1.2, GAP = 25;
+const gx = i => 3.17 + 2.54 * i, gy = j => 7.93 + 2.54 * j;
+const Z_MAIN_BACK = -T, Z_INNER = -T - GAP, Z_OUTER = Z_INNER - T;
+const BTN = { X: [60.32, 63.81], Y: [47.62, 76.51], A: [73.02, 76.51], B: [60.32, 89.21] };
+const CAP = { A: '#e5302c', B: '#f4c21f', X: '#2f6fe8', Y: '#2fb36a' };
+const SS = { Select: [18.41, 94.29], Start: [31.11, 94.29] };
+const MENU = [40.0, 61.27];
+const DISP = { x: -2.15, y: 0.89, w: 81.28, h: 54.74 };
+const SPACERS = [[3, 3, true], [77, 3, true], [3, 94.5, false], [77, 94.5, false]];
+const NETC = { radio: '#ff9f1c', disp: '#3d8bff', sd: '#1fd1b2', i2s: '#a46cff', i2c: '#ffd23f', int: '#ff7a2e', adc: '#6fdc8c',
+  pwm: '#ff6fae', boot: '#ff7a2e', btn: '#eeeeee', led: '#ff4d4d', v33: '#eeeeee', vsys: '#e8322c', gnd: '#1b1b1b' };
+
+// ── Renderer, scene, light ──
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#1a1d21');
+scene.fog = new THREE.Fog('#1a1d21', 420, 900);
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+
+const key = new THREE.DirectionalLight('#fff4e6', 2.2);
+key.position.set(-160, 260, 200);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -180, right: 180, top: 180, bottom: -180, near: 10, far: 800 });
+key.shadow.bias = -0.0004;
+key.shadow.radius = 4;
+scene.add(key);
+const rim = new THREE.DirectionalLight('#9fc4ff', 1.1);
+rim.position.set(220, 80, -260);
+scene.add(rim);
+scene.add(new THREE.HemisphereLight('#dfe8ff', '#202020', 0.35));
+
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), new THREE.MeshStandardMaterial({ color: '#2a2d31', roughness: 0.85 }));
+floor.rotation.x = -Math.PI / 2;
+floor.position.y = -H / 2 - 0.01;
+floor.receiveShadow = true;
+scene.add(floor);
+
+// ── Helpers ──
+const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0, ...o });
+const M = {
+  pcbBlue: std('#1d5fc4', { roughness: 0.45 }), pcbBlack: std('#141518', { roughness: 0.4 }), pcbGreen: std('#1f6b3c', { roughness: 0.45 }),
+  plastic: std('#151515', { roughness: 0.6 }), white: std('#ecebe6', { roughness: 0.5 }), gold: std('#d4a64a', { metalness: 1, roughness: 0.28 }),
+  steel: std('#c9ccd1', { metalness: 1, roughness: 0.25 }), darkSteel: std('#55595f', { metalness: 1, roughness: 0.35 }),
+  tin: std('#d6d8dc', { metalness: 1, roughness: 0.2 }), chip: std('#202224', { roughness: 0.35 }), nylon: std('#f1efe8', { roughness: 0.7 }),
+  fr4Edge: std('#b9b47a', { roughness: 0.7 }),
+};
+const main = new THREE.Group(), second = new THREE.Group();
+scene.add(main, second);
+
+// A box over the front-view rectangle x0..x0+w, y0..y0+h, from z0 to z0+d (d < 0 goes back).
+function box(parent, x0, y0, w, h, z0, d, mat, round = 0) {
+  const geo = round ? new RoundedBoxGeometry(w, h, Math.abs(d), 2, round) : new THREE.BoxGeometry(w, h, Math.abs(d));
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x0 + w / 2 - W / 2, H / 2 - (y0 + h / 2), z0 + d / 2);
+  parent.add(m);
+  return m;
+}
+function cyl(parent, cx, cy, r, z0, d, mat, seg = 32, r2 = r) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r2, r, Math.abs(d), seg), mat);
+  m.rotation.x = Math.PI / 2 * Math.sign(d || 1);
+  m.position.set(cx - W / 2, H / 2 - cy, z0 + d / 2);
+  parent.add(m);
+  return m;
+}
+const bx = (x, w) => W - x - w;      // back-view rect → front-view x0
+const v3 = (x, y, z) => new THREE.Vector3(x - W / 2, H / 2 - y, z);
+
+function canvasTex(wmm, hmm, ppm, draw) {
+  const c = document.createElement('canvas');
+  c.width = Math.round(wmm * ppm); c.height = Math.round(hmm * ppm);
+  const g = c.getContext('2d');
+  g.scale(ppm, ppm);
+  draw(g, wmm, hmm);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+// A module board with a printed top: silkscreen text and a few chips.
+function moduleTop(bg, label, chips = [], silk = '#e8e8e8') {
+  return (g, w, h) => {
+    g.fillStyle = bg; g.fillRect(0, 0, w, h);
+    g.strokeStyle = silk; g.lineWidth = 0.18; g.strokeRect(0.8, 0.8, w - 1.6, h - 1.6);
+    for (const [x, y, cw, ch, c] of chips) { g.fillStyle = c || '#1b1c1e'; g.fillRect(x, y, cw, ch); }
+    g.fillStyle = silk; g.font = `bold ${Math.min(2.6, w / 8)}px sans-serif`; g.textAlign = 'center';
+    g.fillText(label, w / 2, h - 2);
+  };
+}
+function moduleBoard(parent, x0, y0, w, h, z0, dir, bg, label, chips, thick = 1.6) {
+  const top = new THREE.MeshStandardMaterial({ map: canvasTex(w, h, 12, moduleTop(bg, label, chips)), roughness: 0.42 });
+  const edge = std(bg, { roughness: 0.5 });
+  const mats = [edge, edge, edge, edge, dir > 0 ? top : edge, dir > 0 ? edge : top];
+  return box(parent, x0, y0, w, h, z0, dir * thick, mats);
+}
+// A strip of header pins: plastic body and pin tips, along x or y.
+function header(parent, x, y, n, axis, z0, d, female = false) {
+  const len = 2.54 * n, w = axis === 'y' ? 2.54 : len, h = axis === 'y' ? len : 2.54;
+  box(parent, x - 1.27, y - 1.27, w, h, z0, d, M.plastic, 0.2);
+  if (female) return;
+  for (let k = 0; k < n; k++) {
+    const px = axis === 'y' ? x : x + 2.54 * k, py = axis === 'y' ? y + 2.54 * k : y;
+    box(parent, px - 0.32, py - 0.32, 0.64, 0.64, z0, d * 1.25, M.gold);
+  }
+}
+
+// ── Perfboard texture: 30 × 42 tinned pads on FR4 ──
+function perfTex(extra) {
+  return canvasTex(W, H, 9, g => {
+    const grd = g.createLinearGradient(0, 0, W, H);
+    grd.addColorStop(0, '#2c7a44'); grd.addColorStop(1, '#245f37');
+    g.fillStyle = grd; g.fillRect(0, 0, W, H);
+    for (let k = 0; k < 3500; k++) { g.fillStyle = `rgba(0,0,0,${Math.random() * 0.06})`; g.fillRect(Math.random() * W, Math.random() * H, 0.4, 0.4); }
+    for (let i = 0; i < 30; i++) for (let j = 0; j < 42; j++) {
+      g.fillStyle = '#c8c3b5'; g.beginPath(); g.arc(gx(i), gy(j), 0.95, 0, 7); g.fill();
+      g.fillStyle = '#0d0f0e'; g.beginPath(); g.arc(gx(i), gy(j), 0.5, 0, 7); g.fill();
+    }
+    for (const [x, y] of [[3, 3], [77, 3], [3, 117], [77, 117], [3, 94.5], [77, 94.5]]) {
+      g.fillStyle = '#c8c3b5'; g.beginPath(); g.arc(x, y, 2.6, 0, 7); g.fill();
+      g.fillStyle = '#0d0f0e'; g.beginPath(); g.arc(x, y, 1.65, 0, 7); g.fill();
+    }
+    extra?.(g);
+  });
+}
+const grille = flipX => g => {
+  for (let x = 21; x < 53; x += 3.2) for (let y = 73; y < 94; y += 3.2) {
+    g.fillStyle = '#050505'; g.beginPath(); g.arc(flipX ? W - x : x, y, 1.1, 0, 7); g.fill();
+  }
+};
+function perfboard(parent, zFront, frontExtra, backExtra) {
+  const f = new THREE.MeshStandardMaterial({ map: perfTex(frontExtra), roughness: 0.45, metalness: 0.05 });
+  const b = new THREE.MeshStandardMaterial({ map: perfTex(backExtra), roughness: 0.45, metalness: 0.05 });
+  return box(parent, 0, 0, W, H, zFront, -T, [M.fr4Edge, M.fr4Edge, M.fr4Edge, M.fr4Edge, f, b]);
+}
+perfboard(main, 0);
+perfboard(second, Z_INNER, grille(false), grille(true));
+
+// ── Screen content: the virtual-pet home screen (320 × 240 logical pixels) ──
+function screenTex() {
+  const c = document.createElement('canvas'); c.width = 640; c.height = 480;
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.scale(2, 2);
+  const sky = g.createLinearGradient(0, 0, 0, 240);
+  sky.addColorStop(0, '#7fd3ff'); sky.addColorStop(0.65, '#d9f3ff'); sky.addColorStop(0.66, '#7cc95a'); sky.addColorStop(1, '#4e9a3c');
+  g.fillStyle = sky; g.fillRect(0, 0, 320, 240);
+  // clouds and sun
+  g.fillStyle = '#fff6b0'; g.fillRect(262, 30, 24, 24); g.fillStyle = '#ffe36e'; g.fillRect(266, 34, 16, 16);
+  g.fillStyle = '#ffffff';
+  for (const [x, y] of [[40, 44], [150, 30], [200, 60]]) { g.fillRect(x, y, 36, 8); g.fillRect(x + 8, y - 6, 20, 6); }
+  // ground tufts
+  g.fillStyle = '#3f8a30';
+  for (let x = 4; x < 320; x += 13) g.fillRect(x, 162 + (x * 7 % 5), 3, 4);
+  // pet: a pixel blob with ears, built from an ellipse on a 22 × 18 grid
+  const P = 5, ox = 105, oy = 72, cols = 22, rows = 18, inside = (i, j) => {
+    const e = ((i - 11) / 9.5) ** 2 + ((j - 11) / 6.8) ** 2 <= 1;
+    const ear = (j >= 1 && j <= 5) && ((Math.abs(i - 5) <= (j - 1) / 2) || (Math.abs(i - 17) <= (j - 1) / 2));
+    return e || ear;
+  };
+  for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
+    if (!inside(i, j)) continue;
+    const edge = !inside(i - 1, j) || !inside(i + 1, j) || !inside(i, j - 1) || !inside(i, j + 1);
+    g.fillStyle = edge ? '#2b1d3a' : (j > 13 ? '#e88a3a' : '#ffa94d');
+    g.fillRect(ox + i * P, oy + j * P, P, P);
+  }
+  const px = (i, j, c, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(ox + i * P, oy + j * P, w * P, h * P); };
+  px(7, 8, '#2b1d3a', 2, 3); px(13, 8, '#2b1d3a', 2, 3); px(7, 8, '#ffffff'); px(13, 8, '#ffffff');
+  px(5, 12, '#ff6f91', 2, 1); px(15, 12, '#ff6f91', 2, 1);
+  px(10, 12, '#2b1d3a', 2, 1); px(9, 11, '#2b1d3a'); px(12, 11, '#2b1d3a');
+  px(5, 3, '#ff6f91'); px(17, 3, '#ff6f91');
+  g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(ox + 15, oy + rows * P + 2, 90, 6);
+  // heart above
+  g.fillStyle = '#ff3d6e';
+  for (const [i, j] of [[1, 0], [2, 0], [4, 0], [5, 0], [0, 1], [1, 1], [2, 1], [3, 1], [4, 1], [5, 1], [6, 1], [1, 2], [2, 2], [3, 2], [4, 2], [5, 2], [2, 3], [3, 3], [4, 3], [3, 4]])
+    g.fillRect(206 + i * 4, 58 + j * 4, 4, 4);
+  // status bar
+  g.fillStyle = 'rgba(16,20,40,0.82)'; g.fillRect(0, 0, 320, 20);
+  g.fillStyle = '#ffffff'; g.font = 'bold 13px monospace'; g.textBaseline = 'middle';
+  g.fillText('FH1', 6, 10); g.fillText('09:41', 140, 10);
+  g.fillStyle = '#ffb347'; for (let k = 0; k < 4; k++) g.fillRect(250 + k * 5, 15 - k * 3, 3, 3 + k * 3);
+  g.strokeStyle = '#ffffff'; g.lineWidth = 1.5; g.strokeRect(282, 5, 26, 11); g.fillStyle = '#ffffff'; g.fillRect(308, 8, 3, 5);
+  g.fillStyle = '#6fdc8c'; g.fillRect(284, 7, 17, 7);
+  // stat meters
+  g.font = 'bold 10px monospace';
+  [['FOOD', '#ffb347', 0.8], ['FUN', '#ff6fae', 0.55], ['ZZZ', '#7f9cff', 0.9]].forEach(([n, c, v], k) => {
+    const y = 28 + k * 14;
+    g.fillStyle = 'rgba(16,20,40,0.6)'; g.fillRect(6, y, 92, 11);
+    g.fillStyle = '#ffffff'; g.fillText(n, 9, y + 6);
+    g.fillStyle = c; g.fillRect(42, y + 2, 52 * v, 7);
+  });
+  // dock
+  g.fillStyle = 'rgba(16,20,40,0.86)'; g.fillRect(0, 196, 320, 44);
+  ['PET', 'GAMES', 'RADIO', 'FILES'].forEach((n, k) => {
+    const x = 16 + k * 76;
+    g.fillStyle = k === 0 ? '#ffa94d' : '#3a4366'; g.fillRect(x, 202, 60, 32);
+    g.fillStyle = k === 0 ? '#2b1d3a' : '#e6e9ff'; g.font = 'bold 12px monospace'; g.textAlign = 'center';
+    g.fillText(n, x + 30, 219);
+  });
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter;
+  return t;
+}
+
+// ── Front face ──
+// display: male header (2.5 mm plastic) on column 29, blue PCB, LCD with bezel, glass
+const DZ = 2.5;
+header(main, DISP.x + 78.98, DISP.y + 17.2, 9, 'y', 0, DZ, true);
+moduleBoard(main, DISP.x, DISP.y, DISP.w, DISP.h, DZ, 1, '#1d5fc4', '', [], 1.6);
+for (const [x, y] of [[DISP.x + 2.6, DISP.y + 2.6], [DISP.x + DISP.w - 2.6, DISP.y + 2.6], [DISP.x + 2.6, DISP.y + DISP.h - 2.6], [DISP.x + DISP.w - 2.6, DISP.y + DISP.h - 2.6]])
+  cyl(main, x, y, 1.6, DZ + 1.6, 0.05, std('#d9d9d9', { metalness: 1, roughness: 0.3 }));
+const LCD = { x: 7.85, y: 3.0, w: 69.0, h: 50.6 };
+box(main, LCD.x, LCD.y, LCD.w, LCD.h, DZ + 1.6, 2.8, std('#0c0d10', { roughness: 0.35 }), 0.3);
+const ACT = { x: DISP.x + 14.18, y: DISP.y + 5.77, w: 57.6, h: 43.2 };
+const scr = new THREE.Mesh(new THREE.PlaneGeometry(ACT.w, ACT.h), new THREE.MeshBasicMaterial({ map: screenTex(), toneMapped: false }));
+scr.position.copy(v3(ACT.x + ACT.w / 2, ACT.y + ACT.h / 2, DZ + 4.42));
+main.add(scr);
+const glass = new THREE.Mesh(new THREE.PlaneGeometry(LCD.w - 0.6, LCD.h - 0.6),
+  new THREE.MeshPhysicalMaterial({ color: '#000000', transparent: true, opacity: 0.12, roughness: 0.04, metalness: 0, clearcoat: 1, envMapIntensity: 2.2 }));
+glass.position.copy(v3(LCD.x + LCD.w / 2, LCD.y + LCD.h / 2, DZ + 4.46));
+main.add(glass);
+// a soft glow of the screen on the board below it
+const glow = new THREE.PointLight('#bfe6ff', 0.6, 60, 2);
+glow.position.copy(v3(41, 28, 25)); main.add(glow);
+
+// lit buttons: TS-G010, 12 × 12 body, white insert, coloured lit cap
+for (const [n, [cx, cy]] of Object.entries(BTN)) {
+  box(main, cx - 6, cy - 6, 12, 12, 0, 3.6, M.plastic, 0.5);
+  box(main, cx - 4.9, cy - 4.9, 9.8, 9.8, 3.6, 0.7, M.white, 0.3);
+  box(main, cx - 7.5, cy - 1, 3, 2, 0.5, 2.6, M.white); box(main, cx + 4.5, cy - 1, 3, 2, 0.5, 2.6, M.white);
+  for (const [dx, dy] of [[-3.6, -3.6], [3.6, -3.6], [-3.6, 3.6]]) cyl(main, cx + dx, cy + dy, 0.6, 4.3, 0.15, M.plastic, 12);
+  cyl(main, cx, cy, 4.6, 4.3, 1.0, M.white, 40);
+  const c = new THREE.Color(CAP[n]);
+  cyl(main, cx, cy, 4.1, 5.3, 2.0, new THREE.MeshPhysicalMaterial({ color: c, emissive: c, emissiveIntensity: 0.55, roughness: 0.18, clearcoat: 1, transmission: 0, transparent: true, opacity: 0.94 }), 40, 3.9);
+  const l = new THREE.PointLight(c, 0.5, 18, 2); l.position.copy(v3(cx, cy, 10)); main.add(l);
+}
+// Start / Select: plain 7.8 mm, white actuator
+for (const [cx, cy] of Object.values(SS)) {
+  box(main, cx - 3.9, cy - 3.9, 7.8, 7.8, 0, 3.5, M.plastic, 0.3);
+  box(main, cx - 3.6, cy - 3.6, 7.2, 7.2, 3.5, 0.2, M.steel);
+  cyl(main, cx, cy, 1.75, 3.7, 1.8, M.white, 24);
+}
+// Menu (BOOT): small 6 × 6 tact
+box(main, MENU[0] - 3, MENU[1] - 3, 6, 6, 0, 3.4, M.plastic, 0.2);
+box(main, MENU[0] - 2.9, MENU[1] - 2.9, 5.8, 5.8, 3.4, 0.2, M.steel);
+cyl(main, MENU[0], MENU[1], 1.6, 3.6, 1.2, M.plastic, 20);
+// thumbstick: Deek-Robot JOYSTICK-02 on straight pins
+{
+  const [x, y, s] = [6.27, 62.41, 25.8], cx = x + s / 2, cy = y + s / 2;
+  header(main, gx(5), gy(22), 4, 'x', 0, 2.5, true);
+  moduleBoard(main, x, y, s, s, 2.5, 1, '#1a73b8', 'JOYSTICK-02', [], 1.6);
+  box(main, cx - 9, cy - 9, 18, 18, 4.1, 3.4, M.steel, 0.6);
+  box(main, cx - 7.5, cy - 7.5, 15, 15, 7.5, 1.2, M.plastic, 0.5);
+  cyl(main, cx, cy, 4, 8.7, 2.4, M.plastic, 24);
+  const cap = cyl(main, cx, cy, 8.4, 11.1, 2.6, std('#141414', { roughness: 0.75 }), 48, 7.6);
+  cyl(main, cx, cy, 7.4, 13.7, 0.4, std('#1c1c1c', { roughness: 0.9 }), 48, 6.6);
+}
+// off switch: SS12D00 at the right edge, lever to the side
+box(main, 75.8, 57, 4.2, 9, 0, 3.5, M.steel);
+box(main, 79.2, 60.5, 3.2, 2, 1, 1.5, M.plastic);
+
+// ── Main board back (back-view coordinates mirrored) ──
+const ZB = Z_MAIN_BACK;
+// ESP32-S3 mini on female sockets (8.5 mm), USB-C at the outer edge
+{
+  const x = bx(5.25, 32), y = 9.43;
+  for (const j of [1, 2, 8, 9]) header(main, W - gx(12), gy(j), 11, 'x', ZB, -8.5, true);
+  const s3 = moduleBoard(main, x, y, 32, 22.4, ZB - 8.5, -1, '#141518', 'ESP32-S3 N16R8', [[9, 7, 7, 7, '#2a2c2f'], [17, 9, 3, 4]]);
+  box(main, x + 9, y + 7.6, 7, 7, ZB - 10.1, -0.9, M.chip);
+  box(main, x + 15.6, y + 10.2, 3, 3, ZB - 10.1, -0.6, std('#e8e8e8'));
+  box(main, x + 27.5, y + 7.6, 6.5, 9, ZB - 10.1, -3.2, M.steel, 0.9);     // USB-C (outer edge = front-view right)
+  box(main, x + 2, y + 15, 3, 2.5, ZB - 10.1, -0.8, M.gold);              // IPEX
+}
+// modules soldered on 2.5 mm pin plastic
+const backMod = (xb, y, w, h, bg, label, chips, d = -2.5) => moduleBoard(main, bx(xb, w), y, w, h, ZB + d, -1, bg, label, chips);
+header(main, W - gx(15), gy(0), 10, 'y', ZB, -2.5, true);
+backMod(39.67, 6.31, 17, 26.1, '#151515', 'ES8311', [[4, 6, 5, 5], [9, 15, 4, 4]]);
+box(main, bx(42, 7), 22, 7, 7, ZB - 4.1, -1, M.chip);
+header(main, W - gx(22), gy(1), 9, 'y', ZB, -2.5, true);
+backMod(57.45, 8.13, 22, 25, '#151515', 'micro-SD', [[1, 4, 14, 15, '#9da1a6']]);
+box(main, 0, 10, 16, 15, ZB - 4.1, -1.6, M.steel);                       // card slot at the side edge
+for (const [xb, a, i0] of [[32.05, '0x20', 12], [54.91, '0x21', 21]]) {
+  backMod(xb, 36.81, 21, 26, '#1a3fa0', 'MCP23017 ' + a, [[5, 8, 10, 6.5]]);
+  for (const c of [0, 6, 7]) header(main, W - gx(i0 + c), gy(12), 10, 'y', ZB, -2.5, true);
+}
+backMod(4.5, 34, 12.8, 25.8, '#5b2a86', 'TPS63802', [[4, 8, 4, 4], [3, 14, 6, 6, '#3a3a3a']]);
+backMod(60, 74, 20, 15, '#1d5fc4', 'TP4056', [[6, 4, 6, 5], [1, 10, 4, 3]]);
+box(main, 0, 77, 5, 9, ZB - 4.1, -3.2, M.steel, 0.9);                    // charge port at the side edge
+// perfboard circuits: SOT-23 adapters and resistors
+function perfCircuit(xb, y, w, h, fets) {
+  const x = bx(xb, w);
+  for (let k = 0; k < fets; k++) {
+    box(main, x + 0.5 + k * 5.2, y + 0.5, 4.6, 4.6, ZB - 2.5, -0.8, M.pcbGreen);
+    box(main, x + 1.7 + k * 5.2, y + 1.9, 2.2, 1.4, ZB - 3.3, -0.9, M.chip);
+  }
+  for (let k = 0; k < 2; k++) {
+    const r = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 3.6, 16), std('#d7c49a'));
+    r.rotation.z = Math.PI / 2; r.position.copy(v3(x + w / 2, y + h - 1.2 - k * 1.9, ZB - 1.1)); main.add(r);
+  }
+}
+perfCircuit(19, 50, 11, 6, 0); perfCircuit(19, 40, 11, 6, 2); perfCircuit(66, 67, 9.5, 6, 2); perfCircuit(68, 90, 5.6, 7, 1);
+// bulk caps (polymer, purple sleeve)
+const capMat = std('#4b2c7a', { roughness: 0.4 });
+for (const [xb, y, r, h] of [[gx(2.6), gy(21.6), 3, 8], [gx(0.4), gy(1.5), 2.5, 7]]) {
+  cyl(main, W - xb, y, r, ZB, -h, capMat); cyl(main, W - xb, y, r * 0.92, ZB - h, -0.1, M.steel);
+}
+// board-to-board header (column 0 seen from the front) and radio header (row 0), long pins across the gap
+header(main, W - gx(29), gy(14), 10, 'y', ZB, -2.5);
+header(main, W - gx(11), gy(0), 9, 'x', ZB, -2.5);
+
+// ── Wires (28 AWG) from the drawing ──
+function wireMesh(parent, pts, color, z) {
+  const path = new THREE.CurvePath();
+  const v = pts.map(([x, y]) => v3(x, y, z));
+  for (let k = 1; k < v.length; k++) if (v[k].distanceTo(v[k - 1]) > 0.01) path.add(new THREE.LineCurve3(v[k - 1], v[k]));
+  if (!path.curves.length) return;
+  const m = new THREE.Mesh(new THREE.TubeGeometry(path, path.curves.length * 6, 0.45, 8, false), std(color, { roughness: 0.35 }));
+  parent.add(m);
+}
+const data = JSON.parse(document.getElementById('wires').textContent);
+for (const w of data.WIRES) {
+  const pts = w.pts.map(([x, y]) => [W - x, y]);
+  wireMesh(main, pts, NETC[w.net] || '#cccccc', w.front ? 0.5 : ZB - 0.5);
+}
+for (const w of data.WIRES2) wireMesh(second, w.pts, NETC[w.net] || '#cccccc', Z_INNER + 0.5);
+
+// ── Second board, inner face (front-view coordinates) ──
+const ZI = Z_INNER;
+header(second, gx(0), gy(14), 10, 'y', ZI, 2.5, true);              // B2B mating half
+header(second, gx(18), gy(0), 9, 'x', ZI, 2.5, true);               // radio mating half
+// RTC on its header, coin cell
+header(second, gx(2), gy(22), 6, 'x', ZI, 2.5, true);
+moduleBoard(second, 6.1, 22.1, 17, 43, ZI + 2.5, 1, '#1d4fa8', 'PCF8563', [[5, 26, 6, 5]]);
+cyl(second, 14.6, 34, 6.25, ZI + 4.1, 3.2, M.steel, 40);
+// IMU standing upright
+{
+  const m = box(second, 8.25, 66.35 - 0.8, 20.3, 1.6, ZI, 16, std('#6b2d8f', { roughness: 0.45 }));
+  box(second, 15, 66.35 - 1.6, 3, 0.8, ZI + 8, 3, M.chip);
+}
+// E28 radio: blue PCB, shield can, IPEX, bulk cap
+moduleBoard(second, 52, 11, 26.5, 15, ZI, 1, '#1b4f9c', '', [], 1.0);
+box(second, 53.2, 12.2, 20, 12.6, ZI + 1.0, 1.85, M.tin, 0.2);
+box(second, 74.5, 16.5, 2.4, 2.4, ZI + 1.0, 0.9, M.gold);
+cyl(second, 76, 30.5, 3, ZI, 8, capMat); cyl(second, 76, 30.5, 2.8, ZI + 8, 0.1, M.steel);
+// speaker (magnet towards the main board)
+box(second, 25, 70.5, 36, 25, ZI, 3.2, std('#1a1a1a', { roughness: 0.6 }), 1.2);
+cyl(second, 43, 83, 8.5, ZI + 3.2, 3.3, std('#7c8087', { metalness: 1, roughness: 0.4 }), 40);
+// 18650 holder on its side, open to the bottom edge, glued to this face
+{
+  const hz0 = ZI, hz1 = ZI + 20, hm = std('#141414', { roughness: 0.7 });
+  box(second, 2.5, 102, 75, 1.4, hz0, 20, hm);
+  box(second, 2.5, 102, 2, 18, hz0, 20, hm); box(second, 75.5, 102, 2, 18, hz0, 20, hm);
+  box(second, 2.5, 102, 75, 11, hz0, 1.4, hm); box(second, 2.5, 102, 75, 11, hz1 - 1.4, 1.4, hm);
+  const cell = new THREE.Mesh(new THREE.CylinderGeometry(9.25, 9.25, 65, 48), std('#2a8fd8', { roughness: 0.3, clearcoat: 1 }));
+  cell.rotation.z = Math.PI / 2; cell.position.copy(v3(40, 111.6, ZI + 10)); second.add(cell);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(9.3, 9.3, 4, 48), std('#d5e9f7', { roughness: 0.3 }));
+  band.rotation.z = Math.PI / 2; band.position.copy(v3(70, 111.6, ZI + 10)); second.add(band);
+  for (const [x, c] of [[4.8, '#e8322c'], [75.2, '#1b1b1b']]) wireMesh(second, [[x, 103], [x, 100], [x === 4.8 ? 10 : 70, 96]], c, ZI + 10);
+}
+
+// ── Second board, outer face (back-view coordinates mirrored) ──
+const ZO = Z_OUTER;
+{ // Wi-Fi flex antenna (amber polyimide with copper)
+  const t = canvasTex(26, 8, 14, g => {
+    g.fillStyle = '#c9861e'; g.fillRect(0, 0, 26, 8);
+    g.strokeStyle = '#e8b55a'; g.lineWidth = 0.7; g.beginPath();
+    g.moveTo(2, 6); for (let x = 2; x < 22; x += 3) { g.lineTo(x, 2); g.lineTo(x + 1.5, 2); g.lineTo(x + 1.5, 6); g.lineTo(x + 3, 6); } g.stroke();
+  });
+  box(second, bx(52, 26), 5, 26, 8, ZO, -0.25, new THREE.MeshPhysicalMaterial({ map: t, roughness: 0.25, clearcoat: 0.8 }));
+}
+// LoRa: SMA bulkhead on a bracket at the top edge, rubber-duck antenna up, pigtail from the E28
+{
+  const ax = 72, az = ZI + 7;
+  box(second, ax - 5, 0, 10, 2, ZI, 12, M.steel);
+  const sma = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.2, 7, 6), M.gold);
+  sma.position.copy(v3(ax, -3.5, az)); second.add(sma);
+  const knuckle = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 4.6, 9, 32), std('#111111', { roughness: 0.55 }));
+  knuckle.position.copy(v3(ax, -11.5, az)); second.add(knuckle);
+  const whip = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 4.4, 42, 32), std('#111111', { roughness: 0.6 }));
+  whip.position.copy(v3(ax, -37, az)); second.add(whip);
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(3.6, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), std('#111111', { roughness: 0.6 }));
+  tip.position.copy(v3(ax, -58, az)); second.add(tip);
+  const coax = new THREE.CatmullRomCurve3([v3(75.7, 17.7, ZI + 2), v3(78, 12, ZI + 4), v3(77, 3, ZI + 5), v3(ax, 1, az)]);
+  second.add(new THREE.Mesh(new THREE.TubeGeometry(coax, 40, 0.55, 8), std('#2a2a2a', { roughness: 0.5 })));
+}
+// spacers (25 mm, top two nylon) and screw heads
+for (const [x, y, nylon] of SPACERS) {
+  const s = new THREE.Mesh(new THREE.CylinderGeometry(3.18, 3.18, GAP, 6), nylon ? M.nylon : M.steel);
+  s.rotation.x = Math.PI / 2; s.position.copy(v3(x, y, ZB - GAP / 2)); second.add(s);
+  const topZ = y < 10 ? DZ + 1.6 : 0;
+  cyl(main, x, y, 2.75, topZ, 1.9, nylon ? M.nylon : M.darkSteel, 32);
+  cyl(second, x, y, 2.75, ZO, -1.9, nylon ? M.nylon : M.darkSteel, 32);
+}
+
+scene.traverse(o => { if (o.isMesh && o !== floor) { o.castShadow = true; o.receiveShadow = true; } });
+scr.castShadow = false; glass.castShadow = false;
+
+// ── Cameras ──
+const cam = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 1, 3000);
+const VIEWS = {
+  hero: { pos: [-200, 135, 375], at: [4, 28, -12] },
+  open: { pos: [-25, 130, 360], at: [0, 26, 0] },
+  back: { pos: [235, 135, -385], at: [-4, 28, -14] },
+};
+const controls = new OrbitControls(cam, renderer.domElement);
+function setView(name) {
+  if (!VIEWS[name]) name = 'hero';
+  const open = name === 'open';
+  // laid open like a book: the main board turned to show its back, the second board its inner face
+  main.rotation.y = open ? Math.PI : 0;
+  main.position.x = open ? -47 : 0;
+  second.position.set(open ? 47 : 0, 0, open ? -Z_INNER : 0);
+  cam.position.set(...VIEWS[name].pos);
+  controls.target.set(...VIEWS[name].at);
+  controls.update();
+  for (const b of document.querySelectorAll('nav button')) b.setAttribute('aria-pressed', b.dataset.view === name);
+  const url = new URL(location.href);
+  url.searchParams.set('view', name);
+  try { history.replaceState(null, '', url); } catch {}   // some browsers refuse this on file://
+}
+for (const b of document.querySelectorAll('nav button')) b.addEventListener('click', () => setView(b.dataset.view));
+setView(new URLSearchParams(location.search).get('view'));
+addEventListener('resize', () => {
+  cam.aspect = innerWidth / innerHeight;
+  cam.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+function frame() { controls.update(); renderer.render(scene, cam); }
+renderer.setAnimationLoop(frame);
+document.title = 'ready';
+</script>
+</body>
+</html>
