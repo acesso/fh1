@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FH1 Avatars</title>
+<style>
+:root {
+  --bg: #11131a; --panel: #1a1d27; --panel2: #232735; --text: #e6e8ef; --dim: #9aa0b0; --line: #2e3344;
+  --accent: #f4c21f; --accent2: #6ab8ff; --ok: #4ab04a; --warn: #e8a03a; --bad: #e0504a;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
+main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 26px; margin: 0 0 4px; }
+h2 { font-size: 20px; margin: 40px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+h3 { font-size: 16px; margin: 0 0 6px; }
+p { margin: 6px 0; color: var(--dim); }
+.lead { color: var(--text); max-width: 820px; }
+.grid { display: grid; gap: 16px; }
+.styles { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+.card.sel { outline: 2px solid var(--accent); }
+.sizes { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; margin: 8px 0; }
+.sizes figure { margin: 0; text-align: center; }
+.sizes figcaption { font-size: 12px; color: var(--dim); }
+canvas.px { image-rendering: pixelated; image-rendering: crisp-edges; background: #2a2f40; border-radius: 6px; display: block; }
+.inline { font-size: 13px; background: #0b0d12; border-radius: 6px; padding: 6px 8px; margin-top: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.inline canvas { image-rendering: pixelated; vertical-align: middle; }
+.editor { display: grid; grid-template-columns: 220px 1fr; gap: 16px; }
+@media (max-width: 760px) { .editor { grid-template-columns: 1fr; } }
+.controls label { display: block; font-size: 12px; color: var(--dim); margin: 10px 0 4px; }
+.row { display: flex; flex-wrap: wrap; gap: 6px; }
+button, .chip { border: 1px solid var(--line); background: var(--panel2); color: var(--text); border-radius: 6px; padding: 5px 9px; font-size: 13px; cursor: pointer; }
+button.on { border-color: var(--accent); color: var(--accent); }
+.chip { width: 24px; height: 24px; padding: 0; border-radius: 50%; }
+.chip.on { outline: 2px solid var(--accent); outline-offset: 2px; }
+.gallery { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+a { color: var(--accent2); }
+textarea { width: 100%; min-height: 90px; background: #0b0d12; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 8px; font: 13px monospace; }
+.note { font-size: 13px; color: var(--dim); }
+</style>
+</head>
+<body>
+<main>
+<h1>FH1 avatars: style A</h1>
+<p class="lead">The FH1's avatar style (<code>users.md</code>): anime-inspired shaded pixel art,
+3 tones per colour with a coloured outline, built from layers (body, clothes, hair, face, accessories) coloured from
+small palettes. Each view is shown at the three sizes the plan uses (full 96&times;128, face 32&times;32, mini
+16&times;16), magnified, each drawn for its size. Every face is animated, the inline mini face too: a blink, a motion
+per expression and its effect. Below: random characters and the faces in FH1 screens. The firmware's renderer
+(<code>components/fh1_avatar</code>) is a C port of this page's renderer.</p>
+
+<h2>1. Editor</h2>
+<div class="editor">
+  <div class="controls card" id="controls"></div>
+  <div>
+    <div class="grid styles" id="styles"></div>
+  </div>
+</div>
+
+<h2>2. Variety: 12 random characters</h2>
+<p>Same parts and palettes, random picks.</p>
+<div class="gallery" id="gallery"></div>
+<p><button id="reroll">New random set</button></p>
+
+<h2>3. In the FH1</h2>
+<p>The 320&times;240 screen at 2&times;: a notification with a mini face, the Users list with faces, two players in a game.</p>
+<canvas class="px" id="mock" width="320" height="240" style="width:640px;max-width:100%"></canvas>
+
+
+</main>
+
+<script id="renderer">
+// ── The avatar renderer: layers of shapes, filled with palette colours in 3 tones, drawn at a size. ──
+// Shapes are masks in pixel coordinates; head parts are given in head units (u, v: the head is the circle
+// u^2 + v^2 <= 1), so the same hair and face fit the full figure, the face and the mini face.
+
+const PAL = {
+  skin: ['#ffe2cc', '#f6cfa8', '#e6b088', '#c98d62', '#9a6440', '#6e4429'],
+  hair: ['#2a2232', '#5a3a26', '#a8643a', '#e8c46a', '#f0e8d0', '#c83a3a', '#e870a6', '#7a5ad8', '#3a8ae0', '#36b892'],
+  eyes: ['#3f78e0', '#2f9a6a', '#8a5a2e', '#9a48d0', '#cc3e3e', '#3c3c48'],
+  cloth: ['#ecedf2', '#2a2b36', '#d03a3a', '#e88a2a', '#f0d040', '#4aae4a', '#2a98d0', '#3a48c8', '#8a48d0', '#e86aa8', '#8a6a4a', '#5a7a8a'],
+  acc: ['#f2d040', '#d8dce6', '#d03a3a', '#3a8ae0', '#4aae4a', '#e86aa8', '#2a2b36', '#8a48d0'],
+};
+const INK = '#1a1222';
+
+const HAIRS = ['Espetado', 'Curto', 'Chanel', 'Longo', 'Maria-chiquinha', 'Rabo de cavalo'];
+const TOPS = ['Camiseta', 'Moletom', 'Jaqueta', 'Gi', 'Marinheiro'];
+const BOTTOMS = ['Calça', 'Bermuda', 'Saia', 'Saia longa'];
+const ACCS = ['Óculos redondos', 'Óculos quadrados', 'Brincos', 'Cachecol', 'Colar', 'Marcas no rosto'];
+const EXPRS = [
+  { id: 'neutral', name: 'Neutro', eyes: 'open', mouth: 'smile', brows: 'neutral' },
+  { id: 'happy', name: 'Feliz', eyes: 'smile', mouth: 'grin', brows: 'raised', blush: 1, fx: 'sparkles' },
+  { id: 'laugh', name: 'Rindo', eyes: 'smile', mouth: 'laugh', brows: 'raised', blush: 1, fx: 'joy' },
+  { id: 'sad', name: 'Triste', eyes: 'sad', mouth: 'frown', brows: 'sad', fx: 'gloom' },
+  { id: 'cry', name: 'Chorando', eyes: 'closed', mouth: 'wavy', brows: 'sad', fx: 'tears' },
+  { id: 'angry', name: 'Bravo', eyes: 'angry', mouth: 'frown', brows: 'angry', fx: 'anger' },
+  { id: 'surprised', name: 'Surpreso', eyes: 'wide', mouth: 'o', brows: 'raised', fx: 'exclaim' },
+  { id: 'wink', name: 'Piscando', eyes: 'wink', mouth: 'smirk', brows: 'neutral', blush: 1, fx: 'star' },
+  { id: 'love', name: 'Apaixonado', eyes: 'hearts', mouth: 'smile', brows: 'raised', blush: 1, fx: 'hearts' },
+  { id: 'sleepy', name: 'Com sono', eyes: 'sleepy', mouth: 'small', brows: 'neutral', fx: 'zzz' },
+  { id: 'cool', name: 'Estiloso', eyes: 'cool', mouth: 'smirk', brows: 'neutral', fx: 'glint' },
+  { id: 'think', name: 'Pensando', eyes: 'side', mouth: 'flat', brows: 'one', fx: 'question' },
+];
+
+function hex(c) { return [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]; }
+function toHex(r, g, b) { return '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join(''); }
+function mix(a, b, k) { const A = hex(a), B = hex(b); return toHex(A[0] + (B[0] - A[0]) * k, A[1] + (B[1] - A[1]) * k, A[2] + (B[2] - A[2]) * k); }
+// Three tones and an edge from one colour: shadows lean violet, lights lean warm white (an anime look).
+function tones(c) { return { base: c, shade: mix(c, '#3a2450', 0.32), light: mix(c, '#fff6e8', 0.38), edge: mix(c, INK, 0.62) }; }
+
+class Pix {
+  constructor(w, h) { this.w = w; this.h = h; this.c = new Array(w * h).fill(null); }
+  get(x, y) { return x < 0 || y < 0 || x >= this.w || y >= this.h ? null : this.c[y * this.w + x]; }
+  set(x, y, col) { if (x >= 0 && y >= 0 && x < this.w && y < this.h && col) this.c[y * this.w + x] = col; }
+}
+
+// ── Shapes: { x0, y0, x1, y1, f(x, y) } with f tested at the pixel's centre ──
+function ellipse(cx, cy, rx, ry) {
+  return { x0: Math.floor(cx - rx - 1), y0: Math.floor(cy - ry - 1), x1: Math.ceil(cx + rx + 1), y1: Math.ceil(cy + ry + 1),
+    f: (x, y) => { const a = (x + 0.5 - cx) / rx, b = (y + 0.5 - cy) / ry; return a * a + b * b <= 1; } };
+}
+function poly(pts) {
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  return { x0: Math.floor(Math.min(...xs)) - 1, y0: Math.floor(Math.min(...ys)) - 1, x1: Math.ceil(Math.max(...xs)) + 1, y1: Math.ceil(Math.max(...ys)) + 1,
+    f: (x, y) => {
+      const px = x + 0.5, py = y + 0.5;
+      let inside = false;
+      for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const [xi, yi] = pts[i], [xj, yj] = pts[j];
+        if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) inside = !inside;
+      }
+      return inside;
+    } };
+}
+function rect(x, y, w, h) { return { x0: x, y0: y, x1: x + w, y1: y + h, f: (px, py) => px >= x && px < x + w && py >= y && py < y + h }; }
+function union(...s) {
+  return { x0: Math.min(...s.map(a => a.x0)), y0: Math.min(...s.map(a => a.y0)), x1: Math.max(...s.map(a => a.x1)), y1: Math.max(...s.map(a => a.y1)),
+    f: (x, y) => s.some(a => a.f(x, y)) };
+}
+function minus(a, b) { return { x0: a.x0, y0: a.y0, x1: a.x1, y1: a.y1, f: (x, y) => a.f(x, y) && !b.f(x, y) }; }
+function clipY(a, ymin, ymax) { return { x0: a.x0, y0: Math.max(a.y0, ymin), x1: a.x1, y1: Math.min(a.y1, ymax), f: (x, y) => y >= ymin && y < ymax && a.f(x, y) }; }
+
+// Fill a shape. Shaded styles: a coloured edge (sel-out), a lit rim to the top-left, a shadow band to the
+// bottom-right. Flat style: one colour, its edge only.
+function fill(pix, s, col, st, opt = {}) {
+  const t = tones(col);
+  const f = s.f, sh = opt.shadow ?? (st.flat ? 0 : 2);
+  for (let y = s.y0; y <= s.y1; y++) {
+    for (let x = s.x0; x <= s.x1; x++) {
+      if (!f(x, y)) continue;
+      let c = t.base;
+      const edge = opt.noEdge ? false : !f(x - 1, y) || !f(x + 1, y) || !f(x, y - 1) || !f(x, y + 1);
+      if (edge) c = st.flat ? mix(col, INK, 0.45) : t.edge;
+      else if (!st.flat) {
+        if (sh && (!f(x + sh, y + sh) || !f(x + sh, y))) c = t.shade;
+        else if (!f(x - 1, y - 1) || !f(x - 1, y - 2)) c = t.light;
+      }
+      pix.set(x, y, c);
+    }
+  }
+}
+function flat(pix, s, col) { for (let y = s.y0; y <= s.y1; y++) for (let x = s.x0; x <= s.x1; x++) if (s.f(x, y)) pix.set(x, y, col); }
+function line(pix, x0, y0, x1, y1, col, w = 1) {
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
+  for (let i = 0; i <= n; i++) {
+    const x = Math.round(x0 + (x1 - x0) * i / n), y = Math.round(y0 + (y1 - y0) * i / n);
+    for (let a = 0; a < w; a++) for (let b = 0; b < w; b++) pix.set(x + a, y + b, col);
+  }
+}
+// The whole figure's outline: every empty pixel touching a drawn one.
+function outline(pix, col) {
+  const add = [];
+  for (let y = 0; y < pix.h; y++) for (let x = 0; x < pix.w; x++) {
+    if (pix.get(x, y)) continue;
+    if (pix.get(x - 1, y) || pix.get(x + 1, y) || pix.get(x, y - 1) || pix.get(x, y + 1)) add.push([x, y]);
+  }
+  for (const [x, y] of add) pix.set(x, y, col);
+}
+
+// Tiny pixel glyphs for effects.
+const GLYPH = {
+  Z: ['111', '001', '010', '100', '111'], '?': ['110', '001', '010', '000', '010'], '!': ['1', '1', '1', '0', '1'],
+  heart: ['01010', '11111', '11111', '01110', '00100'], star: ['010', '111', '010'], spark: ['00100', '00100', '11011', '00100', '00100'],
+  anger: ['1010', '1111', '0000', '1111', '1010'],
+};
+function glyph(pix, g, x, y, col, k = 1) {
+  const rows = GLYPH[g];
+  rows.forEach((r, j) => [...r].forEach((b, i) => { if (b === '1') for (let a = 0; a < k; a++) for (let c = 0; c < k; c++) pix.set(x + i * k + a, y + j * k + c, col); }));
+}
+
+// ── The head: back hair, face, features, front hair. g = { cx, cy, rx, ry, level: 'full' | 'face' | 'mini' } ──
+function H(g, u, v) { return [g.cx + u * g.rx, g.cy + v * g.ry]; }
+function hpoly(g, pts) { return poly(pts.map(([u, v]) => H(g, u, v))); }
+
+function backHair(pix, cfg, g, st, bottom) {
+  const col = PAL.hair[cfg.hair];
+  const cap = ellipse(g.cx, g.cy - g.ry * 0.06, g.rx * 1.13, g.ry * 1.1);
+  switch (cfg.hairStyle) {
+    case 2: fill(pix, union(cap, hpoly(g, [[-1.15, -0.2], [1.15, -0.2], [1.1, 0.95], [-1.1, 0.95]])), col, st); break;   // bob
+    case 3: {                                                                                                               // long
+      const yb = Math.min(bottom, g.cy + g.ry * 3.4);
+      fill(pix, union(cap, poly([H(g, -1.12, -0.2), H(g, 1.12, -0.2), [g.cx + g.rx * 1.25, yb], [g.cx - g.rx * 1.25, yb]])), col, st);
+      break;
+    }
+    case 4: {                                                                                                               // twin tails
+      fill(pix, cap, col, st);
+      for (const s of [-1, 1]) fill(pix, poly([H(g, s * 0.85, -0.75), H(g, s * 1.35, -0.6), [g.cx + s * g.rx * 1.75, Math.min(bottom, g.cy + g.ry * 2.6)], H(g, s * 1.05, 0.3)]), col, st);
+      break;
+    }
+    case 5: fill(pix, union(cap, poly([H(g, 0.55, -0.95), H(g, 1.05, -0.7), [g.cx + g.rx * 1.25, Math.min(bottom, g.cy + g.ry * 2.5)], H(g, 0.75, 0.4)])), col, st); break;   // ponytail
+    default: fill(pix, cap, col, st); break;
+  }
+}
+
+function frontHair(pix, cfg, g, st) {
+  const col = PAL.hair[cfg.hair];
+  const top = clipY(ellipse(g.cx, g.cy - g.ry * 0.06, g.rx * 1.13, g.ry * 1.1), -999, g.cy - g.ry * 0.38);
+  let bangs;
+  switch (cfg.hairStyle) {
+    case 0: {                                                                                                               // spiky
+      bangs = hpoly(g, [[-1.08, -0.5], [-0.9, -0.05], [-0.62, -0.42], [-0.38, 0.0], [-0.12, -0.38], [0.15, 0.02], [0.4, -0.4], [0.66, -0.02], [0.92, -0.45], [1.08, -0.5], [1.0, -0.9], [-1.0, -0.9]]);
+      const spikes = union(hpoly(g, [[-0.9, -0.7], [-1.35, -1.05], [-0.55, -0.95]]), hpoly(g, [[-0.35, -0.95], [-0.2, -1.5], [0.15, -1.0]]), hpoly(g, [[0.3, -0.95], [0.85, -1.35], [0.75, -0.75]]), hpoly(g, [[0.85, -0.6], [1.4, -0.75], [1.0, -0.3]]));
+      fill(pix, union(top, bangs, spikes), col, st);
+      return;
+    }
+    case 1: bangs = hpoly(g, [[-1.06, -0.45], [-0.95, 0.0], [-0.7, -0.25], [0.2, -0.3], [0.85, -0.05], [1.06, -0.45], [0.9, -0.9], [-0.9, -0.9]]); break;    // short, side swept
+    case 2: bangs = hpoly(g, [[-1.08, -0.45], [-1.0, 0.0], [-0.6, -0.1], [-0.55, -0.2], [0.55, -0.2], [0.6, -0.1], [1.0, 0.0], [1.08, -0.45], [0.9, -0.9], [-0.9, -0.9]]); break;   // bob: straight fringe
+    case 3: bangs = hpoly(g, [[-1.08, -0.4], [-0.92, 0.55], [-0.72, -0.15], [-0.15, -0.5], [0.0, -0.3], [0.15, -0.5], [0.72, -0.15], [0.92, 0.55], [1.08, -0.4], [0.9, -0.9], [-0.9, -0.9]]); break;   // long, parted
+    default: bangs = hpoly(g, [[-1.08, -0.45], [-0.95, 0.05], [-0.65, -0.3], [-0.35, -0.05], [-0.1, -0.35], [0.2, -0.05], [0.5, -0.32], [0.8, 0.0], [1.08, -0.45], [0.9, -0.9], [-0.9, -0.9]]); break;
+  }
+  fill(pix, union(top, bangs), col, st);
+  if (cfg.hairStyle === 3 && g.level !== 'mini') for (const s of [-1, 1]) fill(pix, hpoly(g, [[s * 0.95, -0.2], [s * 1.12, -0.1], [s * 1.08, 1.25], [s * 0.88, 1.0]]), col, st);   // side locks
+}
+
+// Eyes, by type, scaled to the level.
+function eyes(pix, cfg, e, g, st) {
+  const lv = g.level, ink = INK, iris = PAL.eyes[cfg.eyes], fem = cfg.base === 1;
+  const ex = g.rx * 0.42, ey = g.cy + g.ry * 0.08;
+  const ew = lv === 'mini' ? 1 : Math.max(2, Math.round(g.rx * 0.2)), eh = lv === 'mini' ? 1 : Math.max(2, Math.round(g.ry * 0.24));
+  const sides = cfg.blink ? [['closed', -1], ['closed', 1]] : e.eyes === 'wink' ? [['open', -1], ['smile', 1]] : [[e.eyes, -1], [e.eyes, 1]];
+  if (e.eyes === 'cool') {         // sunglasses over both
+    const gl = union(ellipse(g.cx - ex, ey, ew + 1.2, eh), ellipse(g.cx + ex, ey, ew + 1.2, eh));
+    flat(pix, gl, '#141420');
+    line(pix, Math.round(g.cx - ex + ew), Math.round(ey - eh * 0.6), Math.round(g.cx + ex - ew), Math.round(ey - eh * 0.6), '#141420');
+    if (lv !== 'mini') { pix.set(Math.round(g.cx - ex - ew * 0.4), Math.round(ey - eh * 0.4), '#9ab0d0'); pix.set(Math.round(g.cx + ex - ew * 0.4), Math.round(ey - eh * 0.4), '#9ab0d0'); }
+    return;
+  }
+  for (const [type, s] of sides) {
+    const cx = g.cx + s * ex;
+    if (lv === 'mini') {             // 16 x 16: two pixels an eye
+      const x = Math.round(cx - 0.5), y = Math.round(ey - 0.5);
+      if (type === 'smile') { pix.set(x - 1, y + 1, ink); pix.set(x, y, ink); pix.set(x + 1, y + 1, ink); }
+      else if (type === 'closed' || type === 'sleepy') { pix.set(x - 1, y + 1, ink); pix.set(x, y + 1, ink); pix.set(x + 1, y + 1, ink); }
+      else if (type === 'hearts') { pix.set(x, y, '#e8406a'); pix.set(x + 1, y, '#e8406a'); pix.set(x, y + 1, '#e8406a'); pix.set(x + 1, y + 1, '#c02050'); }
+      else { pix.set(x, y, ink); pix.set(x, y + 1, type === 'wide' ? ink : iris); if (type !== 'wide') pix.set(x + (type === 'side' ? 1 : 0), y + 1, iris); }
+      continue;
+    }
+    if (type === 'smile') {          // ^ ^
+      line(pix, Math.round(cx - ew), Math.round(ey + 1), Math.round(cx), Math.round(ey - eh * 0.6), ink, lv === 'full' ? 2 : 1);
+      line(pix, Math.round(cx), Math.round(ey - eh * 0.6), Math.round(cx + ew), Math.round(ey + 1), ink, lv === 'full' ? 2 : 1);
+      continue;
+    }
+    if (type === 'closed') {         // > <, softened: a curved line down
+      line(pix, Math.round(cx - ew), Math.round(ey), Math.round(cx), Math.round(ey + eh * 0.4), ink, lv === 'full' ? 2 : 1);
+      line(pix, Math.round(cx), Math.round(ey + eh * 0.4), Math.round(cx + ew), Math.round(ey), ink, lv === 'full' ? 2 : 1);
+      continue;
+    }
+    if (type === 'hearts') {
+      const k = lv === 'full' ? 2 : 1;
+      glyph(pix, 'heart', Math.round(cx - 2.5 * k), Math.round(ey - 2.5 * k), '#e8406a', k);
+      continue;
+    }
+    // Open eyes: white, iris (darker on top), pupil, highlights, the upper lash.
+    const wide = type === 'wide', rx = ew + (wide ? 0.6 : 0), ry = eh + (wide ? 0.6 : 0);
+    const eye = ellipse(cx, ey, rx, ry);
+    flat(pix, eye, '#fbfbff');
+    const ix = type === 'side' ? cx + rx * 0.35 * -s : cx;
+    const ir = ellipse(ix, ey + 0.4, rx * (wide ? 0.55 : 0.72), ry * (wide ? 0.6 : 0.92));
+    const irc = { f: (x, y) => ir.f(x, y) && eye.f(x, y), x0: ir.x0, y0: ir.y0, x1: ir.x1, y1: ir.y1 };
+    for (let y = irc.y0; y <= irc.y1; y++) for (let x = irc.x0; x <= irc.x1; x++) {
+      if (!irc.f(x, y)) continue;
+      const k = (y + 0.5 - (ey - ry)) / (2 * ry);
+      pix.set(x, y, k < 0.4 ? mix(iris, INK, 0.45) : k > 0.75 ? mix(iris, '#ffffff', 0.35) : iris);
+    }
+    if (lv === 'full') flat(pix, ellipse(ix, ey + 0.6, rx * 0.28, ry * 0.36), mix(iris, INK, 0.7));
+    pix.set(Math.round(ix - rx * 0.35), Math.round(ey - ry * 0.35), '#ffffff');
+    if (lv === 'full') { pix.set(Math.round(ix - rx * 0.35) + 1, Math.round(ey - ry * 0.35), '#ffffff'); pix.set(Math.round(ix + rx * 0.3), Math.round(ey + ry * 0.4), '#ffffff'); }
+    // Lids: sleepy lowers it, angry slants it in, sad slants it out.
+    for (let x = Math.floor(cx - rx - 1); x <= Math.ceil(cx + rx + 1); x++) {
+      const dx = (x + 0.5 - cx) / (rx + 0.5);
+      let top = ey - ry * Math.sqrt(Math.max(0, 1 - dx * dx)) - 0.2;
+      if (type === 'sleepy') top = ey - 0.2;
+      if (type === 'angry') top += (dx * -s) * ry * 0.7 + ry * 0.25;
+      if (type === 'sad') top += (dx * s) * ry * 0.6 + ry * 0.15;
+      for (let y = Math.floor(ey - ry - 2); y < top; y++) if (eye.f(x, y)) pix.set(x, y, tones(PAL.skin[cfg.skin]).base);
+      const ly = Math.round(top);
+      if (Math.abs(dx) <= 1.05) { pix.set(x, ly, ink); if (lv === 'full') pix.set(x, ly - 1, ink); }
+    }
+    // The outer corner's lash, longer for the female base.
+    const ox = Math.round(cx + s * (rx + 0.5)), oy = Math.round(ey - ry * 0.55);
+    pix.set(ox, oy, ink);
+    if (fem && lv !== 'mini') { pix.set(ox + s, oy - 1, ink); if (lv === 'full') pix.set(ox + 2 * s, oy - 2, ink); }
+  }
+}
+
+function brows(pix, e, cfg, g) {
+  if (g.level === 'mini' || e.eyes === 'cool') return;
+  const col = mix(PAL.hair[cfg.hair], INK, 0.55), w = g.level === 'full' ? 2 : 1;
+  const ex = g.rx * 0.42, by = g.cy - g.ry * 0.22, len = g.rx * 0.24;
+  for (const s of [-1, 1]) {
+    let din = 0, dout = 0;               // the inner and outer ends' heights
+    if (e.brows === 'raised') din = dout = -g.ry * 0.08;
+    if (e.brows === 'angry') { din = g.ry * 0.1; dout = -g.ry * 0.06; }
+    if (e.brows === 'sad') { din = -g.ry * 0.1; dout = g.ry * 0.05; }
+    if (e.brows === 'one' && s > 0) { din = dout = -g.ry * 0.12; }
+    const cx = g.cx + s * ex;
+    line(pix, Math.round(cx - s * len), Math.round(by + din), Math.round(cx + s * len), Math.round(by + dout - 1), col, w);
+  }
+}
+
+function mouth(pix, e, g, cfg) {
+  const ink = INK, my = g.cy + g.ry * 0.55, mx = g.cx, lv = g.level;
+  const w = lv === 'full' ? Math.round(g.rx * 0.2) : lv === 'face' ? 2 : 1, inner = '#8a2030', tongue = '#e86a80';
+  if (lv === 'mini') {
+    const x = Math.round(mx - 0.5), y = Math.round(my);
+    if (e.mouth === 'grin' || e.mouth === 'laugh' || e.mouth === 'o') { pix.set(x, y, inner); pix.set(x + 1, y, inner); }
+    else if (e.mouth === 'frown' || e.mouth === 'wavy') { pix.set(x, y, ink); pix.set(x + 1, y, ink); }
+    else if (e.mouth === 'flat' || e.mouth === 'small') pix.set(x, y, ink);
+    else { pix.set(x - 1, y - 1, ink); pix.set(x, y, ink); pix.set(x + 1, y, ink); pix.set(x + 2, y - 1, ink); }
+    return;
+  }
+  switch (e.mouth) {
+    case 'grin': case 'laugh': {
+      const mh = e.mouth === 'laugh' ? Math.round(g.ry * 0.22) : Math.round(g.ry * 0.14);
+      const m = clipY(ellipse(mx, my - 1, w + 1, mh + 1), Math.round(my - 1), 999);
+      flat(pix, m, inner);
+      if (lv === 'full') { flat(pix, clipY(ellipse(mx, my + mh * 0.6, w * 0.7, mh * 0.6), Math.round(my), 999), tongue); line(pix, Math.round(mx - w), Math.round(my - 1), Math.round(mx + w), Math.round(my - 1), '#ffffff'); }
+      break;
+    }
+    case 'o': flat(pix, ellipse(mx, my, Math.max(1, w * 0.6), Math.max(1.2, g.ry * 0.1)), inner); break;
+    case 'frown': line(pix, Math.round(mx - w), Math.round(my + 1), Math.round(mx), Math.round(my), ink); line(pix, Math.round(mx), Math.round(my), Math.round(mx + w), Math.round(my + 1), ink); break;
+    case 'flat': line(pix, Math.round(mx - w * 0.6), Math.round(my), Math.round(mx + w * 0.6), Math.round(my), ink); break;
+    case 'small': pix.set(Math.round(mx), Math.round(my), ink); if (lv === 'full') pix.set(Math.round(mx) + 1, Math.round(my), ink); break;
+    case 'wavy': for (let i = -w; i <= w; i++) pix.set(Math.round(mx + i), Math.round(my + ((i & 1) ? 1 : 0)), ink); break;
+    case 'smirk': line(pix, Math.round(mx - w * 0.6), Math.round(my), Math.round(mx + w), Math.round(my - 1), ink); break;
+    default: line(pix, Math.round(mx - w), Math.round(my - 1), Math.round(mx), Math.round(my), ink); line(pix, Math.round(mx), Math.round(my), Math.round(mx + w), Math.round(my - 1), ink); break;   // smile
+  }
+}
+
+function head(pix, cfg, e, g, st, bottom, withBack = true) {
+  const skin = PAL.skin[cfg.skin], lv = g.level;
+  if (withBack) backHair(pix, cfg, g, st, bottom);
+  // Ears, then the face: a round skull and a soft pointed chin.
+  if (lv !== 'mini') for (const s of [-1, 1]) fill(pix, ellipse(g.cx + s * g.rx * 0.96, g.cy + g.ry * 0.12, g.rx * 0.16, g.ry * 0.2), skin, st, { shadow: 1 });
+  const face = union(ellipse(g.cx, g.cy - g.ry * 0.05, g.rx, g.ry * 0.92), hpoly(g, [[-0.92, 0.25], [0.92, 0.25], [0.32, 0.92], [0, 1.0], [-0.32, 0.92]]));
+  fill(pix, face, skin, st, { shadow: lv === 'full' ? 2 : 1 });
+  if (cfg.acc.includes(2) && lv !== 'mini') for (const s of [-1, 1]) {      // earrings
+    const x = Math.round(g.cx + s * g.rx * 0.98), y = Math.round(g.cy + g.ry * 0.36);
+    pix.set(x, y, PAL.acc[cfg.accCol]); pix.set(x, y + 1, mix(PAL.acc[cfg.accCol], INK, 0.4));
+  }
+  if (e.blush || cfg.acc.includes(5)) {
+    for (const s of [-1, 1]) {
+      const bx = Math.round(g.cx + s * g.rx * 0.55), by = Math.round(g.cy + g.ry * 0.38);
+      const c = cfg.acc.includes(5) ? PAL.acc[cfg.accCol] : '#f08a98';
+      if (lv === 'mini') { pix.set(bx, by, c); continue; }
+      for (let i = 0; i < (lv === 'full' ? 3 : 2); i++) pix.set(bx - s * i * 2, by + (lv === 'full' ? i % 2 : 0), c);
+    }
+  }
+  if (lv === 'full') pix.set(Math.round(g.cx), Math.round(g.cy + g.ry * 0.33), mix(skin, INK, 0.35));   // the nose
+  eyes(pix, cfg, e, g, st);
+  mouth(pix, e, g, cfg);
+  frontHair(pix, cfg, g, st);
+  brows(pix, e, cfg, g);
+  if ((cfg.acc.includes(0) || cfg.acc.includes(1)) && e.eyes !== 'cool' && lv !== 'mini') {     // glasses over the eyes
+    const ex = g.rx * 0.42, ey = g.cy + g.ry * 0.08, r = Math.max(2, g.rx * 0.27), c = PAL.acc[cfg.accCol];
+    for (const s of [-1, 1]) {
+      const sh = cfg.acc.includes(0) ? ellipse(g.cx + s * ex, ey, r, r * 0.9) : rect(Math.round(g.cx + s * ex - r), Math.round(ey - r * 0.8), Math.round(r * 2), Math.round(r * 1.6));
+      for (let y = sh.y0; y <= sh.y1; y++) for (let x = sh.x0; x <= sh.x1; x++) {
+        if (sh.f(x, y) && (!sh.f(x - 1, y) || !sh.f(x + 1, y) || !sh.f(x, y - 1) || !sh.f(x, y + 1))) pix.set(x, y, c);
+      }
+    }
+    line(pix, Math.round(g.cx - ex + r), Math.round(ey), Math.round(g.cx + ex - r), Math.round(ey), c);
+  }
+}
+
+// ── The body, for the full figure ──
+function body(pix, cfg, st, P) {
+  const skin = PAL.skin[cfg.skin], M = PAL.cloth[cfg.cloth1], S = PAL.cloth[cfg.cloth2], A = PAL.acc[cfg.accCol];
+  const cx = P.cx, fem = cfg.base === 1, sw = fem ? P.sw - 2 : P.sw, ww = fem ? P.ww - 2 : P.ww, hw = fem ? P.ww + 1 : P.ww;
+  const shoes = '#2a2232';
+  // Legs (skin), shoes.
+  for (const s of [-1, 1]) {
+    fill(pix, poly([[cx + s * 1, P.hip], [cx + s * hw, P.hip], [cx + s * (hw - 2), P.feet - 3], [cx + s * 2, P.feet - 3]]), skin, st);
+    fill(pix, poly([[cx + s * 1, P.feet - 4], [cx + s * (hw - 1), P.feet - 4], [cx + s * (hw + 1), P.feet], [cx + s * 1, P.feet]]), shoes, st, { shadow: 1 });
+  }
+  // Bottoms.
+  const b = cfg.bottom;
+  if (b === 0 || b === 1) {
+    const end = b === 0 ? P.feet - 4 : Math.round((P.hip + P.feet) / 2) - 2;
+    for (const s of [-1, 1]) fill(pix, poly([[cx, P.waist], [cx + s * (ww + 0.5), P.waist], [cx + s * (hw + 0.5), P.hip], [cx + s * (hw - 0.5 + (b === 0 ? 0 : 1)), end], [cx + s * 1, end]]), S, st);
+  } else {
+    const end = b === 2 ? Math.round((P.hip + P.feet) / 2) + 1 : P.feet - 6;
+    fill(pix, poly([[cx - ww, P.waist], [cx + ww, P.waist], [cx + hw + (b === 2 ? 6 : 5), end], [cx - hw - (b === 2 ? 6 : 5), end]]), S, st);
+    for (let i = -2; i <= 2; i++) line(pix, Math.round(cx + i * 3.2), P.waist + 3, Math.round(cx + i * 4.4), end - 1, mix(S, INK, 0.35));   // pleats
+  }
+  // Arms behind the torso's edge: sleeves, forearms, hands.
+  const longSleeve = cfg.top !== 0 && cfg.top !== 4;
+  for (const s of [-1, 1]) {
+    const shx = cx + s * (sw - 1);
+    const elbow = [cx + s * (sw + 2), P.waist - 1], hand = [cx + s * (sw + 1), P.hip + 3];
+    fill(pix, poly([[shx - s * 2, P.sh], [shx + s * 3, P.sh + 2], [elbow[0] + s * 2, elbow[1]], [elbow[0] - s * 3, elbow[1]]]), longSleeve ? M : M, st);
+    fill(pix, poly([[elbow[0] - s * 3, elbow[1]], [elbow[0] + s * 2, elbow[1]], [hand[0] + s * 2, hand[1]], [hand[0] - s * 2, hand[1]]]), longSleeve ? M : skin, st);
+    fill(pix, ellipse(hand[0], hand[1] + 2, 2.6, 3), skin, st, { shadow: 1 });
+    if (cfg.top === 3) fill(pix, poly([[elbow[0] - s * 3, elbow[1]], [elbow[0] + s * 4, elbow[1] - 2], [elbow[0] + s * 5, elbow[1] + 7], [elbow[0] - s * 3, elbow[1] + 5]]), M, st);   // gi: wide sleeves
+  }
+  // Torso.
+  const torso = poly([[cx - sw, P.sh + 2], [cx - sw + 3, P.sh], [cx + sw - 3, P.sh], [cx + sw, P.sh + 2], [cx + ww + 1, P.waist + 2], [cx - ww - 1, P.waist + 2]]);
+  fill(pix, torso, M, st);
+  // Neck.
+  fill(pix, rect(cx - 3, P.neck, 7, P.sh - P.neck + 2), skin, st, { shadow: 1 });
+  // Details per top.
+  switch (cfg.top) {
+    case 0: flat(pix, clipY(ellipse(cx + 0.5, P.sh, 5, 3), P.sh, P.sh + 3), mix(skin, '#3a2450', 0.2)); line(pix, cx - 5, P.sh + 1, cx - 3, P.sh + 3, mix(M, INK, 0.5)); line(pix, cx + 6, P.sh + 1, cx + 4, P.sh + 3, mix(M, INK, 0.5)); break;
+    case 1: fill(pix, poly([[cx - 8, P.sh - 1], [cx + 9, P.sh - 1], [cx + 6, P.sh + 4], [cx - 5, P.sh + 4]]), S, st, { shadow: 1 }); line(pix, cx - 2, P.sh + 3, cx - 2, P.sh + 10, S); line(pix, cx + 3, P.sh + 3, cx + 3, P.sh + 10, S); line(pix, cx - ww + 2, P.waist - 6, cx + ww - 1, P.waist - 6, mix(M, INK, 0.45)); break;
+    case 2: fill(pix, poly([[cx - 4, P.sh], [cx + 5, P.sh], [cx + 4, P.waist + 2], [cx - 3, P.waist + 2]]), S, st, { shadow: 1 }); line(pix, cx - 4, P.sh, cx - 1, P.sh + 9, mix(M, INK, 0.55)); line(pix, cx + 5, P.sh, cx + 2, P.sh + 9, mix(M, INK, 0.55)); break;
+    case 3: line(pix, cx - 6, P.sh, cx + 3, P.waist - 3, S, 2); line(pix, cx + 6, P.sh, cx - 2, P.waist - 6, S, 2); fill(pix, rect(cx - ww - 1, P.waist - 2, 2 * ww + 3, 4), S, st, { shadow: 1 }); break;
+    case 4: fill(pix, poly([[cx - sw + 1, P.sh + 1], [cx + sw - 1, P.sh + 1], [cx + 4, P.sh + 9], [cx - 3, P.sh + 9]]), S, st, { shadow: 1 }); fill(pix, poly([[cx - 2, P.sh + 7], [cx + 3, P.sh + 7], [cx + 1, P.sh + 14]]), A, st, { shadow: 0 }); break;
+  }
+  // Scarf, necklace.
+  if (cfg.acc.includes(3)) { fill(pix, poly([[cx - 6, P.neck + 3], [cx + 7, P.neck + 3], [cx + 7, P.sh + 3], [cx - 6, P.sh + 3]]), A, st); fill(pix, poly([[cx + 2, P.sh + 2], [cx + 6, P.sh + 2], [cx + 7, P.sh + 13], [cx + 3, P.sh + 12]]), A, st); }
+  if (cfg.acc.includes(4)) { for (let i = -4; i <= 4; i++) pix.set(cx + i, P.sh + 2 + Math.round((16 - i * i) / 6), A); pix.set(cx, P.sh + 6, mix(A, '#ffffff', 0.5)); }
+}
+
+// ── Effects: drawn over the figure, t in ms ──
+function effect(pix, fx, g, t, level) {
+  const k = level === 'full' ? 2 : 1, cx = g.cx, top = g.cy - g.ry * 1.1, R = g.rx;
+  const ph = (t % 1600) / 1600, blink = Math.floor(t / 250) % 2;
+  // The mini face keeps every effect, smaller (the inline faces animate too).
+  switch (fx) {
+    case 'hearts': for (let i = 0; i < (level === 'mini' ? 1 : 3); i++) { const p = (ph + i / 3) % 1; glyph(pix, 'heart', Math.round(cx + R * (0.9 + 0.3 * Math.sin(p * 6 + i))), Math.round(top + R * 0.6 - p * R * 1.0), i % 2 ? '#ff6a90' : '#e8406a', level === 'mini' ? 1 : k > 1 ? 1 : 1); } break;
+    case 'sparkles': for (let i = 0; i < 3; i++) if ((Math.floor(t / 200) + i) % 3) glyph(pix, level === 'mini' ? 'star' : 'spark', Math.round(cx + R * [-1.3, 1.15, 0.9][i]), Math.round(top + R * [0.2, 0.05, 0.9][i]), '#ffe070'); break;
+    case 'joy': for (const s of [-1, 1]) { const p = ph * 2 % 1; pix.set(Math.round(cx + s * R * (0.8 + p)), Math.round(g.cy + g.ry * (0.0 + p * 0.3)), '#7ad0ff'); pix.set(Math.round(cx + s * R * (0.8 + p)) + s, Math.round(g.cy + g.ry * (0.0 + p * 0.3)), '#bfe8ff'); } break;
+    case 'gloom': for (let i = 0; i < 4; i++) line(pix, Math.round(cx - R * 0.6 + i * R * 0.4), Math.round(top - 2), Math.round(cx - R * 0.6 + i * R * 0.4), Math.round(top + R * 0.25), '#5a6aa0'); break;
+    case 'tears': for (const s of [-1, 1]) { const ex = Math.round(cx + s * R * 0.42), ey = Math.round(g.cy + g.ry * 0.2); line(pix, ex, ey, ex, Math.round(ey + g.ry * 0.5), '#6ac0ff'); if (level !== 'mini') pix.set(ex, Math.round(ey + g.ry * (0.5 + ph * 0.5)), '#bfe8ff'); } break;
+    case 'anger': if (blink || level !== 'full') glyph(pix, 'anger', Math.round(cx + R * 0.75), Math.round(top + R * 0.1), '#ff3a3a', level === 'mini' ? 1 : 1); break;
+    case 'exclaim': glyph(pix, '!', Math.round(cx + R * 1.1), Math.round(top - (blink ? 1 : 0) - (level === 'mini' ? 0 : 2)), '#ffe070', k); break;
+    case 'star': if (blink) glyph(pix, 'star', Math.round(cx + R * 0.8), Math.round(g.cy - g.ry * 0.15), '#ffe070'); break;
+    case 'zzz': for (let i = 0; i < (level === 'mini' ? 1 : 2); i++) { const p = (ph + i * 0.5) % 1; glyph(pix, 'Z', Math.round(cx + R * (0.9 + p * 0.5)), Math.round(top + R * 0.5 - p * R), '#a8c0ff', level === 'full' && i === 0 ? 2 : 1); } break;
+    case 'glint': if (blink) glyph(pix, 'spark', Math.round(cx - R * 0.65), Math.round(g.cy - g.ry * 0.12), '#ffffff'); break;
+    case 'question': glyph(pix, '?', Math.round(cx + R * 1.05), Math.round(top - (level === 'mini' ? 0 : 1) + Math.round(Math.sin(t / 250))), '#ffe070', k); break;
+  }
+}
+
+// ── The three views. style: { flat } ──
+function renderFull(cfg, e, st, t) {
+  const pix = new Pix(96, 128);
+  const P = { cx: 48, neck: 50, sh: 56, waist: 84, hip: 88, feet: 125, sw: 16, ww: 12, hg: { cx: 48, cy: 34, rx: 16, ry: 18 } };
+  const g = { ...P.hg, level: 'full' };
+  // Long hair goes behind the body: the back hair first, then the body, then the head without it.
+  const back = new Pix(96, 128);
+  backHair(back, cfg, g, st, P.waist);
+  pix.c = back.c.slice();
+  body(pix, cfg, st, P);
+  const hp = new Pix(96, 128);
+  head(hp, cfg, e, g, st, P.waist, false);       // its back hair is already behind the body
+  for (let i = 0; i < hp.c.length; i++) if (hp.c[i]) pix.c[i] = hp.c[i];
+  outline(pix, INK);
+  effect(pix, e.fx, g, t, 'full');
+  return pix;
+}
+function renderFace(cfg, e, st, t, size) {
+  const pix = new Pix(size, size);
+  const g = size >= 32 ? { cx: 16, cy: 16, rx: 10.5, ry: 11.5, level: 'face' } : { cx: 8, cy: 8.5, rx: 5.6, ry: 6.0, level: 'mini' };
+  // Every face moves: a bounce for joy, a shake for anger, a droop for sadness; the others breathe.
+  const m = MOTION[e.id] || MOTION.neutral, k = size >= 32 ? 1 : 0.6;
+  g.cy += Math.round(m.y(t) * k);
+  g.cx += Math.round(m.x(t) * k);
+  head(pix, { ...cfg, blink: blinking(e, t) }, e, g, st, size);
+  outline(pix, INK);
+  effect(pix, e.fx, g, t, g.level);
+  return pix;
+}
+const MOTION = {
+  neutral: { x: () => 0, y: t => (Math.floor(t / 900) % 2) * 0.6 },
+  happy: { x: () => 0, y: t => -Math.abs(Math.sin(t / 180)) * 1.5 },
+  laugh: { x: () => 0, y: t => -Math.abs(Math.sin(t / 110)) * 1.8 },
+  sad: { x: () => 0, y: t => 0.8 + Math.sin(t / 700) * 0.6 },
+  cry: { x: t => Math.sin(t / 60) * 0.6, y: () => 0.6 },
+  angry: { x: t => (Math.floor(t / 70) % 2 ? 1 : -1) * 0.8, y: () => 0 },
+  surprised: { x: () => 0, y: t => (t % 1200) < 160 ? -2 : 0 },
+  wink: { x: () => 0, y: t => -Math.abs(Math.sin(t / 300)) },
+  love: { x: t => Math.sin(t / 400), y: t => -Math.abs(Math.sin(t / 400)) },
+  sleepy: { x: t => Math.sin(t / 900) * 0.8, y: t => Math.sin(t / 900) * 0.8 + 0.5 },
+  cool: { x: () => 0, y: t => (Math.floor(t / 500) % 2) * 0.6 },
+  think: { x: t => Math.sin(t / 600) * 0.8, y: () => 0 },
+};
+// Open eyes blink now and then (a different moment per expression).
+function blinking(e, t) { return ['open', 'wide', 'side', 'angry', 'sad'].includes(e.eyes) && (t + e.id.length * 700) % 3200 < 140; }
+function paint(canvas, pix) {
+  const ctx = canvas.getContext('2d'), img = ctx.createImageData(pix.w, pix.h);
+  for (let i = 0; i < pix.c.length; i++) {
+    const c = pix.c[i];
+    if (!c) continue;
+    const [r, g, b] = hex(c);
+    img.data.set([r, g, b, 255], i * 4);
+  }
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.putImageData(img, 0, 0);
+}
+function randomCfg(rnd = Math.random) {
+  const pick = n => Math.floor(rnd() * n);
+  const acc = [];
+  if (rnd() < 0.3) acc.push(pick(2));
+  if (rnd() < 0.3) acc.push(2);
+  if (rnd() < 0.2) acc.push(3);
+  if (rnd() < 0.2) acc.push(4);
+  if (rnd() < 0.15) acc.push(5);
+  return { base: pick(2), hairStyle: pick(6), hair: pick(10), skin: pick(6), eyes: pick(6), top: pick(5), bottom: pick(4), cloth1: pick(12), cloth2: pick(12), accCol: pick(8), acc };
+}
+if (typeof module !== 'undefined') module.exports = { PAL, EXPRS, HAIRS, TOPS, BOTTOMS, ACCS, renderFull, renderFace, randomCfg };
+</script>
+
+<script>
+// ── The page ──
+const STYLES = [
+  { id: 'A', name: 'Anime sombreado', desc: '3 tons por cor, contorno colorido.', st: { flat: false } },
+];
+let cfg = { base: 1, hairStyle: 3, hair: 0, skin: 1, eyes: 0, top: 4, bottom: 2, cloth1: 0, cloth2: 7, accCol: 2, acc: [2] };
+let expr = EXPRS[1];
+let galStyle = 0;
+let gallery = [];
+const views = [];
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) { if (k === 'onclick') e.onclick = v; else if (k === 'class') e.className = v; else e.setAttribute(k, v); }
+  for (const k of kids) e.append(k);
+  return e;
+}
+function cnv(w, h, zoom) { const c = el('canvas', { width: w, height: h, class: 'px' }); c.style.width = w * zoom + 'px'; c.style.height = h * zoom + 'px'; return c; }
+
+function buildControls() {
+  const box = document.getElementById('controls');
+  box.innerHTML = '';
+  const group = (label, items, get, set) => {
+    box.append(el('label', {}, label));
+    const row = el('div', { class: 'row' });
+    items.forEach((name, i) => row.append(el('button', { class: get() === i ? 'on' : '', onclick: () => { set(i); refresh(); } }, name)));
+    box.append(row);
+  };
+  const chips = (label, pal, key) => {
+    box.append(el('label', {}, label));
+    const row = el('div', { class: 'row' });
+    pal.forEach((c, i) => { const b = el('button', { class: 'chip' + (cfg[key] === i ? ' on' : ''), title: c, onclick: () => { cfg[key] = i; refresh(); } }); b.style.background = c; row.append(b); });
+    box.append(row);
+  };
+  group('Base', ['Masculino', 'Feminino'], () => cfg.base, v => cfg.base = v);
+  group('Cabelo', HAIRS, () => cfg.hairStyle, v => cfg.hairStyle = v);
+  group('Parte de cima', TOPS, () => cfg.top, v => cfg.top = v);
+  group('Parte de baixo', BOTTOMS, () => cfg.bottom, v => cfg.bottom = v);
+  box.append(el('label', {}, 'Acessórios'));
+  const ar = el('div', { class: 'row' });
+  ACCS.forEach((name, i) => ar.append(el('button', { class: cfg.acc.includes(i) ? 'on' : '', onclick: () => {
+    if (cfg.acc.includes(i)) cfg.acc = cfg.acc.filter(a => a !== i);
+    else { cfg.acc = cfg.acc.filter(a => !(i < 2 && a < 2)); cfg.acc.push(i); }   // one pair of glasses
+    refresh();
+  } }, name)));
+  box.append(ar);
+  chips('Pele', PAL.skin, 'skin');
+  chips('Cabelo (cor)', PAL.hair, 'hair');
+  chips('Olhos', PAL.eyes, 'eyes');
+  chips('Roupa principal', PAL.cloth, 'cloth1');
+  chips('Roupa secundária', PAL.cloth, 'cloth2');
+  chips('Acessórios (cor)', PAL.acc, 'accCol');
+  box.append(el('label', {}, 'Expressão (animada)'));
+  const er = el('div', { class: 'row' });
+  EXPRS.forEach(x => er.append(el('button', { class: expr === x ? 'on' : '', onclick: () => { expr = x; refresh(); } }, x.name)));
+  box.append(er);
+  box.append(el('label', {}, ' '));
+  box.append(el('button', { onclick: () => { cfg = randomCfg(); refresh(); } }, 'Aleatório'));
+}
+
+function buildStyles() {
+  const box = document.getElementById('styles');
+  box.innerHTML = '';
+  views.length = 0;
+  for (const S of STYLES) {
+    const full = cnv(96, 128, 3), face = cnv(32, 32, 4), mini = cnv(16, 16, 4), m1 = cnv(16, 16, 1), m2 = cnv(16, 16, 2);
+    const card = el('div', { class: 'card' },
+      el('h3', {}, S.name), el('p', {}, S.desc),
+      el('div', { class: 'sizes' },
+        el('figure', {}, full, el('figcaption', {}, '96×128 (3×)')),
+        el('figure', {}, face, el('figcaption', {}, '32×32 (4×)')),
+        el('figure', {}, mini, el('figcaption', {}, '16×16 (4×)'))),
+      el('div', { class: 'inline' }, m1, el('span', {}, 'ana#3FQ1 te enviou uma música (1×)'), m2, el('span', {}, '(2×)')));
+    box.append(card);
+    views.push({ S, full, face, mini, m1, m2 });
+  }
+}
+
+function buildGallery() {
+  const box = document.getElementById('gallery');
+  box.innerHTML = '';
+  if (!gallery.length) for (let i = 0; i < 12; i++) gallery.push({ cfg: randomCfg(), e: EXPRS[Math.floor(Math.random() * EXPRS.length)] });
+  for (const it of gallery) {
+    it.full = cnv(96, 128, 1.5);
+    it.face = cnv(32, 32, 2);
+    box.append(el('div', { class: 'card', style: 'padding:6px;text-align:center' }, it.full, it.face, el('div', { class: 'note' }, it.e.name)));
+  }
+}
+
+function refresh() { buildControls(); }
+
+function draw(t) {
+  for (const v of views) {
+    paint(v.full, renderFull(cfg, expr, v.S.st, t));
+    const f = renderFace(cfg, expr, v.S.st, t, 32), m = renderFace(cfg, expr, v.S.st, t, 16);
+    paint(v.face, f); paint(v.mini, m); paint(v.m1, m); paint(v.m2, m);
+  }
+  const gs = STYLES[galStyle].st;
+  for (const it of gallery) if (it.full) { paint(it.full, renderFull(it.cfg, it.e, gs, t)); paint(it.face, renderFace(it.cfg, it.e, gs, t, 32)); }
+  drawMock(t);
+  requestAnimationFrame(draw);
+}
+
+// The FH1 screen: 320 x 240, its bars, a notification, the Users window, a game.
+const mockUsers = [
+  { name: 'igor#K7Q2', role: 'dono', cfg: { base: 0, hairStyle: 0, hair: 0, skin: 1, eyes: 0, top: 1, bottom: 0, cloth1: 6, cloth2: 1, accCol: 1, acc: [] }, e: EXPRS[0] },
+  { name: 'ana#3FQ1', role: 'visitante', cfg: { base: 1, hairStyle: 4, hair: 6, skin: 0, eyes: 3, top: 4, bottom: 2, cloth1: 0, cloth2: 8, accCol: 2, acc: [2] }, e: EXPRS[1] },
+  { name: 'kai#9MZ0', role: 'usuário', cfg: { base: 0, hairStyle: 5, hair: 3, skin: 3, eyes: 1, top: 2, bottom: 0, cloth1: 2, cloth2: 1, accCol: 6, acc: [1] }, e: EXPRS[10] },
+];
+function drawMock(t) {
+  const c = document.getElementById('mock'), x = c.getContext('2d');
+  const st = STYLES[galStyle].st;
+  x.imageSmoothingEnabled = false;
+  x.fillStyle = '#a8d0f0'; x.fillRect(0, 0, 320, 240);
+  x.fillStyle = '#f4f6fa'; x.fillRect(0, 0, 320, 14); x.fillRect(0, 226, 320, 14);
+  x.fillStyle = '#20222a'; x.font = '10px monospace'; x.fillText('Apps  Sistema', 4, 11); x.fillText('11:42', 4, 237);
+  const blit = (pix, X, Y) => { const tmp = document.createElement('canvas'); tmp.width = pix.w; tmp.height = pix.h; paint(tmp, pix); x.drawImage(tmp, X, Y); };
+  // The tray: a linked controller shows its user's mini face.
+  blit(renderFace(mockUsers[1].cfg, EXPRS[0], st, t, 16), 268, 225);
+  // Users window.
+  x.fillStyle = '#ffffff'; x.fillRect(10, 22, 180, 150); x.strokeStyle = '#20222a'; x.strokeRect(10.5, 22.5, 179, 149);
+  x.fillStyle = '#20222a'; x.fillText('Usuários', 70, 33);
+  mockUsers.forEach((u, i) => {
+    const y = 40 + i * 40;
+    blit(renderFace(u.cfg, u.e, st, t, 32), 16, y);
+    x.fillStyle = '#20222a'; x.fillText(u.name, 54, y + 14); x.fillStyle = '#6a7080'; x.fillText(u.role, 54, y + 26);
+  });
+  // Notification.
+  x.fillStyle = '#20222af0'; x.fillRect(150, 182, 164, 36);
+  blit(renderFace(mockUsers[1].cfg, EXPRS[2], st, t, 16), 156, 192);
+  x.fillStyle = '#ffffff'; x.font = '9px monospace'; x.fillText('ana#3FQ1 te enviou', 176, 197); x.fillText('uma música', 176, 209);
+  // A game's header: two players with their faces.
+  x.fillStyle = '#101828'; x.fillRect(196, 22, 118, 150);
+  blit(renderFace(mockUsers[0].cfg, EXPRS[5], st, t, 32), 202, 30);
+  blit(renderFace(mockUsers[1].cfg, EXPRS[6], st, t, 32), 276, 30);
+  x.fillStyle = '#f4c21f'; x.font = 'bold 10px monospace'; x.fillText('VS', 248, 50);
+  x.fillStyle = '#d8dee6'; x.font = '9px monospace'; x.fillText('igor', 202, 74); x.fillText('ana', 280, 74);
+  blit(renderFull(mockUsers[0].cfg, EXPRS[5], st, t), 200, 82 - 40 + 40);
+}
+
+document.getElementById('reroll').onclick = () => { gallery = []; buildGallery(); };
+
+buildControls();
+buildStyles();
+buildGallery();
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+build/
+managed_components/
+sdkconfig
+sdkconfig.old
+apps/packages/*/build/
+apps/packages/*/managed_components/
+apps/packages/*/sdkconfig
+apps/packages/*/sdkconfig.old
+*.fpk

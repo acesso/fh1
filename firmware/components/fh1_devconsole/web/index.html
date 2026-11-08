@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FH1 dev console</title>
+<style>
+  :root { --bg: #15171a; --panel: #1e2126; --line: #333840; --ink: #e6e9ee; --muted: #8b939e; --accent: #6aa4ff;
+          --ok: #5fd08a; --warn: #f0c35a; --bad: #ff6b6b; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 16px; margin: 0; }
+  header .st { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+  main { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 12px; padding: 12px 16px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+  section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  .wide { grid-column: 1 / -1; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  td, th { text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; }
+  .mono { font-family: var(--mono); }
+  .ready { color: var(--ok); } .absent { color: var(--muted); } .disabled { color: var(--warn); } .failed { color: var(--bad); }
+  button { font: inherit; font-size: 12px; color: var(--ink); background: #2a2f36; border: 1px solid var(--line); border-radius: 5px; padding: 3px 8px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.danger { border-color: #6b2b2b; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; font-size: 13px; }
+  .kv span:nth-child(odd) { color: var(--muted); }
+  .bar { height: 6px; background: #2a2f36; border-radius: 3px; overflow: hidden; margin-top: 2px; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+  #log { height: 260px; overflow: auto; white-space: pre-wrap; font: 11px/1.35 var(--mono); background: #0f1113; padding: 6px; border-radius: 6px; }
+  #msg { font-family: var(--mono); font-size: 12px; color: var(--warn); }
+  .pad { display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 44px); gap: 4px; }
+  .pad button, .face button, .meta button { font-size: 14px; font-weight: 600; touch-action: none; user-select: none; }
+  .pad button.on, .face button.on, .meta button.on { background: var(--accent); color: #000; }
+  .face { display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 44px); gap: 4px; }
+  .ctl { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; }
+  .meta { display: flex; gap: 6px; }
+  .hint { color: var(--muted); font-size: 12px; }
+  #login { display: none; gap: 8px; align-items: center; }
+  input, select { font: inherit; background: #0f1113; color: var(--ink); border: 1px solid var(--line); border-radius: 5px; padding: 3px 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>FH1 dev console</h1>
+  <span class="st" id="conn">connecting…</span>
+  <span id="login"><input id="code" inputmode="numeric" size="7" placeholder="code"><button id="go">Connect</button><span class="hint">The 6-digit code is in the device log and its System window.</span></span>
+  <span id="msg"></span>
+</header>
+<main>
+  <section>
+    <h2>System</h2>
+    <div class="kv" id="sys"></div>
+  </section>
+  <section>
+    <h2>Controller</h2>
+    <div class="ctl">
+      <div class="pad">
+        <span></span><button data-k="UP">▲</button><span></span>
+        <button data-k="LEFT">◀</button><span></span><button data-k="RIGHT">▶</button>
+        <span></span><button data-k="DOWN">▼</button><span></span>
+      </div>
+      <div class="face">
+        <span></span><button data-k="X">X</button><span></span>
+        <button data-k="Y">Y</button><span></span><button data-k="A">A</button>
+        <span></span><button data-k="B">B</button><span></span>
+      </div>
+      <div class="meta"><button data-k="SELECT">Select</button><button data-k="START">Start</button><button data-k="MENU">Menu</button></div>
+      <div class="meta"><button id="takep1" title="Make this controller player 1, taking it from any other">Take player 1</button><button id="release" title="Give the players back to automatic">Release</button> <span class="hint" id="padrole"></span></div>
+    </div>
+    <p class="hint">Keyboard: arrows or WASD, J = A, K = B, U = X, I = Y, Enter = Start, Space = Select, M = Menu. A gamepad on this computer works too <span id="pad"></span>.</p>
+  </section>
+  <section>
+    <h2>Storage</h2>
+    <div class="kv" id="sto"></div>
+    <p>
+      <button data-sd="mount">Mount SD</button> <button data-sd="eject">Eject SD</button>
+      <button class="danger" data-sd="format">Format SD…</button> <button class="danger" id="intfmt">Format internal…</button>
+    </p>
+  </section>
+  <section>
+    <h2>Firmware</h2>
+    <div class="kv"><span>running</span><span id="fw">—</span></div>
+    <p><input type="file" id="fwfile" accept=".bin"> <button id="fwgo">Update…</button> <span id="fwprog" class="hint"></span></p>
+    <p class="hint">Use build/fh1.bin. The device restarts into it; if it fails to start, it rolls back.</p>
+  </section>
+  <section class="wide">
+    <h2>Devices <span class="hint" id="caps"></span></h2>
+    <table><thead><tr><th>id</th><th>class</th><th>driver</th><th>state</th><th>info</th><th>mA</th><th></th></tr></thead><tbody id="devs"></tbody></table>
+  </section>
+  <section class="wide">
+    <h2>Apps</h2>
+    <table><thead><tr><th>app</th><th>version</th><th>needs</th><th>wants</th><th></th></tr></thead><tbody id="apps"></tbody></table>
+    <h2 style="margin-top:12px">Packages <span class="hint">staged on the device or on the SD card</span></h2>
+    <table><thead><tr><th>file</th><th>where</th><th>app</th><th>version</th><th></th></tr></thead><tbody id="pkgs"></tbody></table>
+    <p><input type="file" id="file" accept=".fpk,.bin,.gb,.gbc,.nes,.sms,.gg,.sg,.mp3,.flac,.ogg,.oga,.wav,.mod"> to <select id="dest"><option value="sd">SD card</option><option value="int">internal storage</option></select> <button id="upload">Upload</button></p>
+  </section>
+  <section class="wide">
+    <h2>Tasks</h2>
+    <table><thead><tr><th>task</th><th>state</th><th>prio</th><th>free stack</th><th>core</th></tr></thead><tbody id="tasks"></tbody></table>
+  </section>
+  <section class="wide">
+    <h2>Log</h2>
+    <div id="log"></div>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const kb = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : (n / 1024).toFixed(0) + ' KB';
+let ws, code = '';
+try { code = localStorage.getItem('fh1.code') || ''; } catch (e) {}
+
+function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+function say(t) { $('msg').textContent = t; clearTimeout(say.t); say.t = setTimeout(() => $('msg').textContent = '', 6000); }
+
+function connect() {
+  ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onopen = () => { $('conn').textContent = 'connected'; if (code) send({ t: 'auth', token: code }); else $('login').style.display = 'flex'; };
+  ws.onclose = () => { $('conn').textContent = 'disconnected, retrying…'; setTimeout(connect, 2000); };
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.t === 'auth') {
+      $('login').style.display = m.ok ? 'none' : 'flex';
+      if (m.ok) { try { localStorage.setItem('fh1.code', code); } catch (e) {} }
+      else say(m.msg);
+    } else if (m.t === 'reply') say(m.msg);
+    else if (m.t === 'stats') render(m);
+  };
+}
+$('go').onclick = () => { code = $('code').value.trim(); send({ t: 'auth', token: code }); };
+
+function render(m) {
+  if ('webpad' in m) showPadRole(m.webpad);
+  const h = m.heap, up = m.up;
+  $('sys').innerHTML = [
+    ['uptime', `${Math.floor(up / 3600)}h ${Math.floor(up / 60) % 60}m ${up % 60}s`],
+    ['CPU', `core 0: ${m.cpu[0]}%, core 1: ${m.cpu[1]}%`],
+    ['internal RAM', `${kb(h.int_free)} free (min ${kb(h.int_min)}, largest ${kb(h.int_big)})`],
+    ['PSRAM', `${kb(h.ps_free)} free (min ${kb(h.ps_min)}, largest ${kb(h.ps_big)})`],
+    ['Wi-Fi', m.wifi.up ? `${esc(m.wifi.ssid)}, ${m.wifi.ip}, ${m.wifi.rssi} dBm` : 'not connected'],
+    ['chip temp', m.temp != null ? m.temp.toFixed(1) + ' °C' : '—'],
+    ['running app', m.apps?.running ? esc(m.apps.running) : '—'],
+  ].map(([k, v]) => `<span>${k}</span><span>${v}</span>`).join('');
+  $('fw').textContent = (m.fw || '—') + (m.slot ? ` (${m.slot})` : '');
+  const sd = m.sd, it = m.int;
+  $('sto').innerHTML = [
+    ['internal', it ? `${kb(it.used)} of ${kb(it.total)} used<div class="bar"><i style="width:${(100 * it.used / it.total).toFixed(0)}%"></i></div>` : '—'],
+    ['SD card', sd.mounted ? `${esc(sd.name)}, ${kb(sd.total - sd.free)} of ${kb(sd.total)} used, ${sd.khz} kHz<div class="bar"><i style="width:${(100 * (sd.total - sd.free) / sd.total).toFixed(0)}%"></i></div>` : (sd.ejected ? 'ejected' : 'no card')],
+  ].map(([k, v]) => `<span>${k}</span><span>${v}</span>`).join('');
+  $('caps').textContent = 'capabilities: ' + m.caps.join(' ');
+  $('devs').innerHTML = m.devs.map(d => `<tr><td class="mono">${esc(d.id)}</td><td>${esc(d.cls)}</td><td>${esc(d.drv)}</td>
+    <td class="${d.state}">${d.state}${d.reason ? ' <span class="hint">(' + esc(d.reason) + ')</span>' : ''}</td><td>${esc(d.info)}</td><td>${d.ma}</td>
+    <td>${d.essential ? '' : (d.state === 'disabled' ? `<button data-dev="${esc(d.id)}" data-op="enable">Enable</button>` : `<button data-dev="${esc(d.id)}" data-op="disable">Disable</button>`)}
+    ${d.state !== 'disabled' ? `<button data-dev="${esc(d.id)}" data-op="probe">Probe again</button>` : ''}</td></tr>`).join('');
+  const a = m.apps || { installed: [], packages: [], builtin: [] };
+  $('apps').innerHTML = a.builtin.map(b => `<tr><td>${esc(b.name)} <span class="hint">built in</span></td><td>—</td><td></td><td></td>
+      <td><button data-app="start" data-id="${esc(b.id)}">Open</button></td></tr>`).join('') +
+    a.installed.map(p => `<tr><td>${esc(p.name)} <span class="hint mono">${esc(p.id)}</span></td><td>${esc(p.version)}</td>
+      <td class="${p.missing.length ? 'failed' : ''}">${p.needs.join(' ')}${p.missing.length ? ' (missing ' + p.missing.join(' ') + ')' : ''}</td><td>${p.wants.join(' ')}</td>
+      <td>${a.running === p.id ? `<button data-app="stop" data-id="${esc(p.id)}">Stop</button>` : `<button data-app="start" data-id="${esc(p.id)}">Start</button>`}
+      <button class="danger" data-app="uninstall" data-id="${esc(p.id)}">Uninstall…</button></td></tr>`).join('');
+  $('pkgs').innerHTML = a.packages.map(p => `<tr><td class="mono">${esc(p.file)}</td><td>${p.where}</td><td>${esc(p.name || '?')} <span class="hint mono">${esc(p.id || '')}</span></td><td>${esc(p.version || '')}</td>
+      <td><button data-app="install" data-path="${esc(p.path)}">Install</button> <button class="danger" data-app="delete_pkg" data-path="${esc(p.path)}">Delete</button></td></tr>`).join('')
+    || '<tr><td colspan="5" class="hint">none</td></tr>';
+  const states = ['running', 'ready', 'blocked', 'suspended', 'deleted'];
+  $('tasks').innerHTML = m.tasks.sort((x, y) => x[0].localeCompare(y[0])).map(t => `<tr><td class="mono">${esc(t[0])}</td><td>${states[t[1]] || t[1]}</td><td>${t[2]}</td><td>${t[3]} B</td><td>${t[4] < 0 ? 'any' : t[4]}</td></tr>`).join('');
+  if (m.log) {
+    const el = $('log'), atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 4;
+    el.textContent = (el.textContent + m.log.replace(/\x1b\[[0-9;]*m/g, '')).slice(-40000);
+    if (atEnd) el.scrollTop = el.scrollHeight;
+  }
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.dev) send({ t: 'dev', id: b.dataset.dev, op: b.dataset.op });
+  if (b.dataset.sd) {
+    if (b.dataset.sd === 'format' && !confirm('Format the SD card? Everything on it is erased.')) return;
+    send({ t: 'sd', op: b.dataset.sd });
+  }
+  if (b.dataset.app) {
+    const op = b.dataset.app;
+    if (op === 'uninstall' && !confirm(`Uninstall ${b.dataset.id} and delete its data?`)) return;
+    if (op === 'delete_pkg' && !confirm('Delete this package file?')) return;
+    send({ t: 'app', op, id: b.dataset.id, path: b.dataset.path });
+  }
+});
+$('intfmt').onclick = () => { if (confirm('Format the internal storage? Installed apps, their data and staged packages are erased.')) send({ t: 'app', op: 'int_format' }); };
+$('upload').onclick = async () => {
+  const f = $('file').files[0];
+  if (!f) return say('pick a .fpk file first');
+  say('uploading…');
+  const dest = $('dest').value;
+  const r = await fetch(`/upload?name=${encodeURIComponent(f.name)}&dest=${dest}`, { method: 'POST', headers: { 'X-FH1-Code': code }, body: f });
+  say(r.ok ? `${f.name}: ${await r.text()}` : `upload failed: ${await r.text()}`);
+};
+
+$('fwgo').onclick = () => {
+  const f = $('fwfile').files[0];
+  if (!f) return say('pick a firmware .bin first');
+  if (!confirm(`Update the firmware with ${f.name}? The device restarts.`)) return;
+  const x = new XMLHttpRequest();
+  x.open('POST', '/ota');
+  x.setRequestHeader('X-FH1-Code', code);
+  x.upload.onprogress = e => { if (e.lengthComputable) $('fwprog').textContent = `${Math.round(100 * e.loaded / e.total)}%`; };
+  x.onload = () => { $('fwprog').textContent = ''; say(x.status === 200 ? x.responseText : `update failed: ${x.responseText}`); };
+  x.onerror = () => say('update failed: connection lost');
+  x.send(f);
+};
+
+// ── Controller: on-screen buttons, keyboard, gamepad ──
+// It is a gamepad of the FH1's ("Web console"): as a player its keys are that player's; otherwise the FH1's own.
+$('takep1').onclick = () => send({ t: 'pad', op: 'p1' });
+$('release').onclick = () => send({ t: 'pad', op: 'release' });
+function showPadRole(n) { $('padrole').textContent = n ? `player ${n}` : 'no player (keys act as the FH1\'s own)'; }
+const held = new Set();
+function key(k, p) {
+  if (p === held.has(k)) return;
+  p ? held.add(k) : held.delete(k);
+  document.querySelectorAll(`[data-k="${k}"]`).forEach(b => b.classList.toggle('on', p));
+  send({ t: 'key', k, p });
+}
+document.querySelectorAll('[data-k]').forEach(b => {
+  b.addEventListener('pointerdown', e => { e.preventDefault(); b.setPointerCapture(e.pointerId); key(b.dataset.k, true); });
+  b.addEventListener('pointerup', () => key(b.dataset.k, false));
+  b.addEventListener('pointercancel', () => key(b.dataset.k, false));
+});
+const KEYS = { ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT', w: 'UP', s: 'DOWN', a: 'LEFT', d: 'RIGHT',
+  j: 'A', z: 'A', k: 'B', x: 'B', u: 'X', i: 'Y', Enter: 'START', ' ': 'SELECT', m: 'MENU' };
+const typing = e => e.target.tagName === 'INPUT';
+addEventListener('keydown', e => { const k = KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key]; if (k && !typing(e)) { e.preventDefault(); key(k, true); } });
+addEventListener('keyup', e => { const k = KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key]; if (k && !typing(e)) key(k, false); });
+addEventListener('blur', () => [...held].forEach(k => key(k, false)));
+// Standard gamepad layout, SNES positions: bottom = B, right = A, left = Y, top = X.
+const PAD = { 0: 'B', 1: 'A', 2: 'Y', 3: 'X', 8: 'SELECT', 9: 'START', 16: 'MENU', 12: 'UP', 13: 'DOWN', 14: 'LEFT', 15: 'RIGHT' };
+const padHeld = {};
+function pollPad() {
+  const gp = [...(navigator.getGamepads?.() || [])].find(g => g);
+  $('pad').textContent = gp ? `(using: ${gp.id.slice(0, 40)})` : '';
+  if (gp) {
+    const want = {};
+    for (const [i, k] of Object.entries(PAD)) if (gp.buttons[i]?.pressed) want[k] = true;
+    const [ax, ay] = gp.axes;
+    if (ax < -0.5) want.LEFT = true; if (ax > 0.5) want.RIGHT = true;
+    if (ay < -0.5) want.UP = true; if (ay > 0.5) want.DOWN = true;
+    for (const k of new Set([...Object.keys(want), ...Object.keys(padHeld)])) {
+      if (!!want[k] !== !!padHeld[k]) { key(k, !!want[k]); padHeld[k] = !!want[k]; }
+    }
+  }
+  requestAnimationFrame(pollPad);
+}
+requestAnimationFrame(pollPad);
+connect();
+</script>
+</body>
+</html>

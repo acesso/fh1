@@ -1,0 +1,21 @@
+// The FH1 bridge's GATT database (protocol: firmware/PLAN.md, "Extension board"). Compiled once with
+// BTstack's tool/compile_gatt.py into fh1_bridge.gatt.h (committed: the build does not run it):
+//   python3 <btstack>/tool/compile_gatt.py fh1_bridge.gatt fh1_bridge.gatt.h
+PRIMARY_SERVICE, GAP_SERVICE
+CHARACTERISTIC, GAP_DEVICE_NAME, READ, "FH1 Bridge"
+
+PRIMARY_SERVICE, GATT_SERVICE
+CHARACTERISTIC, GATT_DATABASE_HASH, READ,
+
+// FH1 bridge service
+PRIMARY_SERVICE, F1B10000-5A1E-4C6B-9E2A-6F48315A0001
+// info: protocol version, limits, capabilities, names (read)
+CHARACTERISTIC, F1B10001-5A1E-4C6B-9E2A-6F48315A0001, READ | DYNAMIC
+// devices: the attached devices (read; notified when it changes)
+CHARACTERISTIC, F1B10002-5A1E-4C6B-9E2A-6F48315A0001, READ | NOTIFY | DYNAMIC
+// input: every ready controller's state, at the set rate (notify)
+CHARACTERISTIC, F1B10003-5A1E-4C6B-9E2A-6F48315A0001, NOTIFY | DYNAMIC
+// command: pair, forget, rumble, light bar, LEDs, rate, ping (write without response)
+CHARACTERISTIC, F1B10004-5A1E-4C6B-9E2A-6F48315A0001, WRITE | WRITE_WITHOUT_RESPONSE | DYNAMIC
+// event: device ready or gone, pairing, pong (notify)
+CHARACTERISTIC, F1B10005-5A1E-4C6B-9E2A-6F48315A0001, NOTIFY | DYNAMIC

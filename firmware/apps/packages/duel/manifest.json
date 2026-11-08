@@ -1,0 +1,9 @@
+{
+  "id": "org.fh1.duel",
+  "name": "Duelo",
+  "version": "0.3.0",
+  "sdk": "0.3",
+  "entry": "app.elf",
+  "needs": [],
+  "wants": []
+}

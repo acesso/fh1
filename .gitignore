@@ -1,0 +1,9 @@
+# editors
+.vscode/
+*.swp
+.DS_Store
+
+# firmware builds (later)
+build*/
+sdkconfig
+sdkconfig.old

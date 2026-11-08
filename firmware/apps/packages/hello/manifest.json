@@ -1,0 +1,11 @@
+{
+  "id": "org.fh1.hello",
+  "name": "Hello FH1",
+  "version": "0.2.0",
+  "sdk": "0.4",
+  "entry": "app.elf",
+  "needs": [],
+  "wants": [
+    "AUDIO_OUT"
+  ]
+}
