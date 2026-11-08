@@ -2,6 +2,12 @@
 
 A modular, pocket-sized handheld built on an ESP32-S3, hand-wired on two 12 × 8 cm perfboards. It runs "apps": Game Boy Color, NES and Master System emulators, a music player, games installed as packages, and anything else that fits (network tools, device-to-device messages over LoRa).
 
+<p align="center">
+  <img src="hardware/layout/concept-v1-front.png" alt="FH1 concept render, front view: a 2.8-inch screen above a thumbstick and four coloured buttons on a green perfboard, with an antenna on top" width="480">
+</p>
+
+*Concept render of the V1 build, made by [`hardware/layout/concept-render.html`](hardware/layout/concept-render.html) from the layout's positions and wires.*
+
 It borrows its building style from an ESP32-S3 Wi-Fi bridge built earlier: modules on 2.54 mm round-pin sockets, so each one can be swapped or reworked.
 
 ## Goals
