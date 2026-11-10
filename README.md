@@ -22,7 +22,7 @@ It borrows its building style from an ESP32-S3 Wi-Fi bridge built earlier: modul
 
 ## Status
 
-The parts for **two devices** are bought; placement is drawn and wiring routed; nothing is soldered yet. The firmware runs on a Guition ESP32-4848S040 dev board (`firmware/README.md`), with Bluetooth controllers through an ESP32 bridge (`bridge/`).
+The parts for **two devices** are bought; placement is drawn and wiring routed; nothing is soldered yet. The firmware runs on a Guition ESP32-4848S040 dev board (`firmware/README.md`), with Bluetooth controllers through an ESP32 bridge (`bridge/`). Releases and what each added: `CHANGELOG.md`.
 
 ## Layout
 
