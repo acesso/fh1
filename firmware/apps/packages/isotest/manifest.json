@@ -1,0 +1,12 @@
+{
+  "id": "org.fh1.isotest",
+  "name": "T\u00e1ticas da Ilha",
+  "version": "0.8.1",
+  "sdk": "0.8",
+  "entry": "app.elf",
+  "needs": [],
+  "wants": [],
+  "uses": [
+    "org.fh1.assets.rpg-sfx"
+  ]
+}

@@ -1,0 +1,18 @@
+# The Elemental: its aura, its blast; a water spell on it. Units: 0 Artur, 1 Lia, 2 Tomé, 3 the Elemental.
+nosave
+level 0 14
+level 1 14
+level 2 14
+level 3 14
+go 0 2 8
+wait 70
+log
+cam -190 -40
+wait 5
+shot m01-aura
+place 0 4 7 3
+act 3 0 0 0
+wait 14
+shot m02-blast
+wait 40
+shot m03-blast-hit

@@ -1,0 +1,36 @@
+# Elemental weapons, falling over, the Elemental's blast, on the PC. Goods: 16 fire sword 1, 46 earth bow 1;
+# armour 64 heavy 0, 68 light 0. Units in the den: 0 Artur, 1 Lia, 2 Tomé, 3 the Alpha, 4-5 its guards.
+nosave
+level 0 8
+level 1 8
+level 2 8
+level 3 8
+go 0 0 2
+wait 70
+log
+cam -200 -30
+gear 0 16 64
+gear 2 46 68
+place 0 4 7 3
+place 5 4 6 1
+wait 10
+shot e01-fire-sword
+act 0 0 0 5
+wait 7
+shot e02-fire-swing
+wait 4
+shot e03-fire-hit
+wait 40
+place 2 6 8 3
+act 2 0 0 3
+wait 13
+shot e04-earth-arrow
+wait 30
+place 4 3 8 1
+hp 1 1
+act 4 0 0 1
+wait 12
+shot e05-falling
+wait 30
+shot e06-fallen
+log

@@ -1,0 +1,19 @@
+key A
+key DOWN
+key A
+key A
+key A
+wait 45
+place 3 5 6 2
+place 4 4 5 2
+place 0 4 6 0
+key A
+wait 3
+key DOWN
+wait 3
+key A
+wait 4
+shot tgt1
+key RIGHT
+wait 4
+shot tgt2

@@ -1,0 +1,60 @@
+# A won battle from start to the next battle on the path: an archer's counter at range, the win, the summary,
+# a level up, the shop, the party, the path with the next battle open; transitions caught on the way.
+key A
+wait 2
+shot tr-title-party
+key DOWN
+key A
+wait 3
+shot tr-party-realms
+wait 12
+key A
+wait 3
+shot tr-realms-path
+wait 12
+key A
+wait 4
+shot tr-path-battle
+wait 45
+# The archer, ready to counter, shot at by a wolf (made an archer for the test) three cells away.
+counter 2
+ranged 3 4
+place 3 6 6 2
+place 2 3 6 0
+act 3 0 0 2
+wait 12
+shot ranged-shot
+wait 14
+shot ranged-counter1
+wait 10
+shot ranged-counter2
+wait 40
+# Win: enough XP for the archer to level up.
+xp 2 120
+win
+wait 8
+shot win-falling
+wait 60
+key A
+wait 6
+shot summary-open
+wait 20
+shot summary-foes
+wait 40
+shot summary-coins
+wait 60
+shot summary-heroes
+wait 60
+shot summary-end
+key A
+wait 4
+shot tr-shop
+wait 20
+key B
+wait 20
+key DOWN
+key A
+wait 20
+key A
+wait 20
+shot path-after-win

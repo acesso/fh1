@@ -1,0 +1,62 @@
+# Weapons, armour, actions and the counter, frame by frame (Orla da Ilha).
+key A
+key DOWN
+key A
+key A
+key A
+wait 45
+gear 0 0 64
+gear 1 5 68
+gear 2 8 65
+place 0 4 6 0
+place 3 5 6 2
+target 0 0 0 5 6
+wait 6
+shot preview
+act 0 0 0 3
+wait 5
+shot melee1
+wait 4
+shot melee2
+wait 3
+shot melee3
+wait 40
+place 2 2 8 0
+place 4 6 8 2
+act 2 0 0 4
+wait 9
+shot bow1
+wait 6
+shot bow2
+wait 5
+shot bow3
+wait 50
+place 1 3 7 0
+act 0 1 2 1
+wait 10
+shot cast1
+wait 12
+shot cast2
+wait 6
+shot cast3
+wait 50
+act 1 2 76 2
+wait 10
+shot throw1
+wait 9
+shot throw2
+wait 16
+shot throw3
+wait 50
+counter 1
+place 3 4 7 2
+place 1 3 7 0
+act 3 0 0 1
+wait 8
+shot counter1
+wait 14
+shot counter2
+wait 14
+shot counter3
+wait 40
+log

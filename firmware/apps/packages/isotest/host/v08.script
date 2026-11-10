@@ -1,0 +1,95 @@
+# SDK 0.8 and the casters on the PC: heroes in their gear on the title and the cards, the controller styles' icons,
+# Loja on the party screen, the magic list, Y to Esperar, the elemental arrows (water needle, earth spike, air
+# tempest), an enemy caster, another user taking player 1 over. Run: host/host host/v08.script host/out/v08
+nosave
+wait 20
+shot v01-title
+wait 25
+shot v02-title-turned
+key A
+wait 20
+pad xbox
+shot v03-party-xbox
+# The party: Tomé stays, Artur out, Nara in (cards 0 Artur, 3 Nara).
+key A
+key A
+key B
+wait 4
+key RIGHT
+key RIGHT
+key RIGHT
+key A
+key A
+key B
+wait 4
+pad ps
+key DOWN
+key RIGHT
+wait 6
+shot v04-party-ps-loja
+key A
+wait 20
+shot v05-shop
+key B
+wait 20
+pad nintendo
+level 1 6
+level 2 6
+level 3 8
+give 34 1
+won 0 0 3
+go 0 1 1
+wait 80
+log
+shot v06-fase2-caster
+pad fh1
+key X
+key X
+wait 4
+key A
+wait 4
+key DOWN
+key DOWN
+wait 4
+key A
+wait 6
+shot v07-magic
+key B
+wait 4
+key Y
+wait 6
+shot v08-menu-wait
+key B
+wait 4
+cam -150 -40
+gear 1 34 68
+place 1 4 7 3
+place 3 6 5 2
+hp 3 200
+act 1 0 0 3
+wait 11
+shot v09-ice-needle
+wait 40
+gear 1 46 68
+act 1 0 0 3
+wait 30
+shot v10-rock-spike
+wait 40
+gear 1 58 68
+place 3 7 6 2
+act 1 0 0 3
+wait 11
+shot v11-tempest-1
+wait 3
+shot v12-tempest-2
+wait 3
+shot v13-tempest-3
+wait 7
+shot v14-vortex
+wait 7
+shot v15-vortex-2
+wait 40
+log
+user avi
+wait 30
+shot v16-avi

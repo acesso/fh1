@@ -1,0 +1,11 @@
+# On the FH1: a hero knocked out by a bite (after dev-start.script: 2 Nara, 4 a wolf).
+dev hp 2 3
+dev place 2 3 8 3
+dev place 4 4 8 2
+dev target 4 0 0 3 8
+sleep 0.4
+dev act 4 0 0 2
+sleep 1.6
+shot s21-hero-down
+dev log
+op stop

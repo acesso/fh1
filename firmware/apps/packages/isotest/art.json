@@ -1,0 +1,1702 @@
+{
+ "out": "assets/art.fart",
+ "previews": "build/art-preview",
+ "images": [
+  {
+   "name": "tile",
+   "png": "../../../../assets/packs/scrabling-isometric-tiles/tileset/spritesheet.png",
+   "grid": [
+    32,
+    32
+   ],
+   "cells": "all",
+   "anchor": [
+    16,
+    16
+   ]
+  },
+  {
+   "name": "icon",
+   "png": "../../../../assets/packs/icons-adventures-bagback/adventures-bagback.png",
+   "grid": [
+    16,
+    16
+   ],
+   "cells": "all",
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "sword",
+   "png": "../../../../assets/packs/swords-32/swords.png",
+   "grid": [
+    32,
+    32
+   ],
+   "cells": "all",
+   "anchor": [
+    0,
+    0
+   ]
+  }
+ ],
+ "anims": [
+  {
+   "name": "knight.walk",
+   "aseprite": "../../../../assets/packs/banado-isometric-walk/units/KnightWalking.aseprite",
+   "tags": {
+    "se": "Se",
+    "sw": "SW",
+    "nw": "NW",
+    "ne": "NE"
+   },
+   "anchor": [
+    32,
+    48
+   ],
+   "body": {
+    "hand": "frontArm",
+    "torso": [
+     "body"
+    ],
+    "arms": [
+     "frontArm",
+     "backArm"
+    ],
+    "legs": [
+     "frontleg",
+     "backLeg"
+    ]
+   }
+  },
+  {
+   "name": "knight.idle",
+   "aseprite": "../../../../assets/packs/banado-isometric-walk/units/KnightWalking.aseprite",
+   "tags": {
+    "se": "Se#",
+    "sw": "Sw#",
+    "nw": "Nw#",
+    "ne": "Ne#"
+   },
+   "anchor": [
+    32,
+    48
+   ],
+   "body": {
+    "hand": "frontArm",
+    "torso": [
+     "body"
+    ],
+    "arms": [
+     "frontArm",
+     "backArm"
+    ],
+    "legs": [
+     "frontleg",
+     "backLeg"
+    ]
+   }
+  },
+  {
+   "name": "warrior.walk",
+   "aseprite": "../../../../assets/packs/banado-isometric-walk/units/WarriorWalk.aseprite",
+   "tags": {
+    "se": "Se",
+    "sw": "SW",
+    "nw": "NW",
+    "ne": "NE"
+   },
+   "anchor": [
+    32,
+    48
+   ],
+   "body": {
+    "hand": "frontArm",
+    "torso": [
+     "body"
+    ],
+    "arms": [
+     "frontArm",
+     "backArm"
+    ],
+    "legs": [
+     "frontleg",
+     "backLeg"
+    ]
+   }
+  },
+  {
+   "name": "warrior.idle",
+   "aseprite": "../../../../assets/packs/banado-isometric-walk/units/WarriorWalk.aseprite",
+   "tags": {
+    "se": "Se#",
+    "sw": "Sw#",
+    "nw": "Nw#",
+    "ne": "Ne#"
+   },
+   "anchor": [
+    32,
+    48
+   ],
+   "body": {
+    "hand": "frontArm",
+    "torso": [
+     "body"
+    ],
+    "arms": [
+     "frontArm",
+     "backArm"
+    ],
+    "legs": [
+     "frontleg",
+     "backLeg"
+    ]
+   }
+  },
+  {
+   "name": "adventurer.walk",
+   "aseprite": "../../../../assets/packs/banado-isometric-walk/units/AdventurerWalk.aseprite",
+   "tags": {
+    "se": "Se",
+    "sw": "SW",
+    "nw": "NW",
+    "ne": "NE"
+   },
+   "anchor": [
+    32,
+    48
+   ],
+   "body": {
+    "hand": "frontArm",
+    "torso": [
+     "body"
+    ],
+    "arms": [
+     "frontArm",
+     "backArm"
+    ],
+    "legs": [
+     "frontleg",
+     "backLeg"
+    ]
+   }
+  },
+  {
+   "name": "adventurer.idle",
+   "aseprite": "../../../../assets/packs/banado-isometric-walk/units/AdventurerWalk.aseprite",
+   "tags": {
+    "se": "Se#",
+    "sw": "Sw#",
+    "nw": "Nw#",
+    "ne": "Ne#"
+   },
+   "anchor": [
+    32,
+    48
+   ],
+   "body": {
+    "hand": "frontArm",
+    "torso": [
+     "body"
+    ],
+    "arms": [
+     "frontArm",
+     "backArm"
+    ],
+    "legs": [
+     "frontleg",
+     "backLeg"
+    ]
+   }
+  },
+  {
+   "name": "mage.walk",
+   "aseprite": "../../../../assets/packs/banado-isometric-walk/units/BlackMageWalk.aseprite",
+   "tags": {
+    "se": "Se",
+    "sw": "SW",
+    "nw": "NW",
+    "ne": "NE"
+   },
+   "anchor": [
+    32,
+    48
+   ],
+   "body": {
+    "hand": "frontArm",
+    "torso": [
+     "body"
+    ],
+    "arms": [
+     "frontArm",
+     "backArm"
+    ],
+    "legs": [
+     "frontleg",
+     "backLeg"
+    ]
+   }
+  },
+  {
+   "name": "mage.idle",
+   "aseprite": "../../../../assets/packs/banado-isometric-walk/units/BlackMageWalk.aseprite",
+   "tags": {
+    "se": "Se#",
+    "sw": "Sw#",
+    "nw": "Nw#",
+    "ne": "Ne#"
+   },
+   "anchor": [
+    32,
+    48
+   ],
+   "body": {
+    "hand": "frontArm",
+    "torso": [
+     "body"
+    ],
+    "arms": [
+     "frontArm",
+     "backArm"
+    ],
+    "legs": [
+     "frontleg",
+     "backLeg"
+    ]
+   }
+  },
+  {
+   "name": "wolf.idle",
+   "aseprite": "../../../../assets/packs/scrabling-isometric-tiles/critters/aseprite files/critter_wolf.aseprite",
+   "tags": {
+    "sw": {
+     "tag": "idle",
+     "layers": [
+      "S-West Shadow",
+      "S-West"
+     ],
+     "anchor": [
+      32,
+      44
+     ]
+    },
+    "se": {
+     "tag": "idle",
+     "layers": [
+      "S-East Shadow",
+      "S-East"
+     ],
+     "anchor": [
+      32,
+      108
+     ]
+    },
+    "nw": {
+     "tag": "idle",
+     "layers": [
+      "N-West Shadow",
+      "N-West"
+     ],
+     "anchor": [
+      32,
+      172
+     ]
+    },
+    "ne": {
+     "tag": "idle",
+     "layers": [
+      "N-East Shadow",
+      "N-East"
+     ],
+     "anchor": [
+      32,
+      236
+     ]
+    }
+   }
+  },
+  {
+   "name": "wolf.run",
+   "aseprite": "../../../../assets/packs/scrabling-isometric-tiles/critters/aseprite files/critter_wolf.aseprite",
+   "tags": {
+    "sw": {
+     "tag": "run",
+     "layers": [
+      "S-West Shadow",
+      "S-West"
+     ],
+     "anchor": [
+      32,
+      44
+     ]
+    },
+    "se": {
+     "tag": "run",
+     "layers": [
+      "S-East Shadow",
+      "S-East"
+     ],
+     "anchor": [
+      32,
+      108
+     ]
+    },
+    "nw": {
+     "tag": "run",
+     "layers": [
+      "N-West Shadow",
+      "N-West"
+     ],
+     "anchor": [
+      32,
+      172
+     ]
+    },
+    "ne": {
+     "tag": "run",
+     "layers": [
+      "N-East Shadow",
+      "N-East"
+     ],
+     "anchor": [
+      32,
+      236
+     ]
+    }
+   }
+  },
+  {
+   "name": "wolf.bite",
+   "aseprite": "../../../../assets/packs/scrabling-isometric-tiles/critters/aseprite files/critter_wolf.aseprite",
+   "tags": {
+    "sw": {
+     "tag": "bite",
+     "layers": [
+      "S-West Shadow",
+      "S-West"
+     ],
+     "anchor": [
+      32,
+      44
+     ]
+    },
+    "se": {
+     "tag": "bite",
+     "layers": [
+      "S-East Shadow",
+      "S-East"
+     ],
+     "anchor": [
+      32,
+      108
+     ]
+    },
+    "nw": {
+     "tag": "bite",
+     "layers": [
+      "N-West Shadow",
+      "N-West"
+     ],
+     "anchor": [
+      32,
+      172
+     ]
+    },
+    "ne": {
+     "tag": "bite",
+     "layers": [
+      "N-East Shadow",
+      "N-East"
+     ],
+     "anchor": [
+      32,
+      236
+     ]
+    }
+   }
+  },
+  {
+   "name": "wolf.death",
+   "aseprite": "../../../../assets/packs/scrabling-isometric-tiles/critters/aseprite files/critter_wolf.aseprite",
+   "tags": {
+    "sw": {
+     "tag": "death",
+     "layers": [
+      "S-West Shadow",
+      "S-West"
+     ],
+     "anchor": [
+      32,
+      44
+     ]
+    },
+    "se": {
+     "tag": "death",
+     "layers": [
+      "S-East Shadow",
+      "S-East"
+     ],
+     "anchor": [
+      32,
+      108
+     ]
+    },
+    "nw": {
+     "tag": "death",
+     "layers": [
+      "N-West Shadow",
+      "N-West"
+     ],
+     "anchor": [
+      32,
+      172
+     ]
+    },
+    "ne": {
+     "tag": "death",
+     "layers": [
+      "N-East Shadow",
+      "N-East"
+     ],
+     "anchor": [
+      32,
+      236
+     ]
+    }
+   }
+  },
+  {
+   "name": "boar.idle",
+   "aseprite": "../../../../assets/packs/scrabling-isometric-tiles/critters/aseprite files/critter_boar.aseprite",
+   "tags": {
+    "se": {
+     "tag": "IDLE",
+     "layers": [
+      "SE - Shadow",
+      "SE"
+     ],
+     "anchor": [
+      27,
+      28
+     ]
+    },
+    "sw": {
+     "tag": "IDLE",
+     "layers": [
+      "SW - SHADOW",
+      "SW"
+     ],
+     "anchor": [
+      18,
+      29
+     ]
+    },
+    "nw": {
+     "tag": "IDLE",
+     "layers": [
+      "NW - SHADOW",
+      "NW"
+     ],
+     "anchor": [
+      21,
+      29
+     ]
+    },
+    "ne": {
+     "tag": "IDLE",
+     "layers": [
+      "NE - SHADOW",
+      "NE"
+     ],
+     "anchor": [
+      26,
+      29
+     ]
+    }
+   }
+  },
+  {
+   "name": "boar.run",
+   "aseprite": "../../../../assets/packs/scrabling-isometric-tiles/critters/aseprite files/critter_boar.aseprite",
+   "tags": {
+    "se": {
+     "tag": "RUN",
+     "layers": [
+      "SE - Shadow",
+      "SE"
+     ],
+     "anchor": [
+      27,
+      28
+     ]
+    },
+    "sw": {
+     "tag": "RUN",
+     "layers": [
+      "SW - SHADOW",
+      "SW"
+     ],
+     "anchor": [
+      18,
+      29
+     ]
+    },
+    "nw": {
+     "tag": "RUN",
+     "layers": [
+      "NW - SHADOW",
+      "NW"
+     ],
+     "anchor": [
+      21,
+      29
+     ]
+    },
+    "ne": {
+     "tag": "RUN",
+     "layers": [
+      "NE - SHADOW",
+      "NE"
+     ],
+     "anchor": [
+      26,
+      29
+     ]
+    }
+   }
+  },
+  {
+   "name": "badger.idle",
+   "aseprite": "../../../../assets/packs/scrabling-isometric-tiles/critters/aseprite files/critter_badger.aseprite",
+   "tags": {
+    "se": {
+     "tag": "idle",
+     "layers": [
+      "SE Shadow",
+      "SE"
+     ],
+     "anchor": [
+      101,
+      91
+     ]
+    },
+    "sw": {
+     "tag": "idle",
+     "layers": [
+      "SW Shadow",
+      "SW"
+     ],
+     "anchor": [
+      43,
+      91
+     ]
+    },
+    "nw": {
+     "tag": "idle",
+     "layers": [
+      "NW Shadow",
+      "NW"
+     ],
+     "anchor": [
+      45,
+      41
+     ]
+    },
+    "ne": {
+     "tag": "idle",
+     "layers": [
+      "NE Shadow",
+      "NE"
+     ],
+     "anchor": [
+      98,
+      41
+     ]
+    }
+   },
+   "pick": [
+    0,
+    2,
+    4,
+    6,
+    8,
+    10,
+    12,
+    14,
+    16,
+    18,
+    20
+   ],
+   "ms": 200
+  },
+  {
+   "name": "badger.run",
+   "aseprite": "../../../../assets/packs/scrabling-isometric-tiles/critters/aseprite files/critter_badger.aseprite",
+   "tags": {
+    "se": {
+     "tag": "walk",
+     "layers": [
+      "SE Shadow",
+      "SE"
+     ],
+     "anchor": [
+      101,
+      91
+     ]
+    },
+    "sw": {
+     "tag": "walk",
+     "layers": [
+      "SW Shadow",
+      "SW"
+     ],
+     "anchor": [
+      43,
+      91
+     ]
+    },
+    "nw": {
+     "tag": "walk",
+     "layers": [
+      "NW Shadow",
+      "NW"
+     ],
+     "anchor": [
+      45,
+      41
+     ]
+    },
+    "ne": {
+     "tag": "walk",
+     "layers": [
+      "NE Shadow",
+      "NE"
+     ],
+     "anchor": [
+      98,
+      41
+     ]
+    }
+   }
+  },
+  {
+   "name": "stag.idle",
+   "aseprite": "../../../../assets/packs/scrabling-isometric-tiles/critters/aseprite files/critter_stag.aseprite",
+   "tags": {
+    "se": {
+     "tag": "idle",
+     "layers": [
+      "shadow SE",
+      "SE"
+     ],
+     "anchor": [
+      17,
+      38
+     ]
+    },
+    "sw": {
+     "tag": "idle",
+     "layers": [
+      "shadow SW",
+      "SW"
+     ],
+     "anchor": [
+      15,
+      38
+     ]
+    },
+    "nw": {
+     "tag": "idle",
+     "layers": [
+      "shadow NW",
+      "NW"
+     ],
+     "anchor": [
+      15,
+      38
+     ]
+    },
+    "ne": {
+     "tag": "idle",
+     "layers": [
+      "shadow NE",
+      "NE"
+     ],
+     "anchor": [
+      16,
+      38
+     ]
+    }
+   },
+   "pick": [
+    0,
+    2,
+    4,
+    6,
+    8,
+    10,
+    12,
+    14,
+    16,
+    18,
+    20,
+    22
+   ],
+   "ms": 200
+  },
+  {
+   "name": "stag.run",
+   "aseprite": "../../../../assets/packs/scrabling-isometric-tiles/critters/aseprite files/critter_stag.aseprite",
+   "tags": {
+    "se": {
+     "tag": "run",
+     "layers": [
+      "shadow SE",
+      "SE"
+     ],
+     "anchor": [
+      17,
+      38
+     ]
+    },
+    "sw": {
+     "tag": "run",
+     "layers": [
+      "shadow SW",
+      "SW"
+     ],
+     "anchor": [
+      15,
+      38
+     ]
+    },
+    "nw": {
+     "tag": "run",
+     "layers": [
+      "shadow NW",
+      "NW"
+     ],
+     "anchor": [
+      15,
+      38
+     ]
+    },
+    "ne": {
+     "tag": "run",
+     "layers": [
+      "shadow NE",
+      "NE"
+     ],
+     "anchor": [
+      16,
+      38
+     ]
+    }
+   }
+  },
+  {
+   "name": "slime.fogo.idle",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Purple Slime/purple slime-Idle Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Purple Slime/purple slime-Idle Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 160,
+   "recolor": {
+    "hue": [
+     285,
+     45
+    ],
+    "to": 10,
+    "sat": 2.0,
+    "light": 0.85
+   }
+  },
+  {
+   "name": "slime.fogo.run",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Purple Slime/purple slime-Walk Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Purple Slime/purple slime-Walk Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 90,
+   "recolor": {
+    "hue": [
+     285,
+     45
+    ],
+    "to": 10,
+    "sat": 2.0,
+    "light": 0.85
+   }
+  },
+  {
+   "name": "slime.fogo.bite",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Purple Slime/purple slime-Attack Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Purple Slime/purple slime-Attack Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 80,
+   "recolor": {
+    "hue": [
+     285,
+     45
+    ],
+    "to": 10,
+    "sat": 2.0,
+    "light": 0.85
+   }
+  },
+  {
+   "name": "slime.fogo.death",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Purple Slime/purple slime-Death Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Purple Slime/purple slime-Death Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 120,
+   "recolor": {
+    "hue": [
+     285,
+     45
+    ],
+    "to": 10,
+    "sat": 2.0,
+    "light": 0.85
+   }
+  },
+  {
+   "name": "slime.fogo.hit",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Purple Slime/purple slime-Get Hit Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Purple Slime/purple slime-Get Hit Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 120,
+   "recolor": {
+    "hue": [
+     285,
+     45
+    ],
+    "to": 10,
+    "sat": 2.0,
+    "light": 0.85
+   }
+  },
+  {
+   "name": "king.fogo.idle",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Idle Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Idle Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 160,
+   "recolor": {
+    "hue": [
+     285,
+     45
+    ],
+    "to": 10,
+    "sat": 2.0,
+    "light": 0.85
+   }
+  },
+  {
+   "name": "king.fogo.run",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Walk Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Walk Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 90,
+   "recolor": {
+    "hue": [
+     285,
+     45
+    ],
+    "to": 10,
+    "sat": 2.0,
+    "light": 0.85
+   }
+  },
+  {
+   "name": "king.fogo.bite",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Attack Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Attack Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 80,
+   "recolor": {
+    "hue": [
+     285,
+     45
+    ],
+    "to": 10,
+    "sat": 2.0,
+    "light": 0.85
+   }
+  },
+  {
+   "name": "king.fogo.death",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Death Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Death Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 120,
+   "recolor": {
+    "hue": [
+     285,
+     45
+    ],
+    "to": 10,
+    "sat": 2.0,
+    "light": 0.85
+   }
+  },
+  {
+   "name": "king.fogo.hit",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Get Hit Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Get Hit Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 120,
+   "recolor": {
+    "hue": [
+     285,
+     45
+    ],
+    "to": 10,
+    "sat": 2.0,
+    "light": 0.85
+   }
+  },
+  {
+   "name": "slime.agua.idle",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Blue Slime/blue slime-Idle Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Blue Slime/blue slime-Idle Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 160
+  },
+  {
+   "name": "slime.agua.run",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Blue Slime/blue slime-Walk Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Blue Slime/blue slime-Walk Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 90
+  },
+  {
+   "name": "slime.agua.bite",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Blue Slime/blue slime-Attack Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Blue Slime/blue slime-Attack Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 80
+  },
+  {
+   "name": "slime.agua.death",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Blue Slime/blue slime-Death Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Blue Slime/blue slime-Death Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 120
+  },
+  {
+   "name": "slime.agua.hit",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Blue Slime/blue slime-Get Hit Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Blue Slime/blue slime-Get Hit Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 120
+  },
+  {
+   "name": "king.agua.idle",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Idle Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Idle Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 160
+  },
+  {
+   "name": "king.agua.run",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Walk Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Walk Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 90
+  },
+  {
+   "name": "king.agua.bite",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Attack Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Attack Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 80
+  },
+  {
+   "name": "king.agua.death",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Death Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Death Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 120
+  },
+  {
+   "name": "king.agua.hit",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Get Hit Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Get Hit Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 120
+  },
+  {
+   "name": "slime.terra.idle",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Green Slime/green slime-Idle Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Green Slime/green slime-Idle Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 160
+  },
+  {
+   "name": "slime.terra.run",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Green Slime/green slime-Walk Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Green Slime/green slime-Walk Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 90
+  },
+  {
+   "name": "slime.terra.bite",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Green Slime/green slime-Attack Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Green Slime/green slime-Attack Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 80
+  },
+  {
+   "name": "slime.terra.death",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Green Slime/green slime-Death Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Green Slime/green slime-Death Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 120
+  },
+  {
+   "name": "slime.terra.hit",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Green Slime/green slime-Get Hit Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Green Slime/green slime-Get Hit Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 120
+  },
+  {
+   "name": "king.terra.idle",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Idle Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Idle Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 160
+  },
+  {
+   "name": "king.terra.run",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Walk Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Walk Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 90
+  },
+  {
+   "name": "king.terra.bite",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Attack Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Attack Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 80
+  },
+  {
+   "name": "king.terra.death",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Death Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Death Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 120
+  },
+  {
+   "name": "king.terra.hit",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Get Hit Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Get Hit Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 120
+  },
+  {
+   "name": "slime.ar.idle",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Yellow Slime/yellow slime-Idle Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Yellow Slime/yellow slime-Idle Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 160
+  },
+  {
+   "name": "slime.ar.run",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Yellow Slime/yellow slime-Walk Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Yellow Slime/yellow slime-Walk Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 90
+  },
+  {
+   "name": "slime.ar.bite",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Yellow Slime/yellow slime-Attack Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Yellow Slime/yellow slime-Attack Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 80
+  },
+  {
+   "name": "slime.ar.death",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Yellow Slime/yellow slime-Death Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Yellow Slime/yellow slime-Death Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 120
+  },
+  {
+   "name": "slime.ar.hit",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Yellow Slime/yellow slime-Get Hit Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Yellow Slime/yellow slime-Get Hit Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    32,
+    50
+   ],
+   "ms": 120
+  },
+  {
+   "name": "king.ar.idle",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Yellow King Slime/king yellow slime-Idle Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Yellow King Slime/king yellow slime-Idle Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 160
+  },
+  {
+   "name": "king.ar.run",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Yellow King Slime/king yellow slime-Walk Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Yellow King Slime/king yellow slime-Walk Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 90
+  },
+  {
+   "name": "king.ar.bite",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Yellow King Slime/king yellow slime-Attack Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Yellow King Slime/king yellow slime-Attack Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 80
+  },
+  {
+   "name": "king.ar.death",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Yellow King Slime/king yellow slime-Death Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Yellow King Slime/king yellow slime-Death Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 120
+  },
+  {
+   "name": "king.ar.hit",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Yellow King Slime/king yellow slime-Get Hit Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Yellow King Slime/king yellow slime-Get Hit Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 120
+  }
+ ],
+ "rotated": [
+  {
+   "name": "wpn.sword",
+   "png": "../../../../assets/packs/icons-adventures-bagback/adventures-bagback.png",
+   "grid": [
+    16,
+    16
+   ],
+   "cell": [
+    6,
+    0
+   ],
+   "grip": [
+    2,
+    13
+   ],
+   "angle": 45
+  },
+  {
+   "name": "wpn.sword2",
+   "png": "../../../../assets/packs/icons-adventures-bagback/adventures-bagback.png",
+   "grid": [
+    16,
+    16
+   ],
+   "cell": [
+    6,
+    1
+   ],
+   "grip": [
+    2,
+    13
+   ],
+   "angle": 45
+  },
+  {
+   "name": "wpn.sword3",
+   "png": "../../../../assets/packs/icons-adventures-bagback/adventures-bagback.png",
+   "grid": [
+    16,
+    16
+   ],
+   "cell": [
+    6,
+    2
+   ],
+   "grip": [
+    2,
+    13
+   ],
+   "angle": 45
+  },
+  {
+   "name": "wpn.sword4",
+   "png": "../../../../assets/packs/icons-adventures-bagback/adventures-bagback.png",
+   "grid": [
+    16,
+    16
+   ],
+   "cell": [
+    7,
+    2
+   ],
+   "grip": [
+    2,
+    13
+   ],
+   "angle": 45
+  },
+  {
+   "name": "wpn.dagger",
+   "png": "../../../../assets/packs/icons-adventures-bagback/adventures-bagback.png",
+   "grid": [
+    16,
+    16
+   ],
+   "cell": [
+    7,
+    0
+   ],
+   "grip": [
+    2,
+    13
+   ],
+   "angle": 45
+  },
+  {
+   "name": "wpn.blade",
+   "png": "../../../../assets/packs/icons-adventures-bagback/adventures-bagback.png",
+   "grid": [
+    16,
+    16
+   ],
+   "cell": [
+    7,
+    1
+   ],
+   "grip": [
+    2,
+    13
+   ],
+   "angle": 45
+  },
+  {
+   "name": "wpn.bow",
+   "png": "../../../../assets/packs/icons-adventures-bagback/adventures-bagback.png",
+   "grid": [
+    16,
+    16
+   ],
+   "cell": [
+    4,
+    7
+   ],
+   "grip": [
+    8,
+    8
+   ],
+   "angle": 45
+  },
+  {
+   "name": "wpn.bow2",
+   "png": "../../../../assets/packs/icons-adventures-bagback/adventures-bagback.png",
+   "grid": [
+    16,
+    16
+   ],
+   "cell": [
+    5,
+    7
+   ],
+   "grip": [
+    8,
+    8
+   ],
+   "angle": 45
+  },
+  {
+   "name": "wpn.staff",
+   "png": "../../../../assets/packs/icons-adventures-bagback/adventures-bagback.png",
+   "grid": [
+    16,
+    16
+   ],
+   "cell": [
+    0,
+    7
+   ],
+   "grip": [
+    3,
+    12
+   ],
+   "angle": 45
+  },
+  {
+   "name": "arrow",
+   "png": "../../../../assets/packs/icons-adventures-bagback/adventures-bagback.png",
+   "grid": [
+    16,
+    16
+   ],
+   "cell": [
+    6,
+    7
+   ],
+   "grip": [
+    8,
+    8
+   ],
+   "angle": 45
+  }
+ ]
+}

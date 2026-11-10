@@ -1,0 +1,68 @@
+# Elemental armour on the PC: a fire slime bites Artur in plain plate (65), then in fire plate (80: Placas de
+# Fogo); the log shows the PV each time. Then the shop with the fire fase cleared, and Artur's attributes.
+nosave
+level 0 6
+go 0 0 2
+wait 70
+gear 0 0 65
+place 0 4 7 3
+place 5 4 6 1
+hp 0 50
+log
+act 5 0 0 0
+wait 40
+log
+gear 0 0 80
+hp 0 50
+act 5 0 0 0
+wait 40
+log
+win
+wait 90
+key A
+wait 20
+key A
+wait 30
+key A
+wait 30
+key B
+wait 20
+won 0 0 3
+give 80 1
+screen shop
+wait 20
+key DOWN
+key DOWN
+key DOWN
+key DOWN
+key DOWN
+key DOWN
+key DOWN
+key DOWN
+key DOWN
+key DOWN
+key DOWN
+key DOWN
+key DOWN
+key DOWN
+wait 5
+shot x01-shop-fire-armour
+screen party
+wait 20
+key A
+wait 5
+key DOWN
+key DOWN
+key DOWN
+key A
+wait 5
+shot x02-armour-list
+key B
+wait 5
+key DOWN
+key DOWN
+key DOWN
+key DOWN
+key A
+wait 5
+shot x03-attrs

@@ -1,0 +1,12 @@
+# Into the fire realm's first boss (the Alpha's den) on the FH1, saving off: 0 Artur, 1 Lia, 2 Tomé, 3 the Alpha,
+# 4-5 its guards.
+op start "" org.fh1.isotest
+sleep 2.5
+dev nosave
+key A
+sleep 0.8
+shot d-party
+dev go 0 0 2
+sleep 2.5
+dev log
+shot d-battle

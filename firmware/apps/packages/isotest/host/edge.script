@@ -1,0 +1,854 @@
+# The 0.5.1 crash: a hero ready to counter, at every height on the screen.
+key A
+key DOWN
+key A
+key A
+key A
+wait 45
+counter 0
+place 0 5 5 0
+cam -160 -60
+wait 2
+shot edge-mark
+cam -160 -300
+wait 1
+cam -160 -299
+wait 1
+cam -160 -298
+wait 1
+cam -160 -297
+wait 1
+cam -160 -296
+wait 1
+cam -160 -295
+wait 1
+cam -160 -294
+wait 1
+cam -160 -293
+wait 1
+cam -160 -292
+wait 1
+cam -160 -291
+wait 1
+cam -160 -290
+wait 1
+cam -160 -289
+wait 1
+cam -160 -288
+wait 1
+cam -160 -287
+wait 1
+cam -160 -286
+wait 1
+cam -160 -285
+wait 1
+cam -160 -284
+wait 1
+cam -160 -283
+wait 1
+cam -160 -282
+wait 1
+cam -160 -281
+wait 1
+cam -160 -280
+wait 1
+cam -160 -279
+wait 1
+cam -160 -278
+wait 1
+cam -160 -277
+wait 1
+cam -160 -276
+wait 1
+cam -160 -275
+wait 1
+cam -160 -274
+wait 1
+cam -160 -273
+wait 1
+cam -160 -272
+wait 1
+cam -160 -271
+wait 1
+cam -160 -270
+wait 1
+cam -160 -269
+wait 1
+cam -160 -268
+wait 1
+cam -160 -267
+wait 1
+cam -160 -266
+wait 1
+cam -160 -265
+wait 1
+cam -160 -264
+wait 1
+cam -160 -263
+wait 1
+cam -160 -262
+wait 1
+cam -160 -261
+wait 1
+cam -160 -260
+wait 1
+cam -160 -259
+wait 1
+cam -160 -258
+wait 1
+cam -160 -257
+wait 1
+cam -160 -256
+wait 1
+cam -160 -255
+wait 1
+cam -160 -254
+wait 1
+cam -160 -253
+wait 1
+cam -160 -252
+wait 1
+cam -160 -251
+wait 1
+cam -160 -250
+wait 1
+cam -160 -249
+wait 1
+cam -160 -248
+wait 1
+cam -160 -247
+wait 1
+cam -160 -246
+wait 1
+cam -160 -245
+wait 1
+cam -160 -244
+wait 1
+cam -160 -243
+wait 1
+cam -160 -242
+wait 1
+cam -160 -241
+wait 1
+cam -160 -240
+wait 1
+cam -160 -239
+wait 1
+cam -160 -238
+wait 1
+cam -160 -237
+wait 1
+cam -160 -236
+wait 1
+cam -160 -235
+wait 1
+cam -160 -234
+wait 1
+cam -160 -233
+wait 1
+cam -160 -232
+wait 1
+cam -160 -231
+wait 1
+cam -160 -230
+wait 1
+cam -160 -229
+wait 1
+cam -160 -228
+wait 1
+cam -160 -227
+wait 1
+cam -160 -226
+wait 1
+cam -160 -225
+wait 1
+cam -160 -224
+wait 1
+cam -160 -223
+wait 1
+cam -160 -222
+wait 1
+cam -160 -221
+wait 1
+cam -160 -220
+wait 1
+cam -160 -219
+wait 1
+cam -160 -218
+wait 1
+cam -160 -217
+wait 1
+cam -160 -216
+wait 1
+cam -160 -215
+wait 1
+cam -160 -214
+wait 1
+cam -160 -213
+wait 1
+cam -160 -212
+wait 1
+cam -160 -211
+wait 1
+cam -160 -210
+wait 1
+cam -160 -209
+wait 1
+cam -160 -208
+wait 1
+cam -160 -207
+wait 1
+cam -160 -206
+wait 1
+cam -160 -205
+wait 1
+cam -160 -204
+wait 1
+cam -160 -203
+wait 1
+cam -160 -202
+wait 1
+cam -160 -201
+wait 1
+cam -160 -200
+wait 1
+cam -160 -199
+wait 1
+cam -160 -198
+wait 1
+cam -160 -197
+wait 1
+cam -160 -196
+wait 1
+cam -160 -195
+wait 1
+cam -160 -194
+wait 1
+cam -160 -193
+wait 1
+cam -160 -192
+wait 1
+cam -160 -191
+wait 1
+cam -160 -190
+wait 1
+cam -160 -189
+wait 1
+cam -160 -188
+wait 1
+cam -160 -187
+wait 1
+cam -160 -186
+wait 1
+cam -160 -185
+wait 1
+cam -160 -184
+wait 1
+cam -160 -183
+wait 1
+cam -160 -182
+wait 1
+cam -160 -181
+wait 1
+cam -160 -180
+wait 1
+cam -160 -179
+wait 1
+cam -160 -178
+wait 1
+cam -160 -177
+wait 1
+cam -160 -176
+wait 1
+cam -160 -175
+wait 1
+cam -160 -174
+wait 1
+cam -160 -173
+wait 1
+cam -160 -172
+wait 1
+cam -160 -171
+wait 1
+cam -160 -170
+wait 1
+cam -160 -169
+wait 1
+cam -160 -168
+wait 1
+cam -160 -167
+wait 1
+cam -160 -166
+wait 1
+cam -160 -165
+wait 1
+cam -160 -164
+wait 1
+cam -160 -163
+wait 1
+cam -160 -162
+wait 1
+cam -160 -161
+wait 1
+cam -160 -160
+wait 1
+cam -160 -159
+wait 1
+cam -160 -158
+wait 1
+cam -160 -157
+wait 1
+cam -160 -156
+wait 1
+cam -160 -155
+wait 1
+cam -160 -154
+wait 1
+cam -160 -153
+wait 1
+cam -160 -152
+wait 1
+cam -160 -151
+wait 1
+cam -160 -150
+wait 1
+cam -160 -149
+wait 1
+cam -160 -148
+wait 1
+cam -160 -147
+wait 1
+cam -160 -146
+wait 1
+cam -160 -145
+wait 1
+cam -160 -144
+wait 1
+cam -160 -143
+wait 1
+cam -160 -142
+wait 1
+cam -160 -141
+wait 1
+cam -160 -140
+wait 1
+cam -160 -139
+wait 1
+cam -160 -138
+wait 1
+cam -160 -137
+wait 1
+cam -160 -136
+wait 1
+cam -160 -135
+wait 1
+cam -160 -134
+wait 1
+cam -160 -133
+wait 1
+cam -160 -132
+wait 1
+cam -160 -131
+wait 1
+cam -160 -130
+wait 1
+cam -160 -129
+wait 1
+cam -160 -128
+wait 1
+cam -160 -127
+wait 1
+cam -160 -126
+wait 1
+cam -160 -125
+wait 1
+cam -160 -124
+wait 1
+cam -160 -123
+wait 1
+cam -160 -122
+wait 1
+cam -160 -121
+wait 1
+cam -160 -120
+wait 1
+cam -160 -119
+wait 1
+cam -160 -118
+wait 1
+cam -160 -117
+wait 1
+cam -160 -116
+wait 1
+cam -160 -115
+wait 1
+cam -160 -114
+wait 1
+cam -160 -113
+wait 1
+cam -160 -112
+wait 1
+cam -160 -111
+wait 1
+cam -160 -110
+wait 1
+cam -160 -109
+wait 1
+cam -160 -108
+wait 1
+cam -160 -107
+wait 1
+cam -160 -106
+wait 1
+cam -160 -105
+wait 1
+cam -160 -104
+wait 1
+cam -160 -103
+wait 1
+cam -160 -102
+wait 1
+cam -160 -101
+wait 1
+cam -160 -100
+wait 1
+cam -160 -99
+wait 1
+cam -160 -98
+wait 1
+cam -160 -97
+wait 1
+cam -160 -96
+wait 1
+cam -160 -95
+wait 1
+cam -160 -94
+wait 1
+cam -160 -93
+wait 1
+cam -160 -92
+wait 1
+cam -160 -91
+wait 1
+cam -160 -90
+wait 1
+cam -160 -89
+wait 1
+cam -160 -88
+wait 1
+cam -160 -87
+wait 1
+cam -160 -86
+wait 1
+cam -160 -85
+wait 1
+cam -160 -84
+wait 1
+cam -160 -83
+wait 1
+cam -160 -82
+wait 1
+cam -160 -81
+wait 1
+cam -160 -80
+wait 1
+cam -160 -79
+wait 1
+cam -160 -78
+wait 1
+cam -160 -77
+wait 1
+cam -160 -76
+wait 1
+cam -160 -75
+wait 1
+cam -160 -74
+wait 1
+cam -160 -73
+wait 1
+cam -160 -72
+wait 1
+cam -160 -71
+wait 1
+cam -160 -70
+wait 1
+cam -160 -69
+wait 1
+cam -160 -68
+wait 1
+cam -160 -67
+wait 1
+cam -160 -66
+wait 1
+cam -160 -65
+wait 1
+cam -160 -64
+wait 1
+cam -160 -63
+wait 1
+cam -160 -62
+wait 1
+cam -160 -61
+wait 1
+cam -160 -60
+wait 1
+cam -160 -59
+wait 1
+cam -160 -58
+wait 1
+cam -160 -57
+wait 1
+cam -160 -56
+wait 1
+cam -160 -55
+wait 1
+cam -160 -54
+wait 1
+cam -160 -53
+wait 1
+cam -160 -52
+wait 1
+cam -160 -51
+wait 1
+cam -160 -50
+wait 1
+cam -160 -49
+wait 1
+cam -160 -48
+wait 1
+cam -160 -47
+wait 1
+cam -160 -46
+wait 1
+cam -160 -45
+wait 1
+cam -160 -44
+wait 1
+cam -160 -43
+wait 1
+cam -160 -42
+wait 1
+cam -160 -41
+wait 1
+cam -160 -40
+wait 1
+cam -160 -39
+wait 1
+cam -160 -38
+wait 1
+cam -160 -37
+wait 1
+cam -160 -36
+wait 1
+cam -160 -35
+wait 1
+cam -160 -34
+wait 1
+cam -160 -33
+wait 1
+cam -160 -32
+wait 1
+cam -160 -31
+wait 1
+cam -160 -30
+wait 1
+cam -160 -29
+wait 1
+cam -160 -28
+wait 1
+cam -160 -27
+wait 1
+cam -160 -26
+wait 1
+cam -160 -25
+wait 1
+cam -160 -24
+wait 1
+cam -160 -23
+wait 1
+cam -160 -22
+wait 1
+cam -160 -21
+wait 1
+cam -160 -20
+wait 1
+cam -160 -19
+wait 1
+cam -160 -18
+wait 1
+cam -160 -17
+wait 1
+cam -160 -16
+wait 1
+cam -160 -15
+wait 1
+cam -160 -14
+wait 1
+cam -160 -13
+wait 1
+cam -160 -12
+wait 1
+cam -160 -11
+wait 1
+cam -160 -10
+wait 1
+cam -160 -9
+wait 1
+cam -160 -8
+wait 1
+cam -160 -7
+wait 1
+cam -160 -6
+wait 1
+cam -160 -5
+wait 1
+cam -160 -4
+wait 1
+cam -160 -3
+wait 1
+cam -160 -2
+wait 1
+cam -160 -1
+wait 1
+cam -160 0
+wait 1
+cam -160 1
+wait 1
+cam -160 2
+wait 1
+cam -160 3
+wait 1
+cam -160 4
+wait 1
+cam -160 5
+wait 1
+cam -160 6
+wait 1
+cam -160 7
+wait 1
+cam -160 8
+wait 1
+cam -160 9
+wait 1
+cam -160 10
+wait 1
+cam -160 11
+wait 1
+cam -160 12
+wait 1
+cam -160 13
+wait 1
+cam -160 14
+wait 1
+cam -160 15
+wait 1
+cam -160 16
+wait 1
+cam -160 17
+wait 1
+cam -160 18
+wait 1
+cam -160 19
+wait 1
+cam -160 20
+wait 1
+cam -160 21
+wait 1
+cam -160 22
+wait 1
+cam -160 23
+wait 1
+cam -160 24
+wait 1
+cam -160 25
+wait 1
+cam -160 26
+wait 1
+cam -160 27
+wait 1
+cam -160 28
+wait 1
+cam -160 29
+wait 1
+cam -160 30
+wait 1
+cam -160 31
+wait 1
+cam -160 32
+wait 1
+cam -160 33
+wait 1
+cam -160 34
+wait 1
+cam -160 35
+wait 1
+cam -160 36
+wait 1
+cam -160 37
+wait 1
+cam -160 38
+wait 1
+cam -160 39
+wait 1
+cam -160 40
+wait 1
+cam -160 41
+wait 1
+cam -160 42
+wait 1
+cam -160 43
+wait 1
+cam -160 44
+wait 1
+cam -160 45
+wait 1
+cam -160 46
+wait 1
+cam -160 47
+wait 1
+cam -160 48
+wait 1
+cam -160 49
+wait 1
+cam -160 50
+wait 1
+cam -160 51
+wait 1
+cam -160 52
+wait 1
+cam -160 53
+wait 1
+cam -160 54
+wait 1
+cam -160 55
+wait 1
+cam -160 56
+wait 1
+cam -160 57
+wait 1
+cam -160 58
+wait 1
+cam -160 59
+wait 1
+cam -160 60
+wait 1
+cam -160 61
+wait 1
+cam -160 62
+wait 1
+cam -160 63
+wait 1
+cam -160 64
+wait 1
+cam -160 65
+wait 1
+cam -160 66
+wait 1
+cam -160 67
+wait 1
+cam -160 68
+wait 1
+cam -160 69
+wait 1
+cam -160 70
+wait 1
+cam -160 71
+wait 1
+cam -160 72
+wait 1
+cam -160 73
+wait 1
+cam -160 74
+wait 1
+cam -160 75
+wait 1
+cam -160 76
+wait 1
+cam -160 77
+wait 1
+cam -160 78
+wait 1
+cam -160 79
+wait 1
+cam -160 80
+wait 1
+cam -160 81
+wait 1
+cam -160 82
+wait 1
+cam -160 83
+wait 1
+cam -160 84
+wait 1
+cam -160 85
+wait 1
+cam -160 86
+wait 1
+cam -160 87
+wait 1
+cam -160 88
+wait 1
+cam -160 89
+wait 1
+cam -160 90
+wait 1
+cam -160 91
+wait 1
+cam -160 92
+wait 1
+cam -160 93
+wait 1
+cam -160 94
+wait 1
+cam -160 95
+wait 1
+cam -160 96
+wait 1
+cam -160 97
+wait 1
+cam -160 98
+wait 1
+cam -160 99
+wait 1
+cam -160 100
+wait 1
+cam -160 101
+wait 1
+cam -160 102
+wait 1
+cam -160 103
+wait 1
+cam -160 104
+wait 1
+cam -160 105
+wait 1
+cam -160 106
+wait 1
+cam -160 107
+wait 1
+cam -160 108
+wait 1
+cam -160 109
+wait 1
+cam -160 110
+wait 1
+cam -160 111
+wait 1
+cam -160 112
+wait 1
+cam -160 113
+wait 1
+cam -160 114
+wait 1
+cam -160 115
+wait 1
+cam -160 116
+wait 1
+cam -160 117
+wait 1
+cam -160 118
+wait 1
+cam -160 119
+wait 1
+cam -160 120
+wait 1
