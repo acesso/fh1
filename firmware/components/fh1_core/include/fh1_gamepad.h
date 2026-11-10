@@ -106,6 +106,18 @@ bool fh1_gamepad_trigger(const char *id, int side, uint8_t effect, uint8_t a, ui
 void fh1_gamepad_want_motion(bool on);
 // While muted, player 1's gamepad does not drive the interface (an input test reads it instead).
 void fh1_gamepad_mute_keys(bool mute);
+// Any connected gamepad that is not player 1's takes player 1 over when its Menu (PS, Home, Guide) is held for
+// FH1_GAMEPAD_CLAIM_MS: for a controller whose battery ran out, or that went away. fn(id) is told, from the
+// source's task (once per hold); it does the change, fh1_gamepad_assign(0, id).
+#define FH1_GAMEPAD_CLAIM_MS 3000
+void fh1_gamepad_on_claim(void (*fn)(const char *id));
+
+// How a player's buttons are shown (hint chips, a game's key icons): by the controller it plays with. The FH1's
+// own keys and plain controllers: the FH1's coloured caps; an Xbox controller: its letters in their colours; a
+// Nintendo one (Pro, Joy-Con): its letters; a PlayStation one: its shapes. FH1 keys are by position (A the
+// right face button), so each style names the button that sends them.
+enum { FH1_KEYS_FH1, FH1_KEYS_XBOX, FH1_KEYS_NINTENDO, FH1_KEYS_PLAYSTATION, FH1_KEYS_STYLES };
+int fh1_gamepad_style(int player);
 
 #ifdef __cplusplus
 }

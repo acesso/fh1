@@ -1,6 +1,8 @@
 // The dev console's web server: one static page, a WebSocket for live data and commands,
 // and an upload endpoint for packages. Every client must send the 6-digit code first.
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <sys/stat.h>
@@ -42,6 +44,7 @@ extern const char index_html_end[] asm("_binary_index_html_end");
 
 static httpd_handle_t s_server;
 static int s_fds[MAX_CLIENTS];          // authenticated WebSocket clients, 0 = free
+static volatile bool s_need_full;        // a client joined: the next push carries everything
 static char s_token[12];
 static fh1_console_apps_json_fn s_apps_json;
 static fh1_console_apps_cmd_fn s_apps_cmd;
@@ -79,6 +82,30 @@ void fh1_console_log_init(void)
 }
 
 // Copy the log text not yet sent (at most the ring's size) into out.
+// A browser or a client refuses a message that is not valid UTF-8: the log ring's start can fall inside a letter
+// ("Trovão"), and a task that just ended can show garbage for a name. Broken sequences become '?'.
+static void utf8_clean(char *s)
+{
+    // Strictly (as the PC tools' decoders): no overlong forms (C0, C1, E0 80-9F, F0 80-8F), no surrogates (ED A0-BF),
+    // nothing past U+10FFFF (F4 90-, F5-FF).
+    unsigned char *p = (unsigned char *)s;
+    while (*p) {
+        const unsigned c = *p;
+        const int n = c < 0x80 ? 1 : c >= 0xC2 && c <= 0xDF ? 2 : c >= 0xE0 && c <= 0xEF ? 3 : c >= 0xF0 && c <= 0xF4 ? 4 : 0;
+        bool ok = n > 0;
+        for (int k = 1; ok && k < n; k++) ok = (p[k] & 0xC0) == 0x80;
+        if (ok && n > 2) {
+            const unsigned d = p[1];
+            ok = !(c == 0xE0 && d < 0xA0) && !(c == 0xED && d >= 0xA0) && !(c == 0xF0 && d < 0x90) && !(c == 0xF4 && d >= 0x90);
+        }
+        if (!ok) {
+            *p++ = '?';
+            continue;
+        }
+        p += n;
+    }
+}
+
 static size_t log_take(char *out, size_t cap)
 {
     portENTER_CRITICAL(&s_log_mux);
@@ -306,6 +333,24 @@ static char *build_stats(void)
         if (fh1_caps() & (1u << i)) cJSON_AddItemToArray(caps, cJSON_CreateString(fh1_cap_name(1u << i)));
     }
     if (s_apps_json) s_apps_json(root);
+    // The devices and the apps (3.8 KB of a 4.6 KB push) go only when they change or a client has just joined:
+    // every push sits in each client's TCP queue in internal RAM until acknowledged, and four clients' worth of
+    // full pushes took it down to 96 bytes.
+    static char *s_sig;
+    cJSON *pair = cJSON_CreateObject();
+    cJSON_AddItemReferenceToObject(pair, "devs", cJSON_GetObjectItem(root, "devs"));
+    cJSON_AddItemReferenceToObject(pair, "apps", cJSON_GetObjectItem(root, "apps"));
+    char *sig = cJSON_PrintUnformatted(pair);
+    cJSON_Delete(pair);
+    if (sig && s_sig && !strcmp(sig, s_sig) && !s_need_full) {
+        cJSON_DeleteItemFromObject(root, "devs");
+        cJSON_DeleteItemFromObject(root, "apps");
+        cJSON_free(sig);
+    } else if (sig) {
+        if (s_sig) cJSON_free(s_sig);
+        s_sig = sig;
+        s_need_full = false;
+    }
 
     char *logbuf = malloc(LOG_RING + 1);
     if (logbuf) {
@@ -314,6 +359,7 @@ static char *build_stats(void)
         free(logbuf);
     }
     char *out = cJSON_PrintUnformatted(root);
+    if (out) utf8_clean(out);                    // the log's cut start, a task's name read as it ended: '?'.
     cJSON_Delete(root);
     return out;
 }
@@ -328,6 +374,9 @@ static bool has_clients(void)
     return false;
 }
 
+// A client that cannot take a message is closed, not only forgotten: its socket would keep the unsent data (a
+// stats push is several TCP segments, ~1.5 KB of internal RAM each) until TCP gave up, minutes later. Clients that
+// vanished (a PC tool killed, a laptop asleep) held internal RAM that way down to 0 bytes free.
 static void send_text(int fd, const char *text)
 {
     httpd_ws_frame_t f = { .type = HTTPD_WS_TYPE_TEXT, .payload = (uint8_t *)text, .len = strlen(text) };
@@ -335,6 +384,7 @@ static void send_text(int fd, const char *text)
         for (int i = 0; i < MAX_CLIENTS; i++) {
             if (s_fds[i] == fd) s_fds[i] = 0;
         }
+        httpd_sess_trigger_close(s_server, fd);
     }
 }
 
@@ -354,10 +404,14 @@ static void push_task(void *arg)
 
 static void reply(int fd, const char *msg)
 {
-    char buf[200];
+    // Valid UTF-8 always (a reply cut at its buffer's end can split a letter: the PC tools then drop the link).
+    static char clean[640];
+    static char buf[800];
+    strlcpy(clean, msg, sizeof(clean));
+    utf8_clean(clean);
     cJSON *o = cJSON_CreateObject();
     cJSON_AddStringToObject(o, "t", "reply");
-    cJSON_AddStringToObject(o, "msg", msg);
+    cJSON_AddStringToObject(o, "msg", clean);
     if (cJSON_PrintPreallocated(o, buf, sizeof(buf), false)) send_text(fd, buf);
     cJSON_Delete(o);
 }
@@ -381,12 +435,14 @@ static void handle_msg(int fd, const char *text)
             for (int i = 0; i < MAX_CLIENTS; i++) {
                 if (s_fds[i] == fd || (slot < 0 && s_fds[i] == 0)) slot = i;
             }
-            if (slot >= 0) {
-                s_fds[slot] = fd;
-                send_text(fd, "{\"t\":\"auth\",\"ok\":true}");
-            } else {
-                send_text(fd, "{\"t\":\"auth\",\"ok\":false,\"msg\":\"too many clients\"}");
+            if (slot < 0) {                      // all taken: the oldest client goes (likely one that went away)
+                httpd_sess_trigger_close(s_server, s_fds[0]);
+                memmove(&s_fds[0], &s_fds[1], (MAX_CLIENTS - 1) * sizeof(s_fds[0]));
+                slot = MAX_CLIENTS - 1;
             }
+            s_fds[slot] = fd;
+            s_need_full = true;
+            send_text(fd, "{\"t\":\"auth\",\"ok\":true}");
         } else {
             send_text(fd, "{\"t\":\"auth\",\"ok\":false,\"msg\":\"wrong code\"}");
         }
@@ -639,8 +695,10 @@ static esp_err_t upload_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
     const bool music = is_music(name);           // <storage>/music, up to 64 MB (a long FLAC)
-    if (req->content_len > (music ? 64 : 4) * 1024 * 1024) {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, music ? "too big (64 MB max)" : "too big (4 MB max)");
+    const size_t len = strlen(name);
+    const bool package = len > 4 && strcmp(name + len - 4, ".fpk") == 0;   // asset packages are large too
+    if (req->content_len > (music || package ? 64 : 4) * 1024 * 1024) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, music || package ? "too big (64 MB max)" : "too big (4 MB max)");
         return ESP_FAIL;
     }
     char path[128];
@@ -650,24 +708,34 @@ static esp_err_t upload_handler(httpd_req_t *req)
                     : to_sd ? FH1_SD_PACKAGES : FH1_INT_PACKAGES;
     fh1_mkdirs(dir);
     snprintf(path, sizeof(path), "%s/%s", dir, name);
-    FILE *f = fopen(path, "wb");
-    if (!f) {
+    const int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "cannot write");
         return ESP_FAIL;
     }
-    char *buf = malloc(4096);
+    // Whole 4 KB blocks from one DMA-capable buffer: the storage driver writes straight from it. (Written from
+    // PSRAM, or in pieces through stdio, it took a 3.5 KB bounce buffer of internal RAM for each write, while
+    // Wi-Fi was taking the rest: allocations failed.)
+    char *buf = heap_caps_malloc(4096, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+    if (!buf) buf = malloc(4096);
     int left = req->content_len;
     bool ok = buf != NULL;
     fh1_transfer_report(FH1_XFER_UPLOAD, FH1_XFER_RUNNING, name, 0, req->content_len);
     while (ok && left > 0) {
-        int n = httpd_req_recv(req, buf, left < 4096 ? left : 4096);
-        if (n == HTTPD_SOCK_ERR_TIMEOUT) continue;
-        if (n <= 0 || fwrite(buf, 1, n, f) != (size_t)n) ok = false;
-        left -= n;
+        int fill = 0;
+        const int want = left < 4096 ? left : 4096;
+        while (ok && fill < want) {
+            const int n = httpd_req_recv(req, buf + fill, want - fill);
+            if (n == HTTPD_SOCK_ERR_TIMEOUT) continue;
+            if (n <= 0) ok = false;
+            else fill += n;
+        }
+        if (ok && write(fd, buf, fill) != fill) ok = false;
+        left -= fill;
         if (ok) fh1_transfer_report(FH1_XFER_UPLOAD, FH1_XFER_RUNNING, name, req->content_len - left, req->content_len);
     }
-    free(buf);
-    if (fclose(f) != 0) ok = false;
+    heap_caps_free(buf);
+    if (close(fd) != 0) ok = false;
     fh1_transfer_report(FH1_XFER_UPLOAD, ok ? FH1_XFER_DONE : FH1_XFER_FAILED, name, 1, 1);
     if (!ok) {
         unlink(path);
@@ -722,6 +790,12 @@ void console_server_start(void)
     cfg.core_id = 0;
     cfg.send_wait_timeout = 15;
     cfg.recv_wait_timeout = 15;      // a weak signal stalls uploads for seconds
+    // A peer that went away without closing (a tool killed, a laptop asleep) is found in ~10 s and closed: its
+    // socket's queued data is internal RAM.
+    cfg.keep_alive_enable = true;
+    cfg.keep_alive_idle = 5;
+    cfg.keep_alive_interval = 2;
+    cfg.keep_alive_count = 3;
     cfg.max_uri_handlers = 12;
     if (httpd_start(&s_server, &cfg) != ESP_OK) {
         ESP_LOGE(TAG, "web server did not start");

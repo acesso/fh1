@@ -1,0 +1,8 @@
+{
+  "id": "org.fh1.assets.rpg-sfx",
+  "name": "Sons RPG",
+  "version": "1",
+  "sdk": "0.7",
+  "kind": "assets",
+  "where": "sd"
+}

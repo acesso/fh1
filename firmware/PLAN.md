@@ -221,6 +221,16 @@ mirrors the screen; screenshots are taken on demand.
 The task list comes from `uxTaskGetSystemState`, every 10 s, with the other core held inside an IPC call while
 the tasks are read. `tools/fh1dev.py` drives the console from the PC (keys, screenshots, stats, console ops).
 
+- **Stats pushes** go every 2 s to up to 4 clients (~0.8 KB each); the device and app lists (3.8 KB) only when
+  they change or a client has just joined (the page keeps the last ones). A new client past 4 replaces the
+  oldest. A client that cannot take a push is closed at once, and TCP keep-alive (5 s idle, 3 probes 2 s apart)
+  closes one that went away: an open socket keeps its unsent data in internal RAM until TCP gives up.
+- **Uploads** are received into one 4 KB DMA-capable buffer and written with `write()` in whole blocks: the SD
+  driver writes straight from it (from PSRAM or through stdio it needed a 3.5 KB internal bounce buffer per write).
+- **Dev ops for memory and data:** `heap` (internal RAM free, largest block, lowest ever, and the allocations that
+  failed: counted, the last four kept; `heap reset` counts again), `data_list` (an app's files per user),
+  `data_copy` (an app's data from one user to another, the target's kept in a `.bak` folder).
+
 ## App packages
 
 **Format.** An `.fpk` file is an uncompressed tar holding:
@@ -255,6 +265,10 @@ last window closes, it is unloaded and its memory freed.
 | 0.2 | The players' controllers (`fh1_pad`, `fh1_pad_info`, `fh1_pad_motion`, `fh1_pad_hold_keys`) and a canvas (`fh1_canvas*`) |
 | 0.3 | `fh1_canvas_tri`, `fh1_canvas_text_width` |
 | 0.4 | Users: `fh1_user`, `fh1_user_face`, `fh1_notify`, `fh1_setting_get` / `_set`, `fh1_state_save` / `_load`; `fh1_app_data_dir()` is player 1's user's folder |
+| 0.5 | Full screen: `fh1_screen_open` / `fh1_screen_close` (the app's `frame()` on its own task, a back buffer), `fh1_app_dir`, `fh1_px_text` |
+| 0.6 | Development commands from the console: `fh1_dev_command` |
+| 0.7 | Asset packages (`fh1_asset_dir`, `"uses"`) and sound effects (`fh1_sfx_play`, `_stop`, `_stop_all`, `_playing`) |
+| 0.8 | Player 1's controller's button pictures: `fh1_pad_style`, `fh1_px_key`; the data folder follows player 1's user at every call |
 
 **Limits.**
 - Apps run in the same address space as the firmware, with no isolation. A crashing app reboots the device, and the watchdog catches hangs.
@@ -326,7 +340,13 @@ any while it runs:
   bank 0 in 4 KB pieces.
 - **Nothing static per app.** The emulators allocate their machine state when a game opens.
 - **Wi-Fi and lwIP buffers stay in internal RAM** (`CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP` is off: it forces
-  static TX buffers that hold ~26 KB of internal RAM for good).
+  static TX buffers that hold ~26 KB of internal RAM for good), **with a cap** on what Wi-Fi borrows: 8 dynamic
+  TX and 16 dynamic RX buffers (~1.6 KB each; 32 of each let five screenshots take internal RAM to 120 bytes;
+  10 RX buffers halved the upload speed).
+- **Measured** (internal RAM free, lowest): idle ~23 KB after boot, ~35 KB once boot settles; boot's lowest
+  ~8 KB; five screenshots in a row ~2.5 KB (Wi-Fi drops some frames and retries; free again at once); a 1 MB
+  upload no failed allocation, 3.2 s. Before the console fixes, clients that went away held it at 3 KB for
+  minutes and at 0 bytes at times.
 - **Bluetooth** takes ~26 KB of internal RAM while on; its controller code runs from flash
   (`CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY`) and its pools are sized for small use. It is off unless adding a bridge.
 

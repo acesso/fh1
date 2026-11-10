@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include "fh1_mem.h"
 #include "fh1_board.h"
 #include "fh1_devices.h"
 #include "fh1_input.h"
@@ -105,6 +106,7 @@ static void ui_status(fh1_ui_status_t *st)
 void app_main(void)
 {
     fh1_console_log_init();
+    fh1_mem_diag_start();                      // where internal RAM goes (the console's "heap" op)
     ESP_LOGI(TAG, "FH1 starting");
     // The boot screen: each step reports what it found (shown once the display is up).
     fh1_post_begin(7);

@@ -14,8 +14,12 @@
 #include <stddef.h>
 
 #define FH1_SDK_MAJOR 0
-#define FH1_SDK_MINOR 4               // 2: gamepads with motion, a canvas to draw on. 3: triangles, text width.
+#define FH1_SDK_MINOR 8               // 2: gamepads with motion, a canvas to draw on. 3: triangles, text width.
                                       // 4: users (who plays, their face), notifications, settings, saved states
+                                      // 5: full screen, the app's own folder
+                                      // 6: development commands from the console
+                                      // 7: asset packages, sound effects
+                                      // 8: the controller's button pictures; data follows player 1
 
 #ifdef __cplusplus
 extern "C" {
@@ -121,7 +125,9 @@ int fh1_canvas_text_width(lv_obj_t *c, const char *text);
 
 // ── Users, settings and saved states (SDK 0.4) ──
 // Apps need nothing to be per user: the system shows who plays when an app starts (their faces, over it), and
-// the app's data folder belongs to player 1's user (every user keeps their own saves). These are for apps that
+// the app's data folder belongs to player 1's user (every user keeps their own saves). From SDK 0.8 it is player 1's
+// user now: when another user takes player 1's controller over while the app runs, settings and saved states go
+// to that user's folder at once; an app that keeps progress in memory watches fh1_user(0, ...) to load theirs. These are for apps that
 // want more, and they cost nothing to the ones that do not call them.
 //
 // Who plays: the user of a player's controller (player 0 is player 1, who also uses the menus). false: nobody
@@ -137,6 +143,60 @@ bool fh1_setting_set(const char *key, const char *value);       // up to 127 cha
 // Saved states (a game's save slots): whole blobs by name (like the keys), checked when loaded.
 int fh1_state_save(const char *name, const void *data, size_t len);   // 0, or -1
 int fh1_state_load(const char *name, void *data, size_t max);        // its size, or -1: none, damaged, too big
+
+// ── Full screen (SDK 0.5) ──
+// The app owns the whole display, for games. frame() runs on a task of its own (core 1), every period_ms at
+// most, and draws into px: the logical screen (w x h pixels, RGB565, row by row), a back buffer in PSRAM that
+// keeps what was drawn between frames. dt_ms is the time since the previous frame. It returns what to do:
+enum {
+    FH1_FRAME_END = 0,                    // leave full screen; closed(user) then runs as the windows come back
+    FH1_FRAME_SHOW = 1,                   // show px
+    FH1_FRAME_SAME = 2,                   // nothing changed: px is not copied to the screen
+};
+typedef int (*fh1_frame_fn)(uint16_t *px, int w, int h, uint32_t dt_ms, void *user);
+// From the app's own code (app_main, a timer, a key callback): false if full screen is already open or there is
+// no memory. frame() may read keys and gamepads, play sound and save; it must not touch windows or canvases.
+// The app stays loaded while full screen is open. An overlay (a file arriving) pauses frames for a moment.
+bool fh1_screen_open(uint32_t period_ms, fh1_frame_fn frame, void (*closed)(void *user), void *user);
+void fh1_screen_close(void);              // frame() is not called again; closed(user) follows
+// The app's installed folder, /int/apps/<id>: its package's assets/ are there.
+const char *fh1_app_dir(void);
+// Text in the interface's 8 x 8 pixel font (ASCII and Latin-1, UTF-8) into a full-screen buffer, each pixel
+// scale x scale, only the letters drawn (no background), clipped to w x h. Returns the x after the text.
+int fh1_px_text(uint16_t *px, int w, int h, int x, int y, const char *text, uint32_t rgb, int scale);
+
+// ── Development commands (SDK 0.6) ──
+// Text sent from the dev console (`fh1dev.py op dev "TEXT"`) to the running app, to reach a scene or a state
+// without playing to it. The app takes the oldest one waiting (from any task, its frame() included): false if none.
+bool fh1_dev_command(char *out, size_t n);
+
+// ── Asset packages and sound effects (SDK 0.7) ──
+// An asset package ("kind": "assets" in its manifest) holds assets shared by every app that names it in its
+// manifest's "uses": installed once, on the SD card or in internal storage. Its folder, or NULL when missing (an
+// app whose "uses" are missing does not start).
+const char *fh1_asset_dir(const char *id);
+// Sounds: mono 16-bit samples the app keeps in its memory (PSRAM is fine) while they play; up to 8 at once, mixed
+// by the firmware at 44.1 kHz (other rates are resampled). play returns the voice, or -1; when 8 play, the one
+// furthest along stops for the new one. volume: 0..255. Everything stops when the app closes.
+int fh1_sfx_play(const int16_t *pcm, uint32_t frames, uint32_t rate, uint8_t volume);
+void fh1_sfx_stop(int voice);
+void fh1_sfx_stop_all(void);
+bool fh1_sfx_playing(int voice);
+
+// ── Player 1's controller in pictures (SDK 0.8) ──
+// How player 1's controller shows its buttons: the FH1's coloured caps (its own keys, plain controllers), an Xbox
+// controller's letters in their colours, a Nintendo one's letters, a PlayStation one's shapes. It changes when
+// another controller takes player 1 over: ask again (it is cheap) rather than keeping it. FH1 keys are by
+// position (FH1_KEY_A is the right face button), and each style names the button that sends them.
+enum { FH1_PAD_STYLE_FH1, FH1_PAD_STYLE_XBOX, FH1_PAD_STYLE_NINTENDO, FH1_PAD_STYLE_PLAYSTATION };
+int fh1_pad_style(void);
+// A key's icon in that style into a full-screen buffer (as the windows' footers draw it), 11 pixels high: the face
+// buttons round, Start, Select and Menu pills, and the D-pad's pairs. Returns the x after it.
+#ifndef FH1_HINT_LEFTRIGHT
+#define FH1_HINT_LEFTRIGHT 100        // the D-pad's left and right
+#define FH1_HINT_UPDOWN 101           // its up and down
+#endif
+int fh1_px_key(uint16_t *px, int w, int h, int x, int y, int key);
 
 #ifdef __cplusplus
 }

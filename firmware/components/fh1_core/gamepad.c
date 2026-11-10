@@ -5,6 +5,7 @@
 #include "fh1_input.h"
 #include "fh1_settings.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 typedef struct {
     bool used;
@@ -15,6 +16,7 @@ typedef struct {
     const fh1_gamepad_ops_t *ops;
     void *ctx;
     int16_t leds;                      // player LEDs as last set, -1 not yet
+    uint32_t menu_since;               // when its Menu went down while it was not player 1's (ms), 0 none
 } pad_t;
 
 static portMUX_TYPE s_mux = portMUX_INITIALIZER_UNLOCKED;
@@ -26,6 +28,31 @@ static bool s_loaded;
 static uint32_t s_p1_posted;           // player 1's gamepad keys as last posted
 static bool s_mute;                    // player 1's gamepad keys not posted (an input test)
 static int s_motion;                   // who wants motion streamed
+static void (*s_claim)(const char *id);
+static int resolve(int player);
+
+void fh1_gamepad_on_claim(void (*fn)(const char *id)) { s_claim = fn; }
+
+// Menu held on a gamepad that is not player 1's: after FH1_GAMEPAD_CLAIM_MS it claims player 1. Checked
+// whenever the gamepad reports (its keys, or its heartbeat); called with the lock held, returns whether to claim.
+static bool claim_check(int h, uint32_t keys, char id[18])
+{
+    pad_t *p = &s_pad[h];
+    const uint32_t now = (uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS) | 1;
+    if (!(keys & (1u << FH1_KEY_MENU))) {
+        p->menu_since = 0;
+        return false;
+    }
+    if (resolve(0) == h) {                 // player 1's own Menu is the interface's (once released after a claim)
+        if (p->menu_since != UINT32_MAX) p->menu_since = 0;
+        return false;
+    }
+    if (!p->menu_since) p->menu_since = now;
+    if (p->menu_since == UINT32_MAX || now - p->menu_since < FH1_GAMEPAD_CLAIM_MS) return false;
+    p->menu_since = UINT32_MAX;            // once per hold
+    memcpy(id, p->info.id, 18);
+    return true;
+}
 
 static const char *const s_keys[FH1_PLAYERS] = { "p1", "p2" };
 
@@ -97,6 +124,7 @@ static void sync_player1(void)
     portENTER_CRITICAL(&s_mux);
     int h = resolve(0);
     uint32_t keys = h >= 0 && !s_mute ? s_pad[h].keys : 0;
+    if (h >= 0 && s_pad[h].menu_since == UINT32_MAX) keys &= ~(1u << FH1_KEY_MENU);   // the hold that claimed player 1
     uint32_t changed = keys ^ s_p1_posted;
     s_p1_posted = keys;
     portEXIT_CRITICAL(&s_mux);
@@ -202,24 +230,30 @@ void fh1_gamepad_set_colour(int h, uint32_t rgb)
 void fh1_gamepad_set_keys(int h, uint32_t keys)
 {
     if (h < 0 || h >= FH1_GAMEPADS_MAX) return;
+    char id[18];
     portENTER_CRITICAL(&s_mux);
     bool changed = s_pad[h].used && s_pad[h].keys != keys;
     s_pad[h].keys = keys;
+    const bool claim = s_pad[h].used && claim_check(h, keys, id);
     portEXIT_CRITICAL(&s_mux);
     if (changed) sync_player1();
+    if (claim && s_claim) s_claim(id);
 }
 
 void fh1_gamepad_set_state(int h, const fh1_pad_state_t *st)
 {
     if (h < 0 || h >= FH1_GAMEPADS_MAX) return;
+    char id[18];
     portENTER_CRITICAL(&s_mux);
     const bool changed = s_pad[h].used && s_pad[h].keys != st->keys;
     if (s_pad[h].used) {
         s_pad[h].state = *st;
         s_pad[h].keys = st->keys;
     }
+    const bool claim = s_pad[h].used && claim_check(h, st->keys, id);
     portEXIT_CRITICAL(&s_mux);
     if (changed) sync_player1();
+    if (claim && s_claim) s_claim(id);
 }
 
 void fh1_gamepad_set_ops(int h, const fh1_gamepad_ops_t *ops, void *ctx)
@@ -435,6 +469,27 @@ bool fh1_gamepad_of_player(int player, fh1_gamepad_info_t *out)
     if (h >= 0) *out = s_pad[h].info;
     portEXIT_CRITICAL(&s_mux);
     return h >= 0;
+}
+
+static bool has_word(const char *s, const char *w)        // case-insensitive "w in s"
+{
+    const size_t n = strlen(w);
+    for (; *s; s++) {
+        size_t i = 0;
+        while (i < n && s[i] && (s[i] | 0x20) == w[i]) i++;
+        if (i == n) return true;
+    }
+    return false;
+}
+
+int fh1_gamepad_style(int player)
+{
+    fh1_gamepad_info_t g;
+    if (!fh1_gamepad_of_player(player, &g)) return FH1_KEYS_FH1;
+    if (g.kind == FH1_PAD_PLAYSTATION) return FH1_KEYS_PLAYSTATION;
+    if (g.kind == FH1_PAD_PRO || g.kind == FH1_PAD_JOYCON_L || g.kind == FH1_PAD_JOYCON_R) return FH1_KEYS_NINTENDO;
+    if (has_word(g.name, "xbox")) return FH1_KEYS_XBOX;
+    return FH1_KEYS_FH1;
 }
 
 uint32_t fh1_input_player_keys(int player)

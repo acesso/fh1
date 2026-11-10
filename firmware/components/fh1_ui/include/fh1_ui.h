@@ -112,10 +112,12 @@ int fh1_ui_focused_index(fh1_win_t *win);         // index of the focused widget
 void fh1_ui_focus_index(fh1_win_t *win, int index);
 
 // ── Button chips and footers ──
-// A chip is a physical button drawn in its fixed colour (A red, B yellow, X blue, Y green, Start/Select
-// white pills, Menu a dark chip with a "three bars" icon). Windows list their actions in a footer of
+// A chip is a physical button drawn the way player 1's controller shows it (the FH1's caps by colour: A red,
+// B yellow, X blue, Y green; an Xbox pad's or a Nintendo pad's letters; a PlayStation pad's shapes), Start/Select
+// white pills, Menu a dark chip with a "three bars" icon. Chips follow a controller change on their own. Windows list their actions in a footer of
 // chips with a word each, apart from the content: (A) play  (X) test  (B) close.
 #define FH1_HINT_LEFTRIGHT 100        // the D-pad's left and right, as one chip
+#define FH1_HINT_UPDOWN 101           // its up and down
 #define FH1_HINT_CHARS 9              // a hint's word is cut to this many characters: keep them short
 // Footers are a grid of two columns: chip + word per cell, in the order given (left, right, next row...).
 typedef struct {
@@ -123,6 +125,8 @@ typedef struct {
     const char *text;                 // already translated
 } fh1_hint_t;
 lv_obj_t *fh1_ui_key_chip(lv_obj_t *parent, int key);
+// The same chip into an RGB565 buffer (full-screen apps, SDK 0.8), 11 pixels high; returns the x after it.
+int fh1_px_key(uint16_t *px, int w, int h, int x, int y, int key);
 void fh1_win_set_hints(fh1_win_t *win, const fh1_hint_t *hints, int n);
 // ── Icons ──
 // The common icons, pixel art in colour. Animated, each has its own motion: an arrow drops into a tray

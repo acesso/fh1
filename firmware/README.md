@@ -121,6 +121,10 @@ ESP32 in `bridge/` (see its README). In System > Bridges: switch Bluetooth on (i
 RAM while on); the first bridge is added by itself, more with "Search for bridges" (two at once). A bridge's
 window has its Devices (pair a controller there), Storage and About.
 
+Holding Menu (PS, Home) for 3 s on any connected controller that is not player 1's makes it player 1 at once
+(for a controller whose battery ran out): it rumbles, a notification says so, and a window asks whose
+controller it is (B leaves that as it was).
+
 System > Inputs and outputs chooses who plays with what (automatic, the FH1's own keys, or a given
 controller) and where the sound goes. Player 1's controller also works the whole interface: circle is A,
 cross B, triangle X, square Y, Options Start, Create Select, PS Menu; the left stick moves like the D-pad.
@@ -276,6 +280,25 @@ Packages build with ESP-IDF's default `-Og`; an app that draws in loops should s
 notification with player 1's face), `fh1_setting_get` / `fh1_setting_set` (short texts by key) and
 `fh1_state_save` / `fh1_state_load` (whole saved states, checked when loaded), all kept in that folder. Hello
 0.2.0 greets player 1 with their face, counts visits in a setting and keeps its count as a state.
+
+**SDK 0.5** gives an app the whole screen, for games: `fh1_screen_open(period_ms, frame, closed, user)` calls
+`frame(px, w, h, dt_ms, user)` on a task of its own, with a back buffer to draw into; it returns
+`FH1_FRAME_SHOW`, `FH1_FRAME_SAME` or `FH1_FRAME_END`. `fh1_app_dir()` is the installed folder (the package's
+`assets/`), and `fh1_px_text` writes in the interface's font. [`apps/packages/isotest`](apps/packages/isotest)
+uses them: the isometric engine and its art pack, built from `../assets/packs/` by `tools/fh1art.py`
+(`fh1art.py build art.json` before packing; see `docs/game-engines.md`).
+
+**SDK 0.6** passes development commands from the console to the running app (`fh1_dev_command`;
+`tools/fh1dev.py op dev "TEXT"`), to reach a scene without playing to it. **SDK 0.7** adds asset packages shared
+by apps (`fh1_asset_dir`, an app's `"uses"`) and sound effects mixed by the firmware (`fh1_sfx_play` / `_stop` /
+`_stop_all` / `_playing`; see `docs/sound-and-shared-assets.md`).
+
+**SDK 0.8** shows player 1's controller in pictures: `fh1_pad_style()` (the FH1's coloured caps, an Xbox pad's
+letters in their colours, a Nintendo pad's letters, a PlayStation pad's shapes) and `fh1_px_key` (a key's icon
+in that style into a full-screen buffer, as the windows' footers draw it). The footers' chips change with the
+controller on their own. An app's data folder is now player 1's user's at every call: when another user takes
+player 1's controller over mid-game, saves and settings go to that user's folder (Táticas da Ilha loads their
+progress when it sees `fh1_user(0, ...)` change).
 
 **Rules for apps:**
 - Use only the SDK functions and the C library subset listed at the top of `fh1_sdk.h`. Anything else fails to load with "can't find symbol".

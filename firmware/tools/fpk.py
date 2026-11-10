@@ -2,7 +2,8 @@
 """Build, check and inspect FH1 app packages (.fpk), as described in firmware/PLAN.md ("App packages").
 
 An .fpk is an uncompressed ustar archive holding manifest.json, app.elf, SHA256SUMS, and optionally
-an icon and an assets/ folder.
+an icon and an assets/ folder. An asset package ("kind": "assets") has no app.elf: only assets/, installed once to
+/sd/assets/<id> ("where": "sd") or /int/assets/<id>, for every app that names it in "uses".
 
   fpk.py pack <app dir> [-o out.fpk]     app dir holds manifest.json and build/<name>.app.elf (or app.elf)
   fpk.py check <file.fpk>                verify layout, manifest and checksums, as the device would
@@ -20,7 +21,7 @@ import sys
 import tarfile
 import urllib.request
 
-SDK = (0, 4)                    # fh1_sdk.h: FH1_SDK_MAJOR, FH1_SDK_MINOR
+SDK = (0, 8)                    # fh1_sdk.h: FH1_SDK_MAJOR, FH1_SDK_MINOR
 CAPS = {"DISPLAY", "BACKLIGHT", "BUTTONS", "STICK_ANALOG", "TOUCH", "AUDIO_OUT", "AUDIO_IN", "SD", "WIFI", "BLE",
         "LORA", "IMU", "RTC", "BATTERY", "BUTTON_LIGHTS"}
 
@@ -44,6 +45,13 @@ def check_manifest(m):
             errors.append(f"{key}: unknown capabilities {unknown}")
     if m.get("entry", "app.elf") != "app.elf":
         errors.append("entry must be app.elf")
+    if m.get("kind", "app") not in ("app", "assets"):
+        errors.append('kind: "app" or "assets"')
+    if m.get("where", "int") not in ("int", "sd"):
+        errors.append('where: "int" or "sd" (where an asset package is installed)')
+    for u in m.get("uses", []):
+        if not re.fullmatch(r"[a-z][a-z0-9._-]{2,46}", str(u)):
+            errors.append(f"uses: {u!r} is not a package id")
     return errors
 
 
@@ -62,13 +70,15 @@ def pack(args):
     errors = check_manifest(manifest)
     if errors:
         sys.exit("manifest.json:\n  " + "\n  ".join(errors))
-    elf = os.path.join(d, "app.elf")
-    if not os.path.exists(elf):
-        found = glob.glob(os.path.join(d, "build", "*.app.elf"))
-        if len(found) != 1:
-            sys.exit("no app.elf: build the app first (idf.py build), or put app.elf next to manifest.json")
-        elf = found[0]
-    files = {"manifest.json": manifest_raw, "app.elf": open(elf, "rb").read()}
+    files = {"manifest.json": manifest_raw}
+    if manifest.get("kind", "app") == "app":               # an asset package has no code
+        elf = os.path.join(d, "app.elf")
+        if not os.path.exists(elf):
+            found = glob.glob(os.path.join(d, "build", "*.app.elf"))
+            if len(found) != 1:
+                sys.exit("no app.elf: build the app first (idf.py build), or put app.elf next to manifest.json")
+            elf = found[0]
+        files["app.elf"] = open(elf, "rb").read()
     for extra in ("icon.png",):
         p = os.path.join(d, extra)
         if os.path.exists(p):
@@ -101,7 +111,10 @@ def check(args):
         errors.append("no manifest.json")
     else:
         errors += check_manifest(json.loads(files["manifest.json"]))
-    if "app.elf" not in files:
+    kind = json.loads(files["manifest.json"]).get("kind", "app") if "manifest.json" in files else "app"
+    if kind == "assets":
+        pass
+    elif "app.elf" not in files:
         errors.append("no app.elf")
     elif files["app.elf"][:4] != b"\x7fELF":
         errors.append("app.elf is not an ELF file")

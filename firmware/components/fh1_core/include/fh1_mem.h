@@ -16,3 +16,8 @@ void fh1_mem_free(void *p);
 bool fh1_mem_is_fast(const void *p);
 // Logs internal RAM: free, largest block, lowest ever.
 void fh1_mem_log(const char *what);
+
+// Internal RAM's use: free, largest block, lowest ever, and the allocations that failed (counted, the last four
+// kept). Started at boot; the console's "heap" op reports it ("heap reset": the failures counted again from 0).
+void fh1_mem_diag_start(void);
+void fh1_mem_diag_report(char *out, size_t n, bool reset);

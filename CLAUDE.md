@@ -47,8 +47,8 @@ cd ~/ham/FH1/firmware
 idf.py build                        # -O2 for the whole firmware; a full rebuild takes ~10 min
 ```
 
-- **Device:** a CH340 on USB port 1-1; its `/dev/ttyUSB*` number moves when other boards (the bridges) are
-  plugged or off: map ports by USB id first (the bridges are the other CH340 and the A1S's CP2102). Opening the
+- **Device:** a CH340 (USB id 1a86); its USB port (1-1, 1-3) and `/dev/ttyUSB*` number move when other boards
+  (the bridges) are plugged or off: map ports by chip first (the bridges are the other CH340 and the A1S's CP2102). Opening the
   serial port resets the board. Flash at 460800 baud at most (reads above 230400 were unreliable).
 - **Network:** DHCP, and the address changes. Use names: `fh1.local`
   for the FH1, `fh1-bridge-<4 hex>.local` for bridges (the A1S: `fh1-bridge-cb5a.local`). An old FH1 build

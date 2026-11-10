@@ -1,5 +1,5 @@
 // Runs packaged apps: loads app.elf into PSRAM with the ELF loader, resolves it against the SDK's
-// symbol table and calls its app_main. The app stays loaded while it has windows or timers;
+// symbol table and calls its app_main. The app stays loaded while it has windows, timers or the full screen;
 // a timer unloads it once its last window closes, or when it calls fh1_app_exit().
 #include <string.h>
 #include <stdio.h>
@@ -22,6 +22,10 @@
 #include "esp_heap_caps.h"
 #include "esp_timer.h"
 #include "esp_log.h"
+#include "fh1_app.h"
+#include "fh1_board.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 static const char *TAG = "run";
 
@@ -39,11 +43,50 @@ static struct {
 } s_app;
 static lv_timer_t *s_watch;
 
+// SDK 0.5: the app's full screen, drawn by its frame() on a task of its own.
+static struct {
+    TaskHandle_t task;
+    fh1_frame_fn frame;
+    void (*closed)(void *user);
+    void *user;
+    uint32_t period_ms;
+    volatile bool stop;                // fh1_screen_close, or the app is being unloaded
+    volatile bool unloading;           // then closed() runs from unload(), before the app's code goes away
+    bool closed_pending;
+    uint16_t *fb, *bb;
+    int w, h;
+    char app_dir[64];
+} s_scr;
+
 // ── SDK functions that exist only for apps ──
 
 uint32_t fh1_sdk_version(void) { return (FH1_SDK_MAJOR << 16) | FH1_SDK_MINOR; }
 const char *fh1_app_id(void) { return s_app.loaded ? s_app.m.id : ""; }
-const char *fh1_app_data_dir(void) { return s_app.loaded ? s_app.data_dir : ""; }
+// The app's data folder is player 1's user's now (SDK 0.8): a controller taken over by another user mid-game
+// moves saves and settings to that user's folder at once (the app sees the change with fh1_user).
+static void data_dir_now(char *out, size_t n) { fh1_data_dir(s_app.m.id, out, n); }
+
+const char *fh1_app_data_dir(void)
+{
+    if (!s_app.loaded) return "";
+    data_dir_now(s_app.data_dir, sizeof(s_app.data_dir));
+    return s_app.data_dir;
+}
+const char *fh1_app_dir(void) { return s_app.loaded ? s_scr.app_dir : ""; }
+
+const char *fh1_asset_dir(const char *id)
+{
+    static char path[2][80];
+    static int k;
+    struct stat st;
+    if (!id || strchr(id, '/') || strstr(id, "..")) return NULL;
+    k ^= 1;
+    snprintf(path[k], sizeof(path[k]), FH1_SD_PATH "/assets/%s", id);
+    if (stat(path[k], &st) == 0 && S_ISDIR(st.st_mode)) return path[k];
+    snprintf(path[k], sizeof(path[k]), FH1_INT_PATH "/assets/%s", id);
+    if (stat(path[k], &st) == 0 && S_ISDIR(st.st_mode)) return path[k];
+    return NULL;
+}
 void fh1_app_exit(void) { s_app.exit_requested = true; }
 uint32_t fh1_millis(void) { return (uint32_t)(esp_timer_get_time() / 1000); }
 void fh1_ui_label_set(lv_obj_t *label, const char *text) { lv_label_set_text(label, text); }
@@ -339,8 +382,9 @@ bool fh1_setting_get(const char *key, char *value, size_t n)
 {
     if (n) value[0] = 0;
     if (!s_app.loaded || !name_ok(key)) return false;
-    char p[128], line[176];
-    snprintf(p, sizeof(p), "%s/settings.txt", s_app.data_dir);
+    char p[128], line[176], dir[96];
+    data_dir_now(dir, sizeof(dir));
+    snprintf(p, sizeof(p), "%s/settings.txt", dir);
     FILE *f = fopen(p, "r");
     if (!f) return false;
     const size_t kl = strlen(key);
@@ -358,10 +402,11 @@ bool fh1_setting_get(const char *key, char *value, size_t n)
 bool fh1_setting_set(const char *key, const char *value)
 {
     if (!s_app.loaded || !name_ok(key) || !value || strlen(value) > 127 || strpbrk(value, "\r\n")) return false;
-    char p[128], tmp[136], line[176];
-    snprintf(p, sizeof(p), "%s/settings.txt", s_app.data_dir);
+    char p[128], tmp[136], line[176], dir[96];
+    data_dir_now(dir, sizeof(dir));
+    snprintf(p, sizeof(p), "%s/settings.txt", dir);
     snprintf(tmp, sizeof(tmp), "%s.new", p);
-    fh1_mkdirs(s_app.data_dir);
+    fh1_mkdirs(dir);
     FILE *in = fopen(p, "r"), *out = fopen(tmp, "w");
     if (!out) {
         if (in) fclose(in);
@@ -385,10 +430,11 @@ bool fh1_setting_set(const char *key, const char *value)
 int fh1_state_save(const char *name, const void *data, size_t len)
 {
     if (!s_app.loaded || !name_ok(name) || (!data && len)) return -1;
-    char p[128], tmp[136];
-    snprintf(p, sizeof(p), "%s/%s.state", s_app.data_dir, name);
+    char p[128], tmp[136], dir[96];
+    data_dir_now(dir, sizeof(dir));
+    snprintf(p, sizeof(p), "%s/%s.state", dir, name);
     snprintf(tmp, sizeof(tmp), "%s.new", p);
-    fh1_mkdirs(s_app.data_dir);
+    fh1_mkdirs(dir);
     FILE *f = fopen(tmp, "wb");
     if (!f) return -1;
     const uint32_t hdr[3] = { 0x53314846u, (uint32_t)len, esp_rom_crc32_le(0, data, len) };
@@ -405,8 +451,9 @@ int fh1_state_save(const char *name, const void *data, size_t len)
 int fh1_state_load(const char *name, void *data, size_t max)
 {
     if (!s_app.loaded || !name_ok(name)) return -1;
-    char p[128];
-    snprintf(p, sizeof(p), "%s/%s.state", s_app.data_dir, name);
+    char p[128], dir[96];
+    data_dir_now(dir, sizeof(dir));
+    snprintf(p, sizeof(p), "%s/%s.state", dir, name);
     FILE *f = fopen(p, "rb");
     if (!f) return -1;
     uint32_t hdr[3];
@@ -419,6 +466,138 @@ int fh1_state_load(const char *name, void *data, size_t max)
 }
 
 // The compiler's helper for float division (the S3's FPU has no divide): any app dividing floats needs it.
+// ── Full screen (SDK 0.5) ──
+
+static void screen_closed(void *user)
+{
+    if (s_app.loaded && s_scr.closed) s_scr.closed(user);
+}
+
+static void screen_task(void *arg)
+{
+    const size_t bytes = (size_t)s_scr.w * s_scr.h * 2;
+    bool show_all = true;              // the first frame, and after an overlay drew over the screen
+    uint32_t last = fh1_millis();
+    TickType_t wake = xTaskGetTickCount();
+    while (!s_scr.stop) {
+        if (fh1_app_quit_requested()) break;
+        if (fh1_app_should_yield()) {
+            fh1_ui_lend_screen();
+            show_all = true;
+            wake = xTaskGetTickCount();
+            continue;
+        }
+        const uint32_t now = fh1_millis();
+        const int r = s_scr.frame(s_scr.bb, s_scr.w, s_scr.h, now - last, s_scr.user);
+        last = now;
+        if (r == FH1_FRAME_END || s_scr.stop) break;
+        if (r == FH1_FRAME_SHOW || show_all) memcpy(s_scr.fb, s_scr.bb, bytes);
+        show_all = false;
+        // Block every frame, even when late, so core 1's idle task (and the watchdog) are fed.
+        if (xTaskDelayUntil(&wake, pdMS_TO_TICKS(s_scr.period_ms)) == pdFALSE) {
+            vTaskDelay(1);
+            wake = xTaskGetTickCount();
+        }
+    }
+    heap_caps_free(s_scr.bb);
+    s_scr.bb = NULL;
+    fh1_ui_pause(false, true);
+    if (!s_scr.unloading) fh1_ui_async(screen_closed, s_scr.user);
+    else s_scr.closed_pending = true;
+    s_scr.task = NULL;
+    vTaskDelete(NULL);
+}
+
+bool fh1_screen_open(uint32_t period_ms, fh1_frame_fn frame, void (*closed)(void *user), void *user)
+{
+    if (!s_app.loaded || s_scr.task || !frame) return false;
+    s_scr.fb = fh1_board_framebuffer(&s_scr.w, &s_scr.h);
+    if (!s_scr.fb) return false;
+    s_scr.bb = heap_caps_calloc((size_t)s_scr.w * s_scr.h, 2, MALLOC_CAP_SPIRAM);
+    if (!s_scr.bb) return false;
+    s_scr.frame = frame;
+    s_scr.closed = closed;
+    s_scr.user = user;
+    s_scr.period_ms = period_ms < 10 ? 10 : period_ms;
+    s_scr.stop = s_scr.unloading = false;
+    fh1_ui_pause(true, false);
+    if (xTaskCreatePinnedToCore(screen_task, "app_screen", 8192, NULL, 4, &s_scr.task, 1) != pdPASS) {
+        s_scr.task = NULL;
+        heap_caps_free(s_scr.bb);
+        s_scr.bb = NULL;
+        fh1_ui_pause(false, true);
+        return false;
+    }
+    return true;
+}
+
+void fh1_screen_close(void) { if (s_scr.task) s_scr.stop = true; }
+
+// ── Development commands (SDK 0.6): a few lines queued by the console, taken by the app ──
+
+#define DEV_QUEUE 6
+static portMUX_TYPE s_dev_mux = portMUX_INITIALIZER_UNLOCKED;
+static char s_dev[DEV_QUEUE][64];
+static int s_dev_head, s_dev_n;
+
+bool run_dev_push(const char *text)
+{
+    bool ok = false;
+    portENTER_CRITICAL(&s_dev_mux);
+    if (s_app.loaded && s_dev_n < DEV_QUEUE) {
+        strlcpy(s_dev[(s_dev_head + s_dev_n) % DEV_QUEUE], text, sizeof(s_dev[0]));
+        s_dev_n++;
+        ok = true;
+    }
+    portEXIT_CRITICAL(&s_dev_mux);
+    return ok;
+}
+
+bool fh1_dev_command(char *out, size_t n)
+{
+    bool ok = false;
+    portENTER_CRITICAL(&s_dev_mux);
+    if (s_dev_n) {
+        strlcpy(out, s_dev[s_dev_head], n);
+        s_dev_head = (s_dev_head + 1) % DEV_QUEUE;
+        s_dev_n--;
+        ok = true;
+    }
+    portEXIT_CRITICAL(&s_dev_mux);
+    return ok;
+}
+
+const uint8_t *fh1_font8_glyph(uint32_t cp);           // fh1_ui: unscii-8, ASCII + Latin-1
+
+int fh1_px_text(uint16_t *px, int w, int h, int x, int y, const char *text, uint32_t rgb, int scale)
+{
+    if (scale < 1) scale = 1;
+    const uint16_t c = c565(rgb);
+    const unsigned char *p = (const unsigned char *)text;
+    while (*p && x < w) {
+        uint32_t cp = *p++;
+        if ((cp & 0xE0) == 0xC0 && *p) cp = ((cp & 0x1F) << 6) | (*p++ & 0x3F);
+        const uint8_t *g = fh1_font8_glyph(cp);
+        for (int gy = 0; gy < 8; gy++)
+            for (int gx = 0; gx < 8; gx++) {
+                if (!(g[gy] & (0x80 >> gx))) continue;
+                for (int sy = 0; sy < scale; sy++) {
+                    const int yy = y + gy * scale + sy;
+                    if (yy < 0 || yy >= h) continue;
+                    for (int sx = 0; sx < scale; sx++) {
+                        const int xx = x + gx * scale + sx;
+                        if (xx >= 0 && xx < w) px[yy * w + xx] = c;
+                    }
+                }
+            }
+        x += 8 * scale;
+    }
+    return x;
+}
+
+// SDK 0.8: player 1's controller's button style, and a button's icon in it (fh1_ui draws both).
+int fh1_pad_style(void) { return fh1_gamepad_style(0); }
+
 extern float __divsf3(float a, float b);
 
 // ── The exported symbol table: SDK 0.1 to 0.4 ──
@@ -435,6 +614,18 @@ static const struct esp_elfsym s_sdk_syms[] = {
     ESP_ELFSYM_EXPORT(fh1_state_save),
     ESP_ELFSYM_EXPORT(fh1_state_load),
     ESP_ELFSYM_EXPORT(fh1_app_exit),
+    ESP_ELFSYM_EXPORT(fh1_app_dir),
+    ESP_ELFSYM_EXPORT(fh1_screen_open),
+    ESP_ELFSYM_EXPORT(fh1_screen_close),
+    ESP_ELFSYM_EXPORT(fh1_px_text),
+    ESP_ELFSYM_EXPORT(fh1_dev_command),
+    ESP_ELFSYM_EXPORT(fh1_asset_dir),
+    ESP_ELFSYM_EXPORT(fh1_sfx_play),
+    ESP_ELFSYM_EXPORT(fh1_sfx_stop),
+    ESP_ELFSYM_EXPORT(fh1_sfx_stop_all),
+    ESP_ELFSYM_EXPORT(fh1_sfx_playing),
+    ESP_ELFSYM_EXPORT(fh1_pad_style),
+    ESP_ELFSYM_EXPORT(fh1_px_key),
     ESP_ELFSYM_EXPORT(fh1_millis),
     ESP_ELFSYM_EXPORT(fh1_app_timer),
     ESP_ELFSYM_EXPORT(fh1_app_timer_stop),
@@ -491,13 +682,31 @@ static const struct esp_elfsym s_sdk_syms[] = {
 
 // ── Load and unload ──
 
+// The full screen's task runs the app's code: it must end before the app is unloaded. Asking it to stop
+// never waits here (it may be lending the screen to the UI task, which runs this).
+static bool screen_stopped(void)
+{
+    if (!s_scr.task) return true;
+    s_scr.unloading = s_scr.stop = true;
+    return false;
+}
+
 static void unload(void)
 {
-    if (!s_app.loaded) return;
+    if (!s_app.loaded || !screen_stopped()) return;
+    // Closed by the system (a stop, another app): the app still frees what it holds (its art, its sounds), from
+    // here, while its code is loaded. Without this a stopped game kept megabytes of PSRAM.
+    if (s_scr.closed_pending) {
+        s_scr.closed_pending = false;
+        sfx_shutdown();
+        if (s_scr.closed) s_scr.closed(s_scr.user);
+    }
     fh1_win_close_owned(&s_app);
     for (int i = 0; i < MAX_TIMERS; i++) fh1_app_timer_stop(i);
     fh1_pad_motion(false);             // what it asked of the gamepads, undone
     fh1_pad_hold_keys(false);
+    s_dev_n = 0;
+    sfx_shutdown();                    // the mixer reads the app's samples: stopped before they go
     esp_elf_deinit(&s_app.elf);
     heap_caps_free(s_app.image);
     s_app.image = NULL;
@@ -510,7 +719,7 @@ static void unload(void)
 static void watch(lv_timer_t *t)
 {
     if (!s_app.loaded) return;
-    if (s_app.exit_requested || (fh1_win_count_owned(&s_app) == 0 && !any_timer())) unload();
+    if (s_app.exit_requested || (fh1_win_count_owned(&s_app) == 0 && !any_timer() && !s_scr.task)) unload();
 }
 
 void run_init(void)
@@ -535,7 +744,20 @@ esp_err_t run_start(const fh1_manifest_t *m, char *err, size_t n)
             return ESP_ERR_INVALID_STATE;
         }
         unload();     // one packaged app at a time
+        if (s_app.loaded) {
+            snprintf(err, n, "%s is closing; try again", s_app.m.id);
+            return ESP_ERR_INVALID_STATE;
+        }
     }
+    if (m->assets) {
+        snprintf(err, n, "an asset package: apps use it, it does not run");
+        return ESP_ERR_INVALID_ARG;
+    }
+    for (int i = 0; i < m->nuses; i++)
+        if (!fh1_asset_dir(m->uses[i])) {
+            snprintf(err, n, "missing assets: %s (install its package)", m->uses[i]);
+            return ESP_ERR_NOT_FOUND;
+        }
     char path[96];
     snprintf(path, sizeof(path), FH1_APPS_DIR "/%s/app.elf", m->id);
     struct stat st;
@@ -565,6 +787,7 @@ esp_err_t run_start(const fh1_manifest_t *m, char *err, size_t n)
     }
     s_app.m = *m;
     fh1_data_dir(m->id, s_app.data_dir, sizeof(s_app.data_dir));      // player 1's user's folder
+    snprintf(s_scr.app_dir, sizeof(s_scr.app_dir), FH1_APPS_DIR "/%s", m->id);
     fh1_mkdirs(s_app.data_dir);
     s_app.loaded = true;
     s_app.exit_requested = false;

@@ -131,7 +131,11 @@ function connect() {
 }
 $('go').onclick = () => { code = $('code').value.trim(); send({ t: 'auth', token: code }); };
 
+// The devices and the apps come only when they change (and on joining): the last ones are kept.
+let lastDevs = [], lastApps = null;
 function render(m) {
+  if (m.devs) lastDevs = m.devs; else m.devs = lastDevs;
+  if (m.apps) lastApps = m.apps; else m.apps = lastApps;
   if ('webpad' in m) showPadRole(m.webpad);
   const h = m.heap, up = m.up;
   $('sys').innerHTML = [

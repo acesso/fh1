@@ -119,6 +119,16 @@ esp_err_t pkg_manifest_parse(const char *json, fh1_manifest_t *m, char *err, siz
         err[0] = 0;
         m->needs = caps_list(cJSON_GetObjectItem(j, "needs"), err, n);
         if (!err[0]) m->wants = caps_list(cJSON_GetObjectItem(j, "wants"), err, n);
+        const char *kind = cJSON_GetStringValue(cJSON_GetObjectItem(j, "kind"));
+        const char *where = cJSON_GetStringValue(cJSON_GetObjectItem(j, "where"));
+        m->assets = kind && strcmp(kind, "assets") == 0;
+        m->on_sd = where && strcmp(where, "sd") == 0;
+        m->nuses = 0;
+        const cJSON *uses = cJSON_GetObjectItem(j, "uses"), *u;
+        cJSON_ArrayForEach(u, uses) {
+            if (!cJSON_IsString(u) || m->nuses >= FH1_USES_MAX) continue;
+            strlcpy(m->uses[m->nuses++], u->valuestring, sizeof(m->uses[0]));
+        }
         if (!err[0]) ret = ESP_OK;
     }
     cJSON_Delete(j);
@@ -280,13 +290,24 @@ esp_err_t pkg_install(const char *path, fh1_manifest_t *m, char *err, size_t n)
     if (pkg_peek(path, m, err, n) != ESP_OK) return ESP_FAIL;
     struct stat st;
     fh1_fs_info_t fi;
-    if (stat(path, &st) == 0 && fh1_int_info(&fi) == ESP_OK && (uint64_t)st.st_size * 11 / 10 > fi.total - fi.used) {
+    fh1_sd_info_t sd;
+    fh1_sd_info(&sd);
+    // An asset package goes where it asks (the SD card, when there is one) and is shared by every app.
+    const bool to_sd = m->assets && m->on_sd && sd.mounted;
+    const char *base = !m->assets ? FH1_APPS_DIR : to_sd ? FH1_SD_PATH "/assets" : FH1_INT_PATH "/assets";
+    if (to_sd) {
+        if (stat(path, &st) == 0 && (uint64_t)st.st_size * 11 / 10 > sd.free) {
+            snprintf(err, n, "not enough space on the SD card");
+            return ESP_FAIL;
+        }
+    } else if (stat(path, &st) == 0 && fh1_int_info(&fi) == ESP_OK && (uint64_t)st.st_size * 11 / 10 > fi.total - fi.used) {
         snprintf(err, n, "not enough internal storage");
         return ESP_FAIL;
     }
     char tmp[96], dest[96];
-    snprintf(tmp, sizeof(tmp), FH1_APPS_DIR "/.tmp-%s", m->id);
-    snprintf(dest, sizeof(dest), FH1_APPS_DIR "/%s", m->id);
+    fh1_mkdirs(base);
+    snprintf(tmp, sizeof(tmp), "%s/.tmp-%s", base, m->id);
+    snprintf(dest, sizeof(dest), "%s/%s", base, m->id);
     fh1_rmtree(tmp);
     fh1_mkdirs(tmp);
     file_sum_t *sums = calloc(MAX_FILES, sizeof(file_sum_t));
@@ -296,7 +317,7 @@ esp_err_t pkg_install(const char *path, fh1_manifest_t *m, char *err, size_t n)
     free(sums);
     char elf[128];
     snprintf(elf, sizeof(elf), "%s/app.elf", tmp);
-    if (ret == ESP_OK && stat(elf, &st) != 0) {
+    if (ret == ESP_OK && !m->assets && stat(elf, &st) != 0) {
         snprintf(err, n, "no app.elf in the package");
         ret = ESP_FAIL;
     }
@@ -315,8 +336,14 @@ esp_err_t pkg_install(const char *path, fh1_manifest_t *m, char *err, size_t n)
 esp_err_t pkg_uninstall(const char *id)
 {
     char p[96];
+    struct stat st;
     snprintf(p, sizeof(p), FH1_APPS_DIR "/%s", id);
     esp_err_t ret = fh1_rmtree(p);
+    // An asset package: wherever it is.
+    snprintf(p, sizeof(p), FH1_SD_PATH "/assets/%s", id);
+    if (stat(p, &st) == 0) ret = fh1_rmtree(p);
+    snprintf(p, sizeof(p), FH1_INT_PATH "/assets/%s", id);
+    if (stat(p, &st) == 0) ret = fh1_rmtree(p);
     fh1_users_remove_app_data(id);          // every user's data of it
     ESP_LOGI(TAG, "uninstalled %s", id);
     return ret;

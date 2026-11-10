@@ -7,3 +7,7 @@ apps/packages/*/managed_components/
 apps/packages/*/sdkconfig
 apps/packages/*/sdkconfig.old
 *.fpk
+__pycache__/
+# Art packs are built from the repository assets/ by tools/fh1art.py
+apps/packages/*/assets/*.fart
+apps/packages/*/assets/*.sources.json

@@ -1,14 +1,21 @@
 #pragma once
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include "esp_err.h"
 
+#define FH1_USES_MAX 4
 typedef struct {
     char id[48];
     char name[32];
     char version[16];
     uint32_t needs, wants;
+    bool assets;                       // an asset package ("kind": "assets"): no code, installed once for every app
+    bool on_sd;                        // an asset package's "where": "sd" (else internal)
+    uint8_t nuses;
+    char uses[FH1_USES_MAX][48];       // an app's asset packages ("uses")
 } fh1_manifest_t;
+void sfx_shutdown(void);                   // sfx.c: every sound stopped, the mixer ended (the app is going)
 
 // pkg.c
 esp_err_t pkg_manifest_parse(const char *json, fh1_manifest_t *m, char *err, size_t n);
@@ -53,6 +60,8 @@ void users_notify_contact(const char *id, const char *text);         // a notifi
 void users_announce_players(void);                                   // who plays, as an app starts
 lv_obj_t *users_face_widget(lv_obj_t *parent, const char *id, int size);   // an animated face (16 or 32)
 void users_notify_player(int player, const char *text);              // a notification with a player's face
+bool run_dev_push(const char *text);                                // SDK 0.6: a console line for the app
+void io_claim_init(void);                                           // Menu held 3 s on a controller: player 1
 void users_net_changed(void);                                        // contacts or statements changed
 void users_trust_arrived(const char *local, const char *from, uint8_t level);
 

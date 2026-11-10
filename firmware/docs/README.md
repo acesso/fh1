@@ -3,6 +3,8 @@
 | File | What |
 |---|---|
 | [`users.md`](users.md) | Users: identity, avatars, friends. The design and formats |
+| [`sound-and-shared-assets.md`](sound-and-shared-assets.md) | Sound effects and a shared asset pool: the sound pack measured, what the FH1 should get, the plan |
+| [`game-engines.md`](game-engines.md) | Game engines for installable games: how packages can share one, PixelRoot32 findings, ESP-IDF engines compared |
 | [`avatar-showcase.html`](avatar-showcase.html) | Open in a browser: the avatar style drawn live at the three sizes, with an editor, the 12 expressions and the faces in FH1 screens. The reference for `components/fh1_avatar` |
 
 ## Pictures

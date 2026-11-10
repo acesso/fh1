@@ -144,6 +144,11 @@ static uint32_t sprite_colour(char c)
     case 'S': return argb(0x9bbc0f);     // handheld screen
     case 'o': return argb(0xf08a24);     // bridge orange
     case 'c': return argb(0x26a7c7);     // water, radio waves
+    case 'p': return argb(0xf07cc0);     // PlayStation square pink
+    case 'x': return argb(0x5cc23a);     // Xbox A green
+    case 'q': return argb(0x5a8cff);     // PlayStation cross blue
+    case 'e': return argb(0xff5a5a);     // PlayStation circle red
+    case 't': return argb(0x3cd4a0);     // PlayStation triangle green
     default: return 0;                   // '.' transparent
     }
 }
@@ -241,6 +246,118 @@ SPRITE(sp_lr,
     "KKKKDDDKKKK",
     "...KDDDK...",
     "...KDDDK...",
+    "...KKKKK...")
+
+// Button letters and shapes for the controller styles (fh1_gamepad_style): Xbox letters in their colours,
+// Nintendo letters in white, PlayStation shapes.
+SPRITE(sx_a,
+    ".xxx.",
+    "x...x",
+    "x...x",
+    "xxxxx",
+    "x...x",
+    "x...x",
+    "x...x")
+SPRITE(sx_b,
+    "rrrr.",
+    "r...r",
+    "r...r",
+    "rrrr.",
+    "r...r",
+    "r...r",
+    "rrrr.")
+SPRITE(sx_x,
+    "b...b",
+    "b...b",
+    ".b.b.",
+    "..b..",
+    ".b.b.",
+    "b...b",
+    "b...b")
+SPRITE(sx_y,
+    "Y...Y",
+    "Y...Y",
+    ".Y.Y.",
+    "..Y..",
+    "..Y..",
+    "..Y..",
+    "..Y..")
+SPRITE(sn_a,
+    ".WWW.",
+    "W...W",
+    "W...W",
+    "WWWWW",
+    "W...W",
+    "W...W",
+    "W...W")
+SPRITE(sn_b,
+    "WWWW.",
+    "W...W",
+    "W...W",
+    "WWWW.",
+    "W...W",
+    "W...W",
+    "WWWW.")
+SPRITE(sn_x,
+    "W...W",
+    "W...W",
+    ".W.W.",
+    "..W..",
+    ".W.W.",
+    "W...W",
+    "W...W")
+SPRITE(sn_y,
+    "W...W",
+    "W...W",
+    ".W.W.",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..")
+SPRITE(sp_ps_o,
+    "..eee..",
+    ".e...e.",
+    "e.....e",
+    "e.....e",
+    "e.....e",
+    ".e...e.",
+    "..eee..")
+SPRITE(sp_ps_x,
+    "q.....q",
+    ".q...q.",
+    "..q.q..",
+    "...q...",
+    "..q.q..",
+    ".q...q.",
+    "q.....q")
+SPRITE(sp_ps_t,
+    "...t...",
+    "...t...",
+    "..t.t..",
+    "..t.t..",
+    ".t...t.",
+    ".t...t.",
+    "ttttttt")
+SPRITE(sp_ps_s,
+    "ppppppp",
+    "p.....p",
+    "p.....p",
+    "p.....p",
+    "p.....p",
+    "p.....p",
+    "ppppppp")
+// The D-pad with its up and down arms lit.
+SPRITE(sp_ud,
+    "...KKKKK...",
+    "...KWWWK...",
+    "...KWWWK...",
+    "KKKKWWWKKKK",
+    "KDDDDDDDDDK",
+    "KDDDDDDDDDK",
+    "KDDDDDDDDDK",
+    "KKKKWWWKKKK",
+    "...KWWWK...",
+    "...KWWWK...",
     "...KKKKK...")
 
 // ── The common icons (fh1_ui_icon): a still picture, and a part that moves when animated. Parts are drawn
@@ -648,7 +765,9 @@ static const icon_def_t s_icon_defs[FH1_ICON_COUNT] = {
 
 static void make_sprites(void)
 {
-    sprite_t *all[] = { &sp_ball, &sp_sd, &sp_chip, &sp_menu, &sp_start, &sp_select, &sp_lr,
+    sprite_t *all[] = { &sp_ball, &sp_sd, &sp_chip, &sp_menu, &sp_start, &sp_select, &sp_lr, &sp_ud,
+                        &sx_a, &sx_b, &sx_x, &sx_y, &sn_a, &sn_b, &sn_x, &sn_y,
+                        &sp_ps_o, &sp_ps_x, &sp_ps_t, &sp_ps_s,
                         &ic_tray, &ic_arrow_down, &ic_arrow_up, &ic_fw_chip, &ic_fw_arrow, &ic_message,
                         &ic_battery, &ic_battery_bar, &ic_warning, &ic_warning_mark, &ic_parcel, &ic_gbc,
                         &ic_cartridge, &ic_nes, &ic_nes_cart, &ic_sms, &ic_cassette, &ic_cassette_hubs,
@@ -1345,42 +1464,147 @@ void fh1_ui_focus_index(fh1_win_t *win, int index)
 }
 
 // ── Button chips and window footers ──
-// Each physical button has a chip in its fixed colour (the FH1's caps): A red, B yellow, X blue, Y green;
-// Start and Select are white pills with an icon; Menu is a dark pill with a "three bars" icon.
+// Each physical button has a chip, drawn in the style of player 1's controller (fh1_gamepad_style): the FH1's
+// caps by colour (A red, B yellow, X blue, Y green), an Xbox controller's letters in their colours, a Nintendo
+// one's letters, a PlayStation one's shapes, each for the button in the place the FH1 key comes from (A: the
+// right face button: B on an Xbox pad, the circle on a PlayStation one). Start and Select are white pills with
+// an icon; Menu is a dark pill with a "three bars" icon. Chips change with the controller (checked twice a
+// second).
 
-lv_obj_t *fh1_ui_key_chip(lv_obj_t *parent, int key)
+// The face buttons per style: the chip's colour and its letter or shape (NULL: colour alone).
+static void face_look(int style, int key, uint32_t *bg, sprite_t **icon)
 {
-    static const struct { int key; uint32_t bg; sprite_t *icon; } chips[] = {
-        // The face buttons are known by colour alone.
-        { FH1_KEY_A, 0xe5302c, NULL }, { FH1_KEY_B, 0xf4c21f, NULL }, { FH1_KEY_X, 0x2f6fe8, NULL }, { FH1_KEY_Y, 0x2fb36a, NULL },
-        { FH1_KEY_START, 0xf2f2f2, &sp_start }, { FH1_KEY_SELECT, 0xf2f2f2, &sp_select },
-        { FH1_KEY_MENU, 0x26282c, &sp_menu }, { FH1_HINT_LEFTRIGHT, 0x6a6f78, &sp_lr },
-    };
-    size_t i = 0;
-    while (i < sizeof(chips) / sizeof(chips[0]) - 1 && chips[i].key != key) i++;
-    lv_obj_t *c = plain(parent);
-    if (key == FH1_HINT_LEFTRIGHT) {                // the D-pad: its own shape, no pill
-        lv_obj_set_size(c, sp_lr.dsc.header.w, sp_lr.dsc.header.h);
-        lv_obj_t *im = lv_image_create(c);
-        lv_image_set_src(im, &sp_lr.dsc);
-        return c;
+    static const uint32_t caps[4] = { 0xe5302c, 0xf4c21f, 0x2f6fe8, 0x2fb36a };      // A, B, X, Y
+    static sprite_t *const xbox[4] = { &sx_b, &sx_a, &sx_y, &sx_x };                  // east, south, north, west
+    static sprite_t *const nintendo[4] = { &sn_a, &sn_b, &sn_x, &sn_y };
+    static sprite_t *const ps[4] = { &sp_ps_o, &sp_ps_x, &sp_ps_t, &sp_ps_s };
+    const int i = key - FH1_KEY_A;
+    *bg = 0x26282c;
+    *icon = NULL;
+    if (style == FH1_KEYS_XBOX) *icon = xbox[i];
+    else if (style == FH1_KEYS_NINTENDO) *icon = nintendo[i];
+    else if (style == FH1_KEYS_PLAYSTATION) *icon = ps[i];
+    else *bg = caps[i];
+}
+
+static void key_look(int style, int key, uint32_t *bg, sprite_t **icon)
+{
+    if (key >= FH1_KEY_A && key <= FH1_KEY_Y) {
+        face_look(style, key, bg, icon);
+        return;
     }
+    *bg = key == FH1_KEY_MENU ? 0x26282c : 0xf2f2f2;
+    *icon = key == FH1_KEY_START ? &sp_start : key == FH1_KEY_SELECT ? &sp_select : &sp_menu;
+}
+
+#define MAX_CHIPS 48
+static struct { lv_obj_t *obj; int key; } s_chips[MAX_CHIPS];
+static int s_chip_style = -1;
+static lv_timer_t *s_chip_timer;
+
+static void chip_decorate(lv_obj_t *c, int key, int style)
+{
+    uint32_t bg;
+    sprite_t *icon;
+    key_look(style, key, &bg, &icon);
+    lv_obj_clean(c);
     const int h = U(11);
     int w = h;
-    if (chips[i].icon) w = chips[i].icon->dsc.header.w + U(6);
+    if (icon && (key < FH1_KEY_A || key > FH1_KEY_Y)) w = icon->dsc.header.w + U(6);   // a pill round its icon
     if (!(w & 1)) w++;                     // odd widths centre an odd icon exactly
     lv_obj_set_size(c, w, h);
     lv_obj_set_style_radius(c, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(c, lv_color_hex(chips[i].bg), 0);
+    lv_obj_set_style_bg_color(c, lv_color_hex(bg), 0);
     lv_obj_set_style_bg_opa(c, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(c, s_u, 0);
     lv_obj_set_style_border_color(c, lv_color_hex(s_theme->ink), 0);
-    if (chips[i].icon) {
+    if (icon) {
         lv_obj_t *im = lv_image_create(c);
-        lv_image_set_src(im, &chips[i].icon->dsc);
+        lv_image_set_src(im, &icon->dsc);
         lv_obj_center(im);
     }
+}
+
+static void chip_deleted(lv_event_t *e)
+{
+    lv_obj_t *o = lv_event_get_target(e);
+    for (int i = 0; i < MAX_CHIPS; i++)
+        if (s_chips[i].obj == o) s_chips[i].obj = NULL;
+}
+
+static void chip_watch(lv_timer_t *t)
+{
+    const int style = fh1_gamepad_style(0);
+    if (style == s_chip_style) return;
+    s_chip_style = style;
+    for (int i = 0; i < MAX_CHIPS; i++)
+        if (s_chips[i].obj) chip_decorate(s_chips[i].obj, s_chips[i].key, style);
+}
+
+lv_obj_t *fh1_ui_key_chip(lv_obj_t *parent, int key)
+{
+    lv_obj_t *c = plain(parent);
+    if (key == FH1_HINT_LEFTRIGHT || key == FH1_HINT_UPDOWN) {     // the D-pad: its own shape, no pill
+        sprite_t *sp = key == FH1_HINT_LEFTRIGHT ? &sp_lr : &sp_ud;
+        lv_obj_set_size(c, sp->dsc.header.w, sp->dsc.header.h);
+        lv_obj_t *im = lv_image_create(c);
+        lv_image_set_src(im, &sp->dsc);
+        return c;
+    }
+    if (key < FH1_KEY_A || key > FH1_KEY_MENU) key = FH1_KEY_MENU;
+    if (s_chip_style < 0) s_chip_style = fh1_gamepad_style(0);
+    if (!s_chip_timer) s_chip_timer = lv_timer_create(chip_watch, 500, NULL);
+    chip_decorate(c, key, s_chip_style);
+    for (int i = 0; i < MAX_CHIPS; i++)
+        if (!s_chips[i].obj) {
+            s_chips[i].obj = c;
+            s_chips[i].key = key;
+            lv_obj_add_event_cb(c, chip_deleted, LV_EVENT_DELETE, NULL);
+            break;
+        }
     return c;
+}
+
+// The same chips for full-screen apps (SDK 0.8), into an RGB565 buffer at 1 pixel a unit: 11 pixels high, the
+// face buttons round, the others pills. Returns the x after it.
+static uint16_t to565(uint32_t argb) { return (uint16_t)(((argb >> 8) & 0xF800) | ((argb >> 5) & 0x07E0) | ((argb >> 3) & 0x001F)); }
+
+static void px_sprite(uint16_t *px, int w, int h, int x, int y, const sprite_t *sp)
+{
+    const int sw = strlen(sp->rows[0]);
+    for (int r = 0; r < sp->h; r++)
+        for (int c = 0; c < sw; c++) {
+            const uint32_t v = sprite_colour(sp->rows[r][c]);
+            const int xx = x + c, yy = y + r;
+            if ((v >> 24) && xx >= 0 && yy >= 0 && xx < w && yy < h) px[yy * w + xx] = to565(v);
+        }
+}
+
+int fh1_px_key(uint16_t *px, int w, int h, int x, int y, int key)
+{
+    if (key == FH1_HINT_LEFTRIGHT || key == FH1_HINT_UPDOWN) {
+        px_sprite(px, w, h, x, y, key == FH1_HINT_LEFTRIGHT ? &sp_lr : &sp_ud);
+        return x + 11;
+    }
+    if (key < FH1_KEY_A || key > FH1_KEY_MENU) return x;
+    uint32_t bg;
+    sprite_t *icon;
+    key_look(fh1_gamepad_style(0), key, &bg, &icon);
+    const bool round = key >= FH1_KEY_A && key <= FH1_KEY_Y;
+    const int iw = icon ? (int)strlen(icon->rows[0]) : 0, ih = icon ? icon->h : 0;
+    const int cw = round ? 11 : iw + 6, ch = 11;
+    const uint16_t fill = to565(0xff000000u | bg), edge = to565(0xff000000u | 0x101014);
+    // A rounded box: corners cut by distance from the nearest end circle's centre.
+    for (int yy = 0; yy < ch; yy++)
+        for (int xx = 0; xx < cw; xx++) {
+            const int cx = xx < 5 ? 5 : xx > cw - 6 ? cw - 6 : xx;
+            const int dx = 2 * (xx - cx), dy = 2 * yy - 10, d = dx * dx + dy * dy;
+            if (d > 121) continue;
+            const int X = x + xx, Y = y + yy;
+            if (X >= 0 && Y >= 0 && X < w && Y < h) px[Y * w + X] = d > 81 ? edge : fill;
+        }
+    if (icon) px_sprite(px, w, h, x + (cw - iw) / 2, y + (ch - ih) / 2, icon);
+    return x + cw;
 }
 
 // ── Icons ──

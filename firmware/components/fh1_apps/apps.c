@@ -5,12 +5,14 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <strings.h>
 #include <unistd.h>
 #include "fh1_apps.h"
 #include "apps_priv.h"
 #include "fh1_player.h"
 #include "fh1_gamepad.h"
 #include "fh1_users.h"
+#include "fh1_mem.h"
 #include "fh1_avatar.h"
 #include "fh1_bridge.h"
 #include "fh1_ui.h"
@@ -1461,9 +1463,82 @@ static void users_cmd(const char *op, const char *id, const char *path, char *ou
 
 typedef struct {
     char op[16], id[48], path[128];
-    char reply[160];
+    char reply[480];
     SemaphoreHandle_t done;
 } cmd_t;
+
+static bool user_named(const char *name, fh1_user_t *out)
+{
+    for (int i = 0; fh1_users_at(i, out); i++)
+        if (strcasecmp(out->name, name) == 0) return true;
+    return false;
+}
+
+// Dev: an app's saved data per user. data_list (id: the app): each user's files, their size and when written.
+// data_copy (id: the app, path: "from>to", user names): the files copied; the target's own are kept in a .bak
+// folder next to them first.
+static void data_op(cmd_t *c)
+{
+    const size_t n = sizeof(c->reply);
+    char dir[96], p[192];
+    fh1_user_t u, to;
+    int k = 0;
+    if (strcmp(c->op, "data_list") == 0) {
+        for (int i = 0; fh1_users_at(i, &u) && k < (int)n; i++) {
+            fh1_users_data_dir(u.id, c->id, dir, sizeof(dir));
+            k += snprintf(c->reply + k, n - k, "%s%s:", i ? " | " : "", u.name);
+            DIR *d = opendir(dir);
+            struct dirent *e;
+            while (d && (e = readdir(d)) != NULL && k < (int)n) {
+                struct stat st;
+                if (e->d_name[0] == '.' || snprintf(p, sizeof(p), "%s/%.64s", dir, e->d_name) >= (int)sizeof(p) || stat(p, &st)) continue;
+                struct tm tm;
+                localtime_r(&st.st_mtime, &tm);
+                k += snprintf(c->reply + k, n - k, " %s %ldB %02d/%02d %02d:%02d", e->d_name, (long)st.st_size, tm.tm_mday,
+                              tm.tm_mon + 1, tm.tm_hour, tm.tm_min);
+            }
+            if (d) closedir(d);
+        }
+        return;
+    }
+    char from[24] = "", *gt = strchr(c->path, '>');
+    if (!gt || (size_t)(gt - c->path) >= sizeof(from) || !c->id[0] || strstr(c->id, "..") || strchr(c->id, '/')) {
+        snprintf(c->reply, n, "data_copy: id the app, path \"from>to\" (user names)");
+        return;
+    }
+    memcpy(from, c->path, gt - c->path);
+    if (!user_named(from, &u) || !user_named(gt + 1, &to) || strcmp(u.id, to.id) == 0) {
+        snprintf(c->reply, n, "data_copy: unknown users (%s, %s)", from, gt + 1);
+        return;
+    }
+    char src[96], bak[104];
+    fh1_users_data_dir(u.id, c->id, src, sizeof(src));
+    fh1_users_data_dir(to.id, c->id, dir, sizeof(dir));
+    snprintf(bak, sizeof(bak), "%s.bak", dir);
+    fh1_rmtree(bak);
+    rename(dir, bak);
+    fh1_mkdirs(dir);
+    int files = 0;
+    long bytes = 0;
+    DIR *d = opendir(src);
+    struct dirent *e;
+    static char buf[1024];
+    while (d && (e = readdir(d)) != NULL) {
+        char sp[192];
+        if (e->d_name[0] == '.' || snprintf(sp, sizeof(sp), "%s/%.64s", src, e->d_name) >= (int)sizeof(sp)) continue;
+        snprintf(p, sizeof(p), "%s/%.64s", dir, e->d_name);
+        FILE *in = fopen(sp, "rb"), *out = in ? fopen(p, "wb") : NULL;
+        size_t r;
+        while (in && out && (r = fread(buf, 1, sizeof(buf), in)) > 0) bytes += (long)fwrite(buf, 1, r, out);
+        if (in) fclose(in);
+        if (out) fclose(out);
+        files += in && out;
+    }
+    if (d) closedir(d);
+    fh1_int_info_changed();
+    snprintf(c->reply, n, "%s: %d files (%ld bytes) from %s to %s; %s's before in %s", c->id, files, bytes, u.name, to.name,
+             to.name, bak);
+}
 
 static void run_cmd(void *arg)
 {
@@ -1530,6 +1605,9 @@ static void run_cmd(void *arg)
     if (strcmp(c->op, "start") == 0) {
         esp_err_t r = start_app(c->id, err, sizeof(err));
         snprintf(c->reply, sizeof(c->reply), r == ESP_OK ? "%s started" : "%s: %s", c->id, err);
+    } else if (strcmp(c->op, "dev") == 0) {
+        snprintf(c->reply, sizeof(c->reply), run_dev_push(c->path) ? "sent to %s" : "no app running (or its queue is full)",
+                 run_current() ? run_current() : "");
     } else if (strcmp(c->op, "stop") == 0) {
         run_stop();
         snprintf(c->reply, sizeof(c->reply), "stopped");
@@ -1557,6 +1635,11 @@ static void run_cmd(void *arg)
         esp_err_t r = stress_start(secs > 0 && secs <= 120 ? secs : 10, strstr(c->id, "psram") != NULL,
                                    strstr(c->id, "flash") != NULL, strstr(c->id, "ui") != NULL);
         snprintf(c->reply, sizeof(c->reply), r == ESP_OK ? "stress started" : "a stress test is already running");
+    } else if (strcmp(c->op, "heap") == 0) {
+        // Dev: internal RAM (free, largest, lowest ever) and the allocations that failed; "reset" counts them anew.
+        fh1_mem_diag_report(c->reply, sizeof(c->reply), strcmp(c->path, "reset") == 0);
+    } else if (strcmp(c->op, "data_list") == 0 || strcmp(c->op, "data_copy") == 0) {
+        data_op(c);
     } else if (strcmp(c->op, "peek") == 0) {
         // 16 bytes of a file at an offset (dev tool); the offset rides in "id".
         FILE *f = fopen(c->path, "rb");
@@ -1652,6 +1735,7 @@ void fh1_apps_start(void)
     fh1_ui_set_menu_handler(open_launcher, NULL);
     music_init();
     users_ui_init(users_changed_menu);
+    io_claim_init();                          // Menu held on any controller: it takes player 1
     net_start();                              // users between units (apps_net.c)
     // Games arriving over the console show as games for the GameBoy Color app.
     fh1_ui_register_file_type("gb", FH1_ICON_GAMEBOY, "Receiving a game", "Game received");

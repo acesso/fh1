@@ -15,6 +15,7 @@
 #include "fh1_audio.h"
 #include "fh1_devices.h"
 #include "fh1_bridge.h"
+#include "fh1_users.h"
 
 #define MAX_ROWS FH1_GAMEPADS_MAX
 
@@ -231,6 +232,32 @@ static void io_closed(fh1_win_t *w, void *u)
     if (s_io.timer) lv_timer_delete(s_io.timer);
     memset(&s_io, 0, sizeof(s_io));
 }
+
+// ── Taking player 1 over: Menu held on another controller (fh1_gamepad_on_claim) ──
+
+static char s_claim_id[18];
+
+static void claim_ui(void *arg)
+{
+    fh1_gamepad_info_t g = { 0 };
+    for (int i = 0; fh1_gamepad_at(i, &g, NULL); i++)
+        if (strcmp(g.id, s_claim_id) == 0) break;
+    if (strcmp(g.id, s_claim_id) != 0) return;            // gone meanwhile
+    fh1_gamepad_assign(0, s_claim_id);
+    fh1_gamepad_rumble(s_claim_id, 100, 180, 300);
+    char t[64];
+    snprintf(t, sizeof(t), "%s %s", g.name[0] ? g.name : T("Controller"), T("is player 1 now"));
+    users_notify_player(0, t);
+    if (fh1_users_count()) users_pick_for_pad(s_claim_id);   // whose it is; B keeps it as it was
+}
+
+static void on_claim(const char *id)
+{
+    strlcpy(s_claim_id, id, sizeof(s_claim_id));
+    fh1_ui_async(claim_ui, NULL);
+}
+
+void io_claim_init(void) { fh1_gamepad_on_claim(on_claim); }
 
 void io_open(void)
 {

@@ -461,6 +461,7 @@ static const tr_t s_pt[] = {
     { "Remove the PIN", "Remover o PIN" },
     { "Back up to SD", "Cópia no SD" },
     { "Belongs to", "Pertence a" },
+    { "is player 1 now", "agora é o jogador 1" },
     { "No users yet (the Users menu).", "Nenhum usuário ainda (menu Usuários)." },
     { "Nobody", "Ninguém" },
     { "nobody", "ninguém" },
