@@ -5,19 +5,24 @@ firmware in the browser. The binary is the same one the FH1 board runs, on an em
 [esp32sim](https://github.com/mikroverk/esp32sim) (MIT), compiled to WebAssembly, with an `fh1` board model:
 
 - the ST7789 display on SPI2;
-- the two MCP23017 expanders (buttons and their LEDs, amplifier enable);
-- ES8311 and PCF8563 stubs;
-- Menu on GPIO0.
+- the two MCP23017 expanders: A, B, X, Y, Start and Select on #1's GPA0-5, their LEDs on GPB0-3, the amplifier
+  enable on #2;
+- the thumbstick on the ADC (GPIO2 and GPIO4, 1.65 V centred, low = left / up);
+- Menu on GPIO0;
+- the I2S sound, played through Web Audio;
+- ES8311 and PCF8563 stubs.
 
 Not modelled yet: the micro-SD slot, the radio, the IMU, Wi-Fi.
 
 | File | What |
 |---|---|
 | `esp32sim.pin` | The upstream esp32sim repository and commit the site is built from |
-| `esp32sim.patch` | Our changes to it: the `fh1` board model, its CLI help line, the page's FH1 display panel |
+| `esp32sim.patch` | Our changes to it: the `fh1` board model; board keys (`key`) and indicator lights (`lights`) in the board interface; the page messages `press`, `adc` and `lights`; `press NAME` for board keys in scripts; the workbench's FH1 display panel |
 | `build-flash.sh` | The 16 MB flash image: firmware build + apps partition with packages installed |
 | `build-site.sh` | Assembles the site: landing page, emulator page, mask ROM, flash image, `build.json` |
-| `site/` | The landing page (Portuguese and English, dark, light and auto themes) |
+| `site/index.html` | The landing page (Portuguese and English, dark, light and auto themes), with the 3D view of the V1 build (`hardware/layout/concept-render.html`, published as `hardware-3d.html` with its own copy of three.js; without WebGL it shows the static render) |
+| `site/fh1-device.css` | The FH1's front face to scale, from the layout's millimetres (80 × 120 mm board): the landing page's toy and the simulator's device |
+| `site/play.html` | The simulator: the FH1 drawn as the device, its screen, buttons with their lights, stick and sound; 🛠 opens the details (status, speed, restart, your own firmware, the UART0 console) |
 
 ## Building it
 
@@ -39,24 +44,28 @@ simulator/build-site.sh esp32sim fh1.bin site
 python3 -m http.server -d site 8790      # http://127.0.0.1:8790/
 ```
 
-The emulator page opens at `run.html?wasm&fw=fh1`. Keys go to the UART0 console (`firmware/main/serial_keys.c`):
+`play.html` is the simulator; `?panels` opens it with the details shown. Its controls reach the firmware the way
+the hardware does: the buttons through the MCP23017, the stick through the ADC, Menu through GPIO0.
 
-| Key | Button |
+| Key | Control |
 |---|---|
-| `W` `A` `S` `D` | d-pad |
+| arrows, `W` `A` `S` `D` | thumbstick |
 | `J` / `K` | A / B |
 | `U` / `I` | X / Y |
 | Enter / space | Start / Select |
-| `M` | Menu |
+| `M`, Esc | Menu |
+
+esp32sim's own workbench, `run.html?wasm&fw=fh1`, stays on the site for debugging: registers, console tabs, the
+UART0 keys of `firmware/main/serial_keys.c`. Native runs take the same keys in scripts (`press a`, `adc 4 3.1`).
 
 ## Publishing
 
-`.github/workflows/pages.yml` builds everything on each push and publishes the site from `main`:
+A release publishes the site: a `vX.Y.Z` tag on `main` runs `.github/workflows/pages.yml`, which builds
 
 - the firmware for both boards (`firmware/tools/build-board.sh fh1|guition`) in the `espressif/idf:v6.1` container;
 - the packages and sound packs (`firmware/tools/build-packages.sh`);
-- the flash image, esp32sim's WebAssembly module and the site.
+- the flash image, esp32sim's WebAssembly module and the site;
 
-Pages takes it from GitHub Actions (Settings → Pages → Source: GitHub Actions). Pushes to other branches run
-the same build without publishing. Each run keeps the firmware images (`firmware-fh1`, `firmware-guition`)
-and the packages as artifacts.
+then creates the GitHub release and deploys the site. Pages takes it from GitHub Actions (Settings → Pages →
+Source: GitHub Actions), and the `github-pages` environment allows `v*` tags to deploy (Settings → Environments).
+Run by hand on a branch (Actions → Site → Run workflow), the workflow builds everything without releasing.

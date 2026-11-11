@@ -36,10 +36,7 @@ Future ideas and pending work; each leaves this list when it lands.
 - **Releases:** each release carries the firmware for every board (`fh1`, `guition`) as its own download.
 - **Simulator:**
   - faster in the browser;
-  - the FH1's buttons and thumbstick on the page, with their LEDs;
-  - sound through Web Audio;
-  - the micro-SD card and Wi-Fi;
-  - loading your own firmware from the page.
+  - the micro-SD card and Wi-Fi.
 - **FH1 board firmware:** the ES8311 codec setup, the micro-SD slot, the battery level, the IMU.
 - **Táticas da Ilha:** difficulty that adapts to the player.
 

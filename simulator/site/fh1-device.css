@@ -1,0 +1,50 @@
+/* The FH1 V1 front face, to scale: parts at their positions in hardware/layout (mm on the 80 × 120 mm board,
+   from its top-left corner; the same numbers as hardware/layout/concept-render.html). Set --dw, the board's width
+   on screen; every part is placed at var(--mm) × its millimetres (--px, --py, --pw, --ph; --pd across a round part).
+   Markup: .fh1 > .ant > .sma, .knuckle > .whip; .fh1 > .pcb > .r.disp, .r.glass, .r.act, .r.stickmod > .housing > .cap,
+   .c.key[--px,--py] > .cap, .c.tact[--px,--py], .silk[--px,--py]. --fold turns the antenna at its knuckle. */
+.fh1 { --mm: calc(var(--dw, 300px) / 80); position: relative; width: var(--dw, 300px); height: calc(var(--mm) * 120); }
+.fh1 * { box-sizing: border-box; }
+.fh1 .pcb { position: absolute; inset: 0; border-radius: calc(var(--mm) * 2.5);
+  background: radial-gradient(circle, #0b2e18 calc(var(--mm) * .42), rgba(201,161,58,.42) calc(var(--mm) * .45), rgba(201,161,58,.42) calc(var(--mm) * .68), transparent calc(var(--mm) * .72))
+              calc(var(--mm) * 1.9) calc(var(--mm) * 6.66) / calc(var(--mm) * 2.54) calc(var(--mm) * 2.54),
+              linear-gradient(165deg, #2a8a52, #1d6b3c);
+  box-shadow: 0 calc(var(--mm) * 6) calc(var(--mm) * 12) rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.18); }
+.fh1 .r { position: absolute; left: calc(var(--mm) * var(--px)); top: calc(var(--mm) * var(--py)); width: calc(var(--mm) * var(--pw)); height: calc(var(--mm) * var(--ph)); }
+.fh1 .c { position: absolute; left: calc(var(--mm) * (var(--px) - var(--pd) / 2)); top: calc(var(--mm) * (var(--py) - var(--pd) / 2));
+  width: calc(var(--mm) * var(--pd)); height: calc(var(--mm) * var(--pd)); }
+/* the display module: its blue board overhangs the left edge; the glass; the 57.6 × 43.2 mm active area */
+.fh1 .disp { --px: -2.15; --py: .89; --pw: 81.28; --ph: 54.74; background: #1a5fb4; border-radius: calc(var(--mm) * .8); box-shadow: 0 calc(var(--mm) * .8) calc(var(--mm) * 1.5) rgba(0,0,0,.35); }
+.fh1 .glass { --px: 7.85; --py: 3; --pw: 69; --ph: 50.6; background: #0c0d10; border-radius: calc(var(--mm) * .6); box-shadow: inset 0 0 0 calc(var(--mm) * .3) #23272e; }
+.fh1 .act { --px: 12.03; --py: 6.66; --pw: 57.6; --ph: 43.2; overflow: hidden; background: #000; }
+/* the thumbstick module (Deek-Robot JOYSTICK-02): blue board, steel housing, cap */
+.fh1 .stickmod { --px: 6.27; --py: 62.41; --pw: 25.8; --ph: 25.8; background: #1a73b8; border-radius: calc(var(--mm) * .6); }
+.fh1 .housing { position: absolute; left: calc(var(--mm) * 3.9); top: calc(var(--mm) * 3.9); width: calc(var(--mm) * 18); height: calc(var(--mm) * 18);
+  background: linear-gradient(145deg, #c9ced6, #8a9099); border-radius: calc(var(--mm) * 1.2); }
+.fh1 .housing .cap { position: absolute; left: calc(var(--mm) * .6); top: calc(var(--mm) * .6); width: calc(var(--mm) * 16.8); height: calc(var(--mm) * 16.8); border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #4a4a4a 0, #141414 62%); box-shadow: 0 calc(var(--mm) * .8) calc(var(--mm) * 1.2) rgba(0,0,0,.55); transition: transform .05s; }
+/* a face button: 12 mm black body, white ring, 8.2 mm coloured cap */
+.fh1 .key { --pd: 12; background: #17181b; border-radius: calc(var(--mm) * .8); border: 0; padding: 0; cursor: pointer; }
+.fh1 .key .cap { position: absolute; left: calc(var(--mm) * 1.4); top: calc(var(--mm) * 1.4); width: calc(var(--mm) * 9.2); height: calc(var(--mm) * 9.2); border-radius: 50%;
+  background: var(--c); box-shadow: 0 0 0 calc(var(--mm) * .5) #f2f2f2, 0 calc(var(--mm) * .7) 0 calc(var(--mm) * .5) #b9b9b9;
+  display: flex; align-items: center; justify-content: center; font: calc(var(--mm) * 2.6) "Press Start 2P", monospace; color: rgba(255,255,255,.92);
+  transition: transform .05s, filter .08s, box-shadow .08s; }
+.fh1 .key[data-k="b"] .cap, .fh1 .key[data-k="B"] .cap { color: #3a2c00; }
+/* Start, Select (7.8 mm tact, white actuator) and Menu (6 mm tact) */
+.fh1 .tact { --pd: 7.8; background: #17181b; border-radius: calc(var(--mm) * .5); border: 0; padding: 0; cursor: pointer; }
+.fh1 .tact::before { content: ""; position: absolute; inset: calc(var(--mm) * .3); background: linear-gradient(145deg, #d0d4da, #8d939c); border-radius: calc(var(--mm) * .3); }
+.fh1 .tact::after { content: ""; position: absolute; left: 50%; top: 50%; width: calc(var(--mm) * 3.5); height: calc(var(--mm) * 3.5); margin: calc(var(--mm) * -1.75); border-radius: 50%;
+  background: #f4f4f4; box-shadow: 0 calc(var(--mm) * .3) 0 #a9a9a9; }
+.fh1 .tact.small { --pd: 6; }
+.fh1 .tact.small::after { width: calc(var(--mm) * 3.2); height: calc(var(--mm) * 3.2); margin: calc(var(--mm) * -1.6); background: #2a2b2e; box-shadow: 0 calc(var(--mm) * .3) 0 #000; }
+.fh1 .silk { position: absolute; left: calc(var(--mm) * var(--px)); top: calc(var(--mm) * var(--py)); transform: translateX(-50%);
+  font: calc(var(--mm) * 1.4) "Press Start 2P", monospace; color: rgba(255,255,255,.85); white-space: nowrap; pointer-events: none; }
+/* the LoRa antenna, on the back board at x = 72: SMA, knuckle, 42 mm whip; --fold turns it at the knuckle */
+.fh1 .ant { position: absolute; left: calc(var(--mm) * 67); top: 0; width: calc(var(--mm) * 10); height: 0; }
+.fh1 .ant .sma { position: absolute; left: calc(var(--mm) * 1.8); bottom: 0; width: calc(var(--mm) * 6.4); height: calc(var(--mm) * 7);
+  background: linear-gradient(90deg, #8a6d22, #e3c060, #8a6d22); border-radius: calc(var(--mm) * .5) calc(var(--mm) * .5) 0 0; }
+.fh1 .ant .knuckle { position: absolute; left: calc(var(--mm) * .4); bottom: calc(var(--mm) * 7); width: calc(var(--mm) * 9.2); height: calc(var(--mm) * 9);
+  background: linear-gradient(90deg, #050505, #2c2c2c, #050505); border-radius: calc(var(--mm) * 2); transform-origin: 50% 70%; transform: rotate(var(--fold, 0deg)); }
+.fh1 .ant .whip { position: absolute; left: calc(var(--mm) * .3); bottom: calc(var(--mm) * 8); width: calc(var(--mm) * 8.6); height: calc(var(--mm) * 42);
+  background: linear-gradient(90deg, #050505, #2e2e2e 40%, #0a0a0a); border-radius: calc(var(--mm) * 4.3) calc(var(--mm) * 4.3) calc(var(--mm) * 1.5) calc(var(--mm) * 1.5);
+  clip-path: polygon(8% 0, 92% 0, 100% 100%, 0 100%); }

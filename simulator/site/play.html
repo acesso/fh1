@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FH1 · Simulador</title>
+<meta name="description" content="O firmware real do FH1 rodando no navegador, num ESP32-S3 emulado.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<link href="fh1-device.css" rel="stylesheet">
+<script>
+  (function () {
+    let t = 'dark', l = 'pt';
+    try { t = localStorage.getItem('fh1-theme') || t; l = localStorage.getItem('fh1-lang') || l; } catch (e) {}
+    document.documentElement.dataset.theme = t; document.documentElement.dataset.lang = l;
+  })();
+</script>
+<style>
+  :root { --a: #e5302c; --b: #f4c21f; --x: #2f6fe8; --y: #2fb36a; }
+  :root, :root[data-theme="dark"] { --bg: #0d1117; --bg2: #151b24; --card: #1a2230; --ink: #e8edf3; --muted: #9aa7b8; --line: #2a3446; }
+  :root[data-theme="light"] { --bg: #f6f3ea; --bg2: #ece6d6; --card: #fffdf7; --ink: #1d2330; --muted: #5d6676; --line: #d9d1bd; }
+  @media (prefers-color-scheme: light) { :root[data-theme="auto"] { --bg: #f6f3ea; --bg2: #ece6d6; --card: #fffdf7; --ink: #1d2330; --muted: #5d6676; --line: #d9d1bd; } }
+  @media (prefers-color-scheme: dark) { :root[data-theme="auto"] { --bg: #0d1117; --bg2: #151b24; --card: #1a2230; --ink: #e8edf3; --muted: #9aa7b8; --line: #2a3446; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 Inter, system-ui, sans-serif; overflow-x: hidden; }
+  html[data-lang="pt"] [lang="en"], html[data-lang="en"] [lang="pt"] { display: none !important; }
+  .pixel { font-family: "Press Start 2P", monospace; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
+  header.bar { border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 85%, transparent); }
+  header.bar .wrap { display: flex; align-items: center; gap: 12px; height: 56px; }
+  .logo { font-size: 14px; text-decoration: none; display: flex; gap: 2px; }
+  .logo span:nth-child(1) { color: var(--a); } .logo span:nth-child(2) { color: var(--b); } .logo span:nth-child(3) { color: var(--x); }
+  .crumb { color: var(--muted); font-weight: 600; font-size: 14px; }
+  .sp { flex: 1; }
+  .tog, .act { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 10px; padding: 6px 10px; font: 600 13px Inter, sans-serif; cursor: pointer; }
+  .act:hover, .tog:hover { border-color: var(--muted); }
+  main { display: grid; grid-template-columns: auto 1fr; gap: 32px; padding: 36px 0 40px; align-items: start; }
+  @media (max-width: 920px) { main { grid-template-columns: 1fr; justify-items: center; } }
+  body:not(.panels) main { grid-template-columns: 1fr; justify-items: center; }
+  body:not(.panels) .side { display: none; }
+  .stage { display: flex; flex-direction: column; align-items: center; gap: 22px; }
+  .hint { color: var(--muted); font-size: 13px; text-align: center; max-width: 460px; }
+  .hint kbd { font-size: 9px; }
+  .tog.on { border-color: var(--y); }
+
+  /* ── the FH1, to scale (fh1-device.css), its antenna folded along the top ── */
+  .stage { --dw: min(440px, calc(100vw - 32px)); }
+  .dev { --fold: -90deg; margin-top: calc(var(--dw) / 80 * 17); touch-action: none; user-select: none; -webkit-user-select: none; }
+  .dev .act canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+  .loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+             color: #9fe7b0; font-size: calc(var(--mm) * 1.9); text-align: center; padding: 0 8%; }
+  .loading .meter { width: 70%; height: calc(var(--mm) * 1.4); border: 2px solid #9fe7b0; border-radius: 2px; }
+  .loading .meter div { height: 100%; width: 0; background: #9fe7b0; transition: width .2s; }
+  .dev .stickmod { cursor: grab; }
+  .dev .key.down .cap { transform: translateY(calc(var(--mm) * .5)); box-shadow: 0 0 0 calc(var(--mm) * .5) #f2f2f2, 0 calc(var(--mm) * .2) 0 calc(var(--mm) * .5) #b9b9b9; }
+  .dev .key.lit .cap { filter: saturate(1.15) brightness(1.3); box-shadow: 0 0 0 calc(var(--mm) * .5) #f2f2f2, 0 calc(var(--mm) * .7) 0 calc(var(--mm) * .5) #b9b9b9, 0 0 calc(var(--mm) * 6) calc(var(--mm) * 2) var(--c); }
+  .dev .key:not(.lit) .cap { filter: saturate(.8) brightness(.85); }
+  .dev .tact.down::after { transform: translateY(calc(var(--mm) * .3)); box-shadow: none; }
+  .pwr { position: absolute; left: calc(var(--mm) * 62); top: calc(var(--mm) * 108); width: calc(var(--mm) * 2); height: calc(var(--mm) * 2); border-radius: 50%; background: #3a1010; }
+  .pwr.on { background: #3dff7a; box-shadow: 0 0 calc(var(--mm) * 2) #3dff7a; }
+  /* ── side panel ── */
+  .side { display: grid; gap: 16px; min-width: 0; width: 100%; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
+  .card h2 { margin: 0 0 10px; font-size: 12px; line-height: 1.6; }
+  .stat { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 14px; }
+  .stat b { color: var(--muted); font-weight: 600; }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  table.keys { border-collapse: collapse; width: 100%; font-size: 14px; }
+  table.keys td { padding: 5px 8px; border-bottom: 1px solid var(--line); }
+  kbd { font: 10px "Press Start 2P", monospace; background: var(--bg); border: 1px solid var(--line); border-bottom-width: 3px; border-radius: 6px; padding: 2px 5px; }
+  details summary { cursor: pointer; font-weight: 600; }
+  pre#con { margin: 10px 0 0; height: 260px; overflow: auto; background: #0b0d10; color: #c9d1d9; border-radius: 10px; padding: 10px; font: 12px/1.45 "JetBrains Mono", monospace; white-space: pre-wrap; word-break: break-all; }
+  .note { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+  .speed.slow { color: var(--b); }
+</style>
+</head>
+<body>
+<header class="bar"><div class="wrap">
+  <a class="logo pixel" href="./"><span>F</span><span>H</span><span>1</span></a>
+  <span class="crumb"><span lang="pt">Simulador</span><span lang="en">Simulator</span></span>
+  <span class="sp"></span>
+  <button class="tog" id="audio" title="Som / Sound">🔇</button>
+  <button class="tog" id="panels" title="Detalhes / Details">🛠</button>
+  <button class="tog" id="lang" title="Idioma / Language">EN</button>
+  <button class="tog" id="theme" title="Tema / Theme">🌙</button>
+</div></header>
+
+<div class="wrap"><main>
+  <div class="stage">
+  <div class="fh1 dev" id="dev">
+    <div class="ant"><div class="sma"></div><div class="knuckle"><div class="whip"></div></div></div>
+    <div class="pcb">
+      <div class="r disp"></div><div class="r glass"></div>
+      <div class="r act">
+        <canvas id="lcd" width="320" height="240"></canvas>
+        <div class="loading pixel" id="loading">
+          <div id="loadmsg"><span lang="pt">LIGANDO…</span><span lang="en">POWERING ON…</span></div>
+          <div class="meter"><div id="loadbar"></div></div>
+        </div>
+      </div>
+      <div class="r stickmod" id="stick" aria-label="Thumbstick"><div class="housing"><div class="cap" id="cap"></div></div></div>
+      <button class="c key" data-k="x" style="--px:60.32;--py:63.81;--c:var(--x)" aria-label="X"><span class="cap">X</span></button>
+      <button class="c key" data-k="y" style="--px:47.62;--py:76.51;--c:var(--y)" aria-label="Y"><span class="cap">Y</span></button>
+      <button class="c key" data-k="a" style="--px:73.02;--py:76.51;--c:var(--a)" aria-label="A"><span class="cap">A</span></button>
+      <button class="c key" data-k="b" style="--px:60.32;--py:89.21;--c:var(--b)" aria-label="B"><span class="cap">B</span></button>
+      <button class="c tact" data-k="select" style="--px:18.41;--py:94.29" aria-label="Select"></button><span class="silk" style="--px:18.41;--py:99.4">SELECT</span>
+      <button class="c tact" data-k="start" style="--px:31.11;--py:94.29" aria-label="Start"></button><span class="silk" style="--px:31.11;--py:99.4">START</span>
+      <button class="c tact small" data-k="menu" style="--px:40;--py:61.27" aria-label="Menu"></button><span class="silk" style="--px:40;--py:65.4">MENU</span>
+      <span class="silk" style="--px:14;--py:108.4">FH1</span><span class="pwr" id="pwr" title="power"></span>
+    </div>
+  </div>
+  <p class="hint">
+    <span lang="pt">Clique nos botões, arraste o direcional, ou use <kbd>↑↓←→</kbd> <kbd>J</kbd><kbd>K</kbd><kbd>U</kbd><kbd>I</kbd> <kbd>Enter</kbd> <kbd>␣</kbd> <kbd>M</kbd>. 🔇 liga o som.</span>
+    <span lang="en">Click the buttons, drag the stick, or use <kbd>↑↓←→</kbd> <kbd>J</kbd><kbd>K</kbd><kbd>U</kbd><kbd>I</kbd> <kbd>Enter</kbd> <kbd>␣</kbd> <kbd>M</kbd>. 🔇 turns the sound on.</span>
+  </p>
+  </div>
+
+  <div class="side">
+    <div class="card">
+      <h2 class="pixel"><span lang="pt">Estado</span><span lang="en">Status</span></h2>
+      <div class="stat">
+        <b lang="pt">Situação</b><b lang="en">State</b><span id="status">…</span>
+        <b lang="pt">Velocidade</b><b lang="en">Speed</b><span class="speed" id="speed">–</span>
+        <b lang="pt">Tempo emulado</b><b lang="en">Emulated time</b><span id="etime">–</span>
+        <b>Firmware</b><span id="fwname">fh1.bin</span>
+      </div>
+      <div class="btns">
+        <button class="act" id="restart">↻ <span lang="pt">reiniciar</span><span lang="en">restart</span></button>
+        <label class="act">📂 <span lang="pt">carregar firmware</span><span lang="en">load firmware</span><input type="file" id="file" accept=".bin" hidden></label>
+      </div>
+      <p class="note">
+        <span lang="pt">O firmware real do FH1, num ESP32-S3 emulado (esp32sim, WebAssembly). Ainda mais lento que o aparelho. Seu firmware: uma imagem de flash (.bin) gravada em 0x0, como <code>fh1-firmware-fh1.bin</code> das versões.</span>
+        <span lang="en">The real FH1 firmware on an emulated ESP32-S3 (esp32sim, WebAssembly). Still slower than the device. Your own firmware: a flash image (.bin) written at 0x0, like a release's <code>fh1-firmware-fh1.bin</code>.</span>
+      </p>
+    </div>
+    <div class="card">
+      <h2 class="pixel"><span lang="pt">Controles</span><span lang="en">Controls</span></h2>
+      <table class="keys">
+        <tr><td><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> · <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td><td lang="pt">thumbstick</td><td lang="en">thumbstick</td></tr>
+        <tr><td><kbd>J</kbd> <kbd>K</kbd> <kbd>U</kbd> <kbd>I</kbd></td><td>A · B · X · Y</td></tr>
+        <tr><td><kbd>Enter</kbd> <kbd>␣</kbd></td><td>Start · Select</td></tr>
+        <tr><td><kbd>M</kbd> <kbd>Esc</kbd></td><td>Menu</td></tr>
+      </table>
+      <p class="note"><span lang="pt">Ou clique e arraste nos controles do FH1.</span><span lang="en">Or click and drag the FH1's controls.</span></p>
+    </div>
+    <div class="card">
+      <details id="condet"><summary><span lang="pt">Console (UART0)</span><span lang="en">Console (UART0)</span></summary><pre id="con"></pre></details>
+    </div>
+  </div>
+</main></div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const root = document.documentElement;
+  const store = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const pt = () => root.dataset.lang !== 'en';
+  const T = (p, e) => pt() ? p : e;
+
+  // language and theme, shared with the landing page
+  const setLang = (l) => { root.dataset.lang = l; root.lang = l === 'pt' ? 'pt-BR' : 'en'; $('lang').textContent = l === 'pt' ? 'EN' : 'PT'; store('fh1-lang', l); showStatus(); };
+  $('lang').onclick = () => setLang(pt() ? 'en' : 'pt');
+  const icons = { dark: '🌙', light: '☀️', auto: '🌓' };
+  const setTheme = (t) => { root.dataset.theme = t; $('theme').textContent = icons[t]; store('fh1-theme', t); };
+  setTheme(icons[root.dataset.theme] ? root.dataset.theme : 'dark');
+  $('theme').onclick = () => setTheme({ dark: 'light', light: 'auto', auto: 'dark' }[root.dataset.theme]);
+  // The details (status, controls, firmware, console) are for developers: hidden unless asked for.
+  const setPanels = (on) => { document.body.classList.toggle('panels', on); $('panels').classList.toggle('on', on); store('fh1-panels', on ? '1' : '0'); };
+  let panelsOn = new URLSearchParams(location.search).has('panels'); try { panelsOn = panelsOn || localStorage.getItem('fh1-panels') === '1'; } catch (e) {}
+  setPanels(panelsOn);
+  $('panels').onclick = () => setPanels(!document.body.classList.contains('panels'));
+
+  // ── status ──
+  let state = ['carregando o emulador…', 'loading the emulator…'];
+  function showStatus() { $('status').textContent = T(state[0], state[1]); }
+  const setState = (p, e) => { state = [p, e]; showStatus(); };
+  setLang(pt() ? 'pt' : 'en');
+  const loading = (frac, p, e) => {
+    $('loading').style.display = frac === null ? 'none' : '';
+    if (frac !== null) { $('loadbar').style.width = Math.round(frac * 100) + '%'; if (p) $('loadmsg').innerHTML = `<span lang="pt">${p}</span><span lang="en">${e}</span>`; }
+  };
+
+  // ── the emulator, in a worker (esp32sim's wasm/worker.js) ──
+  let worker = null, ready = null, started = false;
+  const waiters = new Map();
+  const ask = (key, msg, transfer) => new Promise((res) => { waiters.set(key, res); worker.postMessage(msg, transfer || []); });
+  const send = (m) => { if (started) worker.postMessage({ op: 'text', data: JSON.stringify(m) }); };
+  function spawn() {
+    worker = new Worker('wasm/worker.js', { type: 'module' });
+    worker.onmessage = (ev) => {
+      const m = ev.data;
+      if (m.bin !== undefined) { try { onBin(m.bin); } finally { if (m.ack) worker.postMessage({ op: 'frame-ack' }); } return; }
+      if (m.text !== undefined) { onText(m.text); return; }
+      if (m.log !== undefined) { console.log(m.log); return; }
+      if (m.ready) { const r = waiters.get('ready'); waiters.delete('ready'); r && r(true); }
+      if (m.created !== undefined) { const r = waiters.get('created'); waiters.delete('created'); r && r(m.created); }
+      if (m.loaded !== undefined) { const r = waiters.get('load' + m.loaded); waiters.delete('load' + m.loaded); r && r(m.ok); }
+      if (m.started !== undefined) { started = m.started; $('pwr').classList.toggle('on', started);
+        if (started) { setState('ligado', 'running'); centreStick(); } else setState('falhou ao ligar: ' + (m.error || ''), 'boot failed: ' + (m.error || '')); }
+      if (m.stopped !== undefined) { started = false; $('pwr').classList.remove('on'); setState('parado', 'stopped'); }
+      if (m.pace) { const s = m.pace.speed; if (s != null) { $('speed').textContent = Math.round(s * 100) + '% ' + T('do tempo real', 'of real time') + ` · ${(m.pace.mips || 0).toFixed(1)} Minsn/s`; $('speed').classList.toggle('slow', s < 0.95); } }
+    };
+  }
+
+  async function fetchBytes(url, onprog) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(url + ': ' + r.status);
+    const total = +r.headers.get('content-length') || 0;
+    if (!r.body || !total) return r.arrayBuffer();
+    const out = new Uint8Array(total); const rd = r.body.getReader(); let at = 0;
+    for (;;) { const { done, value } = await rd.read(); if (done) break; out.set(value, at); at += value.length; onprog(at / total); }
+    return out.buffer;
+  }
+
+  let rom = null, flash = null, flashName = 'fh1.bin';
+  async function boot() {
+    started = false; $('pwr').classList.remove('on');
+    if (!worker) {
+      spawn();
+      loading(0, 'CARREGANDO O EMULADOR…', 'LOADING THE EMULATOR…'); setState('carregando o emulador…', 'loading the emulator…');
+      const wasm = await fetchBytes('wasm/esp32sim.wasm', (f) => loading(f * 0.3));
+      ready = ask('ready', { op: 'init', wasm, frameAck: true }, [wasm]);
+    }
+    await ready;
+    if (!rom) rom = await fetchBytes('wasm/fw/esp32s3_rev0_rom.elf', () => {});
+    if (!flash) {
+      loading(0.3, 'CARREGANDO O FIRMWARE…', 'LOADING THE FIRMWARE…'); setState('baixando o firmware…', 'downloading the firmware…');
+      flash = await fetchBytes('wasm/fw/fh1.bin', (f) => loading(0.3 + f * 0.65));
+    }
+    loading(0.97, 'LIGANDO…', 'POWERING ON…'); setState('ligando…', 'powering on…');
+    if (!await ask('created', { op: 'create', board: 'fh1', flash_mb: 16, psram_mb: 8, jit: true, experiments: [] })) { setState('não consegui criar o emulador', 'could not create the emulator'); return; }
+    // the worker takes the bytes: hand it copies, so a restart can load them again
+    for (const [kind, data] of [[0, rom], [5, flash]]) {
+      const copy = data.slice(0);
+      if (!await ask('load' + kind, { op: 'load', kind, data: copy }, [copy])) { setState('falhou ao carregar o firmware', 'failed to load the firmware'); return; }
+    }
+    con.length = 0; renderCon();
+    worker.postMessage({ op: 'start', appDirect: false });
+  }
+
+  // ── output: screen, sound, lights, console ──
+  const lcd = $('lcd'), ctx = lcd.getContext('2d'); let img = null, firstFrame = false;
+  const stats = window.fh1sim = { frames: 0, audio: 0 };   // for tests and the curious
+  function onBin(buf) {
+    const t = new Uint8Array(buf)[0];
+    if (t === 1) stats.frames++; else if (t === 2) stats.audio++;
+    if (t === 1) {
+      const dv = new DataView(buf), w = dv.getUint16(1, true), h = dv.getUint16(3, true);
+      if (lcd.width !== w || lcd.height !== h) { lcd.width = w; lcd.height = h; img = null; }
+      if (!img) img = ctx.createImageData(w, h);
+      const d = img.data;
+      for (let i = 0, j = 5; i < w * h; i++, j += 2) { const p = dv.getUint16(j, true); d[i*4] = (p >> 11) * 255 / 31; d[i*4+1] = ((p >> 5) & 63) * 255 / 63; d[i*4+2] = (p & 31) * 255 / 31; d[i*4+3] = 255; }
+      ctx.putImageData(img, 0, 0);
+      if (!firstFrame) { firstFrame = true; loading(null); }
+    } else if (t === 2) playAudio(buf);
+  }
+  let audioCtx = null, playHead = 0, lead = 0.08;
+  function playAudio(buf) {
+    if (!audioCtx || audioCtx.state !== 'running') return;
+    const rate = new DataView(buf).getUint32(1, true), n = (buf.byteLength - 5) / 2;
+    if (n <= 0 || rate < 3000) return;
+    const i16 = new Int16Array(buf.slice(5)), ab = audioCtx.createBuffer(1, n, rate), ch = ab.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = Math.max(-1, Math.min(1, i16[i] / 32768 * 4));
+    const src = audioCtx.createBufferSource(); src.buffer = ab; src.connect(audioCtx.destination);
+    const now = audioCtx.currentTime;
+    if (playHead < now + 0.01) { lead = Math.min(0.4, lead * 1.5); playHead = now + lead; }
+    else if (playHead > now + lead + 0.5) playHead = now + lead;
+    src.start(playHead); playHead += n / rate;
+  }
+  $('audio').onclick = async () => {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'running') await audioCtx.suspend(); else { await audioCtx.resume(); playHead = 0; }
+    $('audio').textContent = audioCtx.state === 'running' ? '🔊' : '🔇'; $('audio').classList.toggle('on', audioCtx.state === 'running');
+  };
+
+  const con = []; let conText = '', conTimer = 0;
+  function renderCon() { $('con').textContent = con.join(''); $('con').scrollTop = 1e9; }
+  function onText(text) {
+    const m = JSON.parse(text);
+    if (m.t === 'serial' && (m.src === 'uart0' || m.src === 'usb')) {
+      con.push(m.data); if (con.length > 600) con.splice(0, con.length - 400);
+      if (!conTimer) conTimer = setTimeout(() => { conTimer = 0; if ($('condet').open) renderCon(); }, 200);
+    } else if (m.t === 'lights') {
+      const keys = ['a', 'b', 'x', 'y'];
+      m.leds.forEach((rgb, i) => { const el = document.querySelector(`.key[data-k="${keys[i]}"]`); el && el.classList.toggle('lit', rgb.some((v) => v > 0)); });
+    } else if (m.t === 'board') {
+      centreStick();
+    } else if (m.t === 'stat') {
+      $('etime').textContent = (m.time || 0).toFixed(1) + ' s';
+    }
+  }
+  $('condet').addEventListener('toggle', renderCon);
+
+  // ── input: buttons ──
+  const held = new Map();   // name -> press time, so a tap lasts long enough for the firmware's 10 ms poll
+  function press(name, down) {
+    const el = document.querySelector(`[data-k="${name}"]`);
+    if (down) { if (held.has(name)) return; held.set(name, performance.now()); el && el.classList.add('down'); send({ t: 'press', name, v: 1 }); }
+    else { if (!held.has(name)) return; const t0 = held.get(name); held.delete(name); el && el.classList.remove('down');
+      setTimeout(() => send({ t: 'press', name, v: 0 }), Math.max(0, 90 - (performance.now() - t0))); }
+  }
+  document.querySelectorAll('[data-k]').forEach((el) => {
+    el.addEventListener('pointerdown', (e) => { e.preventDefault(); el.setPointerCapture(e.pointerId); press(el.dataset.k, true); });
+    for (const ev of ['pointerup', 'pointercancel']) el.addEventListener(ev, () => press(el.dataset.k, false));
+  });
+
+  // ── input: the stick, two ADC voltages (GPIO2 = X, GPIO4 = Y; 1.65 V centred, low = left / up) ──
+  const V0 = 1.65, SPAN = 1.45;
+  let sx = 0, sy = 0, sentX = null, sentY = null;
+  function stick(x, y) {
+    const r = Math.hypot(x, y); if (r > 1) { x /= r; y /= r; }
+    sx = x; sy = y; $('cap').style.transform = `translate(${x * 22}%, ${y * 22}%)`;
+    const vx = +(V0 + x * SPAN).toFixed(2), vy = +(V0 + y * SPAN).toFixed(2);
+    if (vx !== sentX) { sentX = vx; send({ t: 'adc', pin: 2, v: vx }); }
+    if (vy !== sentY) { sentY = vy; send({ t: 'adc', pin: 4, v: vy }); }
+  }
+  function centreStick() { sentX = sentY = null; stick(0, 0); }
+  const well = $('stick');
+  const fromPointer = (e) => { const r = well.getBoundingClientRect(); stick((e.clientX - r.left - r.width / 2) / (r.width * .3), (e.clientY - r.top - r.height / 2) / (r.height * .3)); };
+  well.addEventListener('pointerdown', (e) => { e.preventDefault(); well.setPointerCapture(e.pointerId); fromPointer(e); });
+  well.addEventListener('pointermove', (e) => { if (well.hasPointerCapture(e.pointerId)) fromPointer(e); });
+  for (const ev of ['pointerup', 'pointercancel']) well.addEventListener(ev, () => stick(0, 0));
+
+  // ── input: keyboard ──
+  const keyMap = { j: 'a', k: 'b', u: 'x', i: 'y', enter: 'start', ' ': 'select', m: 'menu', escape: 'menu' };
+  const dirs = { arrowup: [0, -1], w: [0, -1], arrowdown: [0, 1], s: [0, 1], arrowleft: [-1, 0], a: [-1, 0], arrowright: [1, 0], d: [1, 0] };
+  const dirHeld = new Set();
+  const stickFromKeys = () => { let x = 0, y = 0; for (const k of dirHeld) { x += dirs[k][0]; y += dirs[k][1]; } stick(x, y); };
+  function typing(e) { return e.target.closest && e.target.closest('input, textarea, select'); }
+  addEventListener('keydown', (e) => {
+    if (typing(e) || e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (keyMap[k]) { e.preventDefault(); press(keyMap[k], true); }
+    else if (dirs[k]) { e.preventDefault(); if (!dirHeld.has(k)) { dirHeld.add(k); stickFromKeys(); } }
+  });
+  addEventListener('keyup', (e) => {
+    const k = e.key.toLowerCase();
+    if (keyMap[k]) press(keyMap[k], false);
+    else if (dirs[k]) { dirHeld.delete(k); stickFromKeys(); }
+  });
+  addEventListener('blur', () => { for (const n of [...held.keys()]) press(n, false); dirHeld.clear(); stick(0, 0); });
+
+  // ── restart and your own firmware ──
+  $('restart').onclick = () => { firstFrame = false; loading(0.97, 'LIGANDO…', 'POWERING ON…'); boot(); };
+  $('file').onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    flash = await f.arrayBuffer(); flashName = f.name; $('fwname').textContent = f.name;
+    firstFrame = false; loading(0.97, 'LIGANDO…', 'POWERING ON…'); boot();
+  };
+
+  boot().catch((e) => { setState('erro: ' + e.message, 'error: ' + e.message); console.error(e); });
+})();
+</script>
+</body>
+</html>

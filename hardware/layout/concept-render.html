@@ -25,8 +25,22 @@
 // A classic script with dynamic imports (no import map), so previewers that re-run scripts as classic ones still work.
 // The +esm builds of the addons import the same three.js build, so they share one THREE.
 (async () => {
+// <meta name="three" content="DIR"> loads a local copy (the site serves its own, simulator/build-site.sh);
+// without it, jsDelivr. When WebGL or the modules fail, the page shows the static render of the view instead.
+const VIEW = new URLSearchParams(location.search).get('view') || 'hero';
+function fallback(err) {
+  const png = { hero: 'front', open: 'open', back: 'back' }[VIEW] || 'front';
+  document.querySelector('nav').remove();
+  document.body.innerHTML = `<img src="concept-v1-${png}.png" alt="FH1 V1" style="width:100%;height:100%;object-fit:contain">`
+    + `<small style="position:fixed;left:8px;bottom:6px;color:#7d8590;font:11px system-ui">3D: ${String(err && err.message || err).replace(/[<&]/g, '')}</small>`;
+}
+try {
+const local = document.querySelector('meta[name="three"]')?.content;
 const CDN = 'https://cdn.jsdelivr.net/npm/three@0.160.0';
-const [THREE, { RoomEnvironment }, { RoundedBoxGeometry }, { OrbitControls }] = await Promise.all([
+const [THREE, { RoomEnvironment }, { RoundedBoxGeometry }, { OrbitControls }] = await Promise.all(local ? [
+  import(`${local}/three.module.js`), import(`${local}/RoomEnvironment.js`),
+  import(`${local}/RoundedBoxGeometry.js`), import(`${local}/OrbitControls.js`),
+] : [
   import(`${CDN}/+esm`),
   import(`${CDN}/examples/jsm/environments/RoomEnvironment.js/+esm`),
   import(`${CDN}/examples/jsm/geometries/RoundedBoxGeometry.js/+esm`),
@@ -462,6 +476,10 @@ function setView(name) {
   try { history.replaceState(null, '', url); } catch {}   // some browsers refuse this on file://
 }
 for (const b of document.querySelectorAll('nav button')) b.addEventListener('click', () => setView(b.dataset.view));
+// ?lang=pt names the views in Portuguese (the site's landing page embeds this view)
+const LABELS = { pt: { hero: 'Frente', open: 'Aberto', back: 'Verso' } };
+const lang = LABELS[new URLSearchParams(location.search).get('lang')];
+if (lang) for (const b of document.querySelectorAll('nav button')) b.textContent = lang[b.dataset.view];
 setView(new URLSearchParams(location.search).get('view'));
 addEventListener('resize', () => {
   cam.aspect = innerWidth / innerHeight;
@@ -470,6 +488,7 @@ addEventListener('resize', () => {
 });
 function frame() { controls.update(); renderer.render(scene, cam); }
 renderer.setAnimationLoop(frame);
+} catch (err) { console.error(err); fallback(err); }
 })();
 </script>
 </body>

@@ -7,6 +7,7 @@
 <meta name="description" content="FH1 (Force Hero): uma plataforma DIY de hardware e software próprios. Experimente o firmware real no navegador.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link href="fh1-device.css" rel="stylesheet">
 <script>
   // Theme and language before first paint: dark by default, Portuguese by default.
   (function () {
@@ -69,30 +70,18 @@
   .btn.go { background: var(--y); color: #06210f; }
   .btn.alt { background: var(--card); color: var(--ink); border: 1px solid var(--line); box-shadow: inset 0 -4px 0 var(--line); }
 
-  /* the toy: a little FH1 */
-  .toy { position: relative; justify-self: center; width: min(420px, 100%); aspect-ratio: 1.25; border-radius: 28px; padding: 22px;
-         background: linear-gradient(160deg, #2f7d4f, #1e5a37); box-shadow: 0 30px 60px rgba(0,0,0,.35), inset 0 2px 0 rgba(255,255,255,.15);
-         display: grid; grid-template-columns: 1fr; gap: 16px; animation: float 6s ease-in-out infinite; }
+  /* the toy: the FH1 to scale (fh1-device.css), its antenna up */
+  .toy { --dw: min(280px, 72vw); justify-self: center; padding-top: calc(var(--dw) / 80 * 60); position: relative; }
+  .toy .fh1 { animation: float 6s ease-in-out infinite; }
   @keyframes float { 0%, 100% { transform: translateY(0) rotate(-1.5deg); } 50% { transform: translateY(-10px) rotate(1deg); } }
-  .toy::before { /* perfboard holes */ content: ""; position: absolute; inset: 10px; border-radius: 20px; pointer-events: none;
-         background: radial-gradient(circle, rgba(0,0,0,.28) 1.4px, transparent 1.8px) 0 0 / 12px 12px; opacity: .6; }
-  .lcd { position: relative; background: var(--lcd-bg); border: 10px solid #111; border-radius: 10px; height: 150px; overflow: hidden;
-         box-shadow: inset 0 0 20px rgba(0,0,0,.25); color: var(--lcd-ink); padding: 12px; font-size: 12px; line-height: 1.9; }
-  .lcd::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,.06) 0 2px, transparent 2px 4px); pointer-events: none; }
-  .lcd .bar2 { background: var(--lcd-ink); color: var(--lcd-hi); margin: -12px -12px 8px; padding: 3px 8px; font-size: 9px; display: flex; justify-content: space-between; }
+  .toy .lcd { background: var(--lcd-bg); color: var(--lcd-ink); padding: calc(var(--mm) * 2.2); font-size: calc(var(--mm) * 2.7); line-height: 1.8; }
+  .toy .lcd::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,.06) 0 1px, transparent 1px 3px); pointer-events: none; }
+  .toy .bar2 { background: var(--lcd-ink); color: var(--lcd-hi); margin: calc(var(--mm) * -2.2) calc(var(--mm) * -2.2) calc(var(--mm) * 2); padding: calc(var(--mm) * .6) calc(var(--mm) * 1.8);
+               font-size: calc(var(--mm) * 2); display: flex; justify-content: space-between; }
   .caret { display: inline-block; width: .7em; height: 1em; background: var(--lcd-ink); vertical-align: -2px; animation: blink 1s steps(1) infinite; }
   @keyframes blink { 50% { opacity: 0; } }
-  .pad { position: relative; display: flex; justify-content: space-between; align-items: center; padding: 0 8px; }
-  .stick { width: 74px; height: 74px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #555 0, #222 60%); box-shadow: 0 6px 0 #0c2a18, inset 0 -4px 8px rgba(0,0,0,.5); transition: transform .1s; }
-  .abxy { position: relative; width: 132px; height: 132px; }
-  .k { position: absolute; width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer; color: rgba(255,255,255,.9); font: 11px "Press Start 2P", monospace;
-       box-shadow: 0 5px 0 rgba(0,0,0,.35); transition: transform .06s, box-shadow .06s, filter .1s; }
-  .k[data-k="X"] { top: 0; left: 44px; background: var(--x); }
-  .k[data-k="Y"] { top: 44px; left: 0; background: var(--y); }
-  .k[data-k="A"] { top: 44px; right: 0; background: var(--a); }
-  .k[data-k="B"] { bottom: 0; left: 44px; background: var(--b); color: #3a2c00; }
-  .k.on { transform: translateY(4px); box-shadow: 0 1px 0 rgba(0,0,0,.35), 0 0 28px 8px color-mix(in srgb, currentColor 0%, var(--glowc)); filter: brightness(1.35); }
-  .hint { position: absolute; bottom: -34px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--muted); }
+  .toy .key.on .cap { transform: translateY(calc(var(--mm) * .5)); filter: brightness(1.3); box-shadow: 0 0 0 calc(var(--mm) * .5) #f2f2f2, 0 0 calc(var(--mm) * 6) calc(var(--mm) * 2) var(--c); }
+  .hint { margin-top: 14px; text-align: center; font-size: 12px; color: var(--muted); }
 
   /* sections */
   section { padding: 56px 0; }
@@ -101,7 +90,9 @@
   h2 .dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 12px; vertical-align: 2px; }
   .story { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; align-items: center; }
   @media (max-width: 880px) { .story { grid-template-columns: 1fr; } }
-  .story img { width: 100%; border-radius: 18px; box-shadow: 0 20px 40px rgba(0,0,0,.3); }
+  .view3d { position: relative; }
+  .view3d iframe { display: block; width: 100%; aspect-ratio: 1 / 1; border: 0; border-radius: 18px; background: #15171a; box-shadow: 0 20px 40px rgba(0,0,0,.3); }
+  .view3d p { margin: 8px 0 0; color: var(--muted); font-size: 13px; text-align: center; }
   .story p { margin: 0 0 14px; }
   .quote { font-size: 20px; font-weight: 600; border-left: 6px solid var(--b); padding: 4px 0 4px 16px; margin: 18px 0; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
@@ -110,6 +101,10 @@
   .card .ic { font-size: 28px; line-height: 1; margin-bottom: 10px; }
   .card h3 { margin: 0 0 6px; font-size: 17px; }
   .card p { margin: 0; color: var(--muted); font-size: 15px; }
+  .card.wide { grid-column: span 2; }
+  @media (max-width: 560px) { .card.wide { grid-column: auto; } }
+  ul.conn { list-style: none; margin: 0; padding: 0; color: var(--muted); font-size: 15px; display: grid; gap: 4px; }
+  ul.conn b { color: var(--ink); }
   .apps { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
   .chip { background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font-weight: 600; font-size: 14px; }
   .sim { display: grid; grid-template-columns: 1.2fr .8fr; gap: 28px; align-items: start; }
@@ -126,7 +121,7 @@
 
   /* pixel confetti from the buttons */
   .px { position: fixed; width: 8px; height: 8px; pointer-events: none; z-index: 50; }
-  @media (prefers-reduced-motion: reduce) { .title span, .toy, .caret { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .title span, .toy .fh1, .caret { animation: none; } }
 </style>
 </head>
 <body>
@@ -156,22 +151,27 @@
       <span lang="en">A DIY platform with fully custom hardware and software. A fun project you can build with AI tools or by hand.</span>
     </p>
     <div class="cta">
-      <a class="btn go" href="run.html?wasm&amp;fw=fh1">▶ <span lang="pt">Ligar o FH1 no navegador</span><span lang="en">Power on the FH1 in your browser</span></a>
+      <a class="btn go" href="play.html">▶ <span lang="pt">Ligar o FH1 no navegador</span><span lang="en">Power on the FH1 in your browser</span></a>
       <a class="btn alt" href="https://github.com/acesso/fh1">GitHub ↗</a>
     </div>
   </div>
-  <div class="toy" aria-label="FH1">
-    <div class="lcd pixel" aria-live="polite">
-      <div class="bar2"><span>FH1</span><span id="clock">--:--</span></div>
-      <span id="type"></span><span class="caret"></span>
-    </div>
-    <div class="pad">
-      <div class="stick" id="stick"></div>
-      <div class="abxy">
-        <button class="k" data-k="X" style="--glowc:var(--x)">X</button>
-        <button class="k" data-k="Y" style="--glowc:var(--y)">Y</button>
-        <button class="k" data-k="A" style="--glowc:var(--a)">A</button>
-        <button class="k" data-k="B" style="--glowc:var(--b)">B</button>
+  <div class="toy">
+    <div class="fh1" aria-label="FH1">
+      <div class="ant"><div class="sma"></div><div class="knuckle"><div class="whip"></div></div></div>
+      <div class="pcb">
+        <div class="r disp"></div><div class="r glass"></div>
+        <div class="r act lcd pixel" aria-live="polite">
+          <div class="bar2"><span>FH1</span><span id="clock">--:--</span></div>
+          <span id="type"></span><span class="caret"></span>
+        </div>
+        <div class="r stickmod"><div class="housing"><div class="cap" id="stick"></div></div></div>
+        <button class="c key" data-k="X" style="--px:60.32;--py:63.81;--c:var(--x)"><span class="cap">X</span></button>
+        <button class="c key" data-k="Y" style="--px:47.62;--py:76.51;--c:var(--y)"><span class="cap">Y</span></button>
+        <button class="c key" data-k="A" style="--px:73.02;--py:76.51;--c:var(--a)"><span class="cap">A</span></button>
+        <button class="c key" data-k="B" style="--px:60.32;--py:89.21;--c:var(--b)"><span class="cap">B</span></button>
+        <span class="c tact" style="--px:18.41;--py:94.29"></span><span class="silk" style="--px:18.41;--py:99.4">SELECT</span>
+        <span class="c tact" style="--px:31.11;--py:94.29"></span><span class="silk" style="--px:31.11;--py:99.4">START</span>
+        <span class="c tact small" style="--px:40;--py:61.27"></span><span class="silk" style="--px:40;--py:65.4">MENU</span>
       </div>
     </div>
     <div class="hint"><span lang="pt">aperte os botões (ou J K U I e W A S D)</span><span lang="en">press the buttons (or J K U I and W A S D)</span></div>
@@ -188,7 +188,10 @@
     <p lang="pt">Cada peça é escolhida, soldada e programada aqui, em duas placas perfuradas, com módulos que encaixam e se trocam. Nada é segredo: o hardware, o firmware, os jogos e até este site estão no repositório.</p>
     <p lang="en">Every part is chosen, soldered and programmed here, on two perfboards, with modules that plug in and swap out. Nothing is secret: the hardware, the firmware, the games and even this site are in the repository.</p>
   </div>
-  <img src="img/concept-v1-front.png" alt="FH1: render 3D do conceito V1 / 3D concept render of the V1 build" loading="lazy">
+  <div class="view3d">
+    <iframe id="view3d" src="hardware-3d.html?view=hero&amp;lang=pt" title="FH1 V1 em 3D / FH1 V1 in 3D" loading="lazy"></iframe>
+    <p><span lang="pt">O FH1 V1 em 3D, com as peças nas posições do projeto: arraste para girar, role para aproximar.</span><span lang="en">The FH1 V1 in 3D, its parts where the layout places them: drag to turn, scroll to zoom.</span></p>
+  </div>
 </div></section>
 
 <section id="aparelho"><div class="wrap">
@@ -199,7 +202,9 @@
     <div class="card" style="--c:var(--x)"><div class="ic">🕹️</div><h3 lang="pt">Controles</h3><h3 lang="en">Controls</h3><p lang="pt">Thumbstick e botões A, B, X, Y iluminados, mais Start, Select e Menu.</p><p lang="en">A thumbstick and lit A, B, X, Y buttons, plus Start, Select and Menu.</p></div>
     <div class="card" style="--c:var(--y)"><div class="ic">🔊</div><h3 lang="pt">Som</h3><h3 lang="en">Sound</h3><p lang="pt">Alto-falante e microfone; um mixer de efeitos para os jogos.</p><p lang="en">A speaker and a microphone; a sound-effect mixer for the games.</p></div>
     <div class="card" style="--c:var(--a)"><div class="ic">🔋</div><h3 lang="pt">Bateria</h3><h3 lang="en">Battery</h3><p lang="pt">Uma célula 18650: horas de jogo, dias em espera.</p><p lang="en">One 18650 cell: hours of play, days of standby.</p></div>
-    <div class="card" style="--c:var(--b)"><div class="ic">📡</div><h3 lang="pt">Rádio</h3><h3 lang="en">Radio</h3><p lang="pt">LoRa 2,4 GHz entre aparelhos FH: mensagens e multijogador.</p><p lang="en">2.4 GHz LoRa between FH devices: messages and multiplayer.</p></div>
+    <div class="card wide" style="--c:var(--b)"><div class="ic">📡</div><h3 lang="pt">Conectividade</h3><h3 lang="en">Connectivity</h3>
+      <ul class="conn" lang="pt"><li><b>Wi-Fi</b>: console de desenvolvimento, atualizações pelo ar, pontes na rede</li><li><b>Bluetooth LE</b>: controles Bluetooth pela ponte</li><li><b>LoRa 2,4 GHz</b>: mensagens e multijogador entre aparelhos FH</li></ul>
+      <ul class="conn" lang="en"><li><b>Wi-Fi</b>: the dev console, over-the-air updates, bridges on the network</li><li><b>Bluetooth LE</b>: Bluetooth controllers through the bridge</li><li><b>2.4 GHz LoRa</b>: messages and multiplayer between FH devices</li></ul></div>
   </div>
   <div class="apps">
     <span class="chip">🎮 Game Boy Color</span><span class="chip">👾 NES</span><span class="chip">🌊 Master System</span><span class="chip">🎵 <span lang="pt">Música</span><span lang="en">Music</span></span>
@@ -210,20 +215,20 @@
 <section id="simulador" class="alt"><div class="wrap sim">
   <div>
     <h2 class="pixel"><span class="dot" style="background:var(--x)"></span><span lang="pt">O simulador</span><span lang="en">The simulator</span></h2>
-    <p lang="pt">Este não é um FH1 de mentira: é o <b>firmware de verdade</b>, o mesmo binário que vai no aparelho, rodando num ESP32-S3 emulado dentro do seu navegador (WebAssembly). A tela, os botões e o som são modelados como no hardware do FH1.</p>
-    <p lang="en">This is not a pretend FH1: it is the <b>real firmware</b>, the same binary that goes on the device, running on an emulated ESP32-S3 inside your browser (WebAssembly). The screen, buttons and sound are modelled on the FH1's hardware.</p>
+    <p lang="pt">Este não é um FH1 de mentira: é o <b>firmware de verdade</b>, o mesmo binário que vai no aparelho, rodando num ESP32-S3 emulado dentro do seu navegador (WebAssembly). A tela, os botões com suas luzes, o direcional e o som são modelados como no hardware do FH1.</p>
+    <p lang="en">This is not a pretend FH1: it is the <b>real firmware</b>, the same binary that goes on the device, running on an emulated ESP32-S3 inside your browser (WebAssembly). The screen, the buttons and their lights, the thumbstick and the sound are modelled on the FH1's hardware.</p>
     <p lang="pt">Ainda é mais lento que o aparelho, e Wi-Fi e cartão SD ficam de fora por enquanto. Serve para testar, depurar e criar antes de soldar.</p>
     <p lang="en">It is still slower than the device, and Wi-Fi and the SD card are left out for now. It is for testing, debugging and creating before soldering.</p>
-    <div class="cta"><a class="btn go" href="run.html?wasm&amp;fw=fh1">▶ <span lang="pt">Ligar o simulador</span><span lang="en">Start the simulator</span></a></div>
+    <div class="cta"><a class="btn go" href="play.html">▶ <span lang="pt">Ligar o simulador</span><span lang="en">Start the simulator</span></a></div>
   </div>
   <div class="card">
-    <h3 lang="pt">Teclas (no console UART0)</h3><h3 lang="en">Keys (on the UART0 console)</h3>
+    <h3 lang="pt">Teclas</h3><h3 lang="en">Keys</h3>
     <table class="keys">
-      <tr><td><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></td><td lang="pt">direcional</td><td lang="en">d-pad</td></tr>
+      <tr><td><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td><td lang="pt">direcional</td><td lang="en">thumbstick</td></tr>
       <tr><td><kbd>J</kbd> <kbd>K</kbd></td><td>A · B</td></tr>
       <tr><td><kbd>U</kbd> <kbd>I</kbd></td><td>X · Y</td></tr>
       <tr><td><kbd>Enter</kbd> <kbd>␣</kbd></td><td>Start · Select</td></tr>
-      <tr><td><kbd>M</kbd></td><td>Menu</td></tr>
+      <tr><td><kbd>M</kbd> <kbd>Esc</kbd></td><td>Menu</td></tr>
     </table>
   </div>
 </div></section>
@@ -255,7 +260,13 @@
   const langBtn = document.getElementById('lang');
   const setLang = (l) => { root.dataset.lang = l; root.lang = l === 'pt' ? 'pt-BR' : 'en'; langBtn.textContent = l === 'pt' ? 'EN' : 'PT'; store('fh1-lang', l); };
   setLang(root.dataset.lang === 'en' ? 'en' : 'pt');
-  langBtn.onclick = () => { setLang(root.dataset.lang === 'pt' ? 'en' : 'pt'); restartType(); };
+  langBtn.onclick = () => { setLang(root.dataset.lang === 'pt' ? 'en' : 'pt'); restartType(); view3dLang(); };
+  function view3dLang() {
+    const f = document.getElementById('view3d'); if (!f) return;
+    const u = new URL(f.getAttribute('src'), location.href); u.searchParams.set('lang', root.dataset.lang === 'en' ? 'en' : 'pt');
+    if (u.href !== f.src) f.src = u.pathname.split('/').pop() + u.search;
+  }
+  view3dLang();
 
   // theme: dark -> light -> auto
   const themeBtn = document.getElementById('theme');
@@ -308,11 +319,11 @@
     }
   }
   function press(k) {
-    const el = document.querySelector(`.k[data-k="${k}"]`); if (!el) return;
+    const el = document.querySelector(`.key[data-k="${k}"]`); if (!el) return;
     el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 160);
     beep(notes[k]); confetti(el, colours[k]);
   }
-  document.querySelectorAll('.k').forEach((el) => el.addEventListener('pointerdown', () => press(el.dataset.k)));
+  document.querySelectorAll('.key').forEach((el) => el.addEventListener('pointerdown', () => press(el.dataset.k)));
   const keyMap = { j: 'A', k: 'B', u: 'X', i: 'Y' };
   const stick = document.getElementById('stick');
   const dirs = { w: [0, -8], a: [-8, 0], s: [0, 8], d: [8, 0] };

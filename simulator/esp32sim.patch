@@ -20,18 +20,130 @@ index 8717a42f..bc32a193 100644
      if o.measured_te {
          assert_eq!(m.bus.board.name(), "waveshare-amoled18-v2", "--measured-te requires the AMOLED V2 board");
          m.bus.board = Box::new(esp32s3::board::WaveshareAmoled18V2::with_measured_te());
+diff --git a/esp-soc/src/board.rs b/esp-soc/src/board.rs
+index 28693db0..bb0db7d8 100644
+--- a/esp-soc/src/board.rs
++++ b/esp-soc/src/board.rs
+@@ -119,6 +119,12 @@ pub trait BoardModel {
+     fn take_edges(&mut self) -> Vec<BoardEdge> { Vec::new() }
+     /// A pin by the name scripts and the UI use (`btn1`, `sw`, ...).
+     fn named_pin(&self, _name: &str) -> Option<u8> { None }
++    /// A named key the board handles itself, such as a button behind an I/O expander (the UI's `press`
++    /// message, a script's `press NAME`). False when the board has no such key: the caller then tries `named_pin`.
++    fn key(&mut self, _name: &str, _down: bool) -> bool { false }
++    /// Indicator lights for the UI (button LEDs and the like), one colour each, black when off. Owned, so a board
++    /// can read them from state it shares with its I2C devices. Sent to the UI as `{"t":"lights"}` when they change.
++    fn lights(&self) -> Vec<[u8; 3]> { Vec::new() }
+     /// The rotary encoder's (CLK, DT) pins, if there is one.
+     fn encoder(&self) -> Option<(u8, u8)> { None }
+     /// Lines for the end-of-run report.
+diff --git a/esp-soc/src/machine.rs b/esp-soc/src/machine.rs
+index eccff1c2..dddcdbe1 100644
+--- a/esp-soc/src/machine.rs
++++ b/esp-soc/src/machine.rs
+@@ -14,7 +14,7 @@ mod modeled;
+ mod web;
+ 
+ #[derive(Clone, Debug)]
+-pub enum ScriptAction { Gpio(u8, bool), Serial(String), Uart(usize, String), Stop, Touch(u16, u16, bool), Poke(u32, u32), TouchPad(u8, bool), Ble(String), Analog(u8, esp_periph::AnalogSource),
++pub enum ScriptAction { Gpio(u8, bool), Key(String, bool), Serial(String), Uart(usize, String), Stop, Touch(u16, u16, bool), Poke(u32, u32), TouchPad(u8, bool), Ble(String), Analog(u8, esp_periph::AnalogSource),
+     /// `waituart0 <timeout_s> <text>`: hold the rest of the script until UART0 prints `text` (or the
+     /// timeout passes), then shift every later action by the time actually waited. Fields: text,
+     /// timeout in cycles, the cycle the script placed it at.
+@@ -57,7 +57,7 @@ pub struct Realtime {
+ }
+ 
+ struct WebState { last_push_cycles: u64, /// EX170: `CPU_HZ / display_push_hz()` as of the last evaluation (0 = not evaluated yet); boards are fixed once booted.
+-    push_interval: u64, audio_sent: usize, ring_updates: u64, grid_updates: Vec<u64>, px_pending: u64, px_sent: u64, px_deferred: bool, cam_pushed: u64, cam_sent: bool }
++    push_interval: u64, audio_sent: usize, ring_updates: u64, grid_updates: Vec<u64>, px_pending: u64, px_sent: u64, px_deferred: bool, cam_pushed: u64, cam_sent: bool, lights_sent: String }
+ 
+ pub struct Machine<S: Soc> {
+     pub mac: [u8; 6],
+@@ -155,7 +155,7 @@ impl<S: Soc> Machine<S> {
+             exceptions: 0, interrupts: 0, irq_hist: vec![[0; 32]; S::CORES],
+             script: Script { events: Vec::new(), pos: 0, log: true, knob_next: 0, uart0_seen: Vec::new(), wait_mark: None }, max_cycles: u64::MAX,
+             console: Console { all: Vec::new(), usb: Vec::new(), uart0: Vec::new(), mask: 3, prefix: false, capture: false },
+-            camera_input: None, web: None, ws: WebState { last_push_cycles: 0, push_interval: 0, audio_sent: 0, ring_updates: 0, grid_updates: Vec::new(), px_pending: 0, px_sent: 0, px_deferred: false, cam_pushed: u64::MAX, cam_sent: false },
++            camera_input: None, web: None, ws: WebState { last_push_cycles: 0, push_interval: 0, audio_sent: 0, ring_updates: 0, grid_updates: Vec::new(), px_pending: 0, px_sent: 0, px_deferred: false, cam_pushed: u64::MAX, cam_sent: false, lights_sent: String::new() },
+             rt: Realtime { enabled: false, wall_start: None, last_check: 0, behind: 0.0, resyncs: 0, speed: None, speed_mark: None, log: false, log_last: None, log_insns: (0, 0) },
+             debug_rom: false, cost: None, model_accesses: Vec::new(), approximate_jit_timing: None, approximate_jit_frontiers: false, model_ready_at: vec![0; S::CORES], model_stop: None, model_attach_error: None,
+         }
+@@ -1051,6 +1051,7 @@ impl<S: Soc> Machine<S> {
+             if self.script.log { eprintln!("[script] t={:.3}s {:?}", t as f64 / S::CPU_HZ as f64, a); }
+             match a {
+                 ScriptAction::Gpio(pin, level) => { self.bus.gpio_set_input(pin, level); *self.bus.irq_dirty() = true; }
++                ScriptAction::Key(name, down) => { self.bus.board().key(&name, down); }
+                 ScriptAction::Serial(text) => self.bus.serial_input(text.as_bytes()),
+                 ScriptAction::Uart(n, text) => self.bus.uart_input(n, text.as_bytes()),
+                 ScriptAction::Stop => { self.max_cycles = 0; stopped = true; }
+@@ -1143,8 +1144,11 @@ impl<S: Soc> Machine<S> {
+             let pin = |s: &str| -> Result<u8, String> { board.named_pin(s).map(Ok).unwrap_or_else(|| s.parse().map_err(|_| format!("line {}: bad pin {}", ln + 1, s))) };
+             let c = (t * hz) as u64;
+             match cmd {
+-                "press" => { let mut p = rest.split_whitespace(); let pn = pin(p.next().unwrap_or(""))?; let ms: f64 = p.next().map(|x| x.parse().unwrap_or(100.0)).unwrap_or(100.0);
+-                             ev.push((c, ScriptAction::Gpio(pn, false))); ev.push((c + (ms / 1000.0 * hz) as u64, ScriptAction::Gpio(pn, true))); }
++                "press" => { let mut p = rest.split_whitespace(); let name = p.next().unwrap_or(""); let ms: f64 = p.next().map(|x| x.parse().unwrap_or(100.0)).unwrap_or(100.0);
++                             let up = c + (ms / 1000.0 * hz) as u64;
++                             // a key the board handles itself (a button behind an expander), else a GPIO
++                             if board.named_pin(name).is_none() && name.parse::<u8>().is_err() { ev.push((c, ScriptAction::Key(name.to_string(), true))); ev.push((up, ScriptAction::Key(name.to_string(), false))); }
++                             else { let pn = pin(name)?; ev.push((c, ScriptAction::Gpio(pn, false))); ev.push((up, ScriptAction::Gpio(pn, true))); } }
+                 "release" => ev.push((c, ScriptAction::Gpio(pin(rest)?, true))),
+                 "gpio" => { let mut p = rest.split_whitespace(); let pn = pin(p.next().unwrap_or(""))?; let l = p.next().unwrap_or("1") == "1"; ev.push((c, ScriptAction::Gpio(pn, l))); }
+                 "poke" => { let mut p = rest.split_whitespace(); let a = u32::from_str_radix(p.next().unwrap_or("0").trim_start_matches("0x"), 16).map_err(|e| e.to_string())?; let v = u32::from_str_radix(p.next().unwrap_or("0").trim_start_matches("0x"), 16).map_err(|e| e.to_string())?; ev.push((c, ScriptAction::Poke(a, v))); }
+diff --git a/esp-soc/src/machine/web.rs b/esp-soc/src/machine/web.rs
+index d4be5617..24a52592 100644
+--- a/esp-soc/src/machine/web.rs
++++ b/esp-soc/src/machine/web.rs
+@@ -84,6 +84,11 @@ impl<S: Soc> Machine<S> {
+             self.ws.ring_updates = updates;
+             w.send_text(&format!("{{\"t\":\"ring\",\"leds\":[{}]}}", leds_json(leds)));
+         } }
++        let lights = board.lights();
++        if !lights.is_empty() { let j = leds_json(&lights); if j != self.ws.lights_sent {
++            w.send_text(&format!("{{\"t\":\"lights\",\"leds\":[{}]}}", j));
++            self.ws.lights_sent = j;
++        } }
+         // snapshot for late-joining clients: backlog, frame, ring
+         if w.needs_hello() {
+             let mut hello: Vec<Vec<u8>> = Vec::new();
+@@ -93,6 +98,7 @@ impl<S: Soc> Machine<S> {
+             if let Some((w_, h_, px, _)) = board.display() { hello.push(frame(2, &display_message(w_, h_, &px))); }
+             if let Some(rgb) = board.camera_preview(320, 240) { hello.push(frame(2, &camera_message(&rgb))); }
+             if let Some((leds, _)) = board.leds() { hello.push(frame(1, format!("{{\"t\":\"ring\",\"leds\":[{}]}}", leds_json(leds)).as_bytes())); }
++            let lights = board.lights(); if !lights.is_empty() { hello.push(frame(1, format!("{{\"t\":\"lights\",\"leds\":[{}]}}", leds_json(&lights)).as_bytes())); }
+             for (id, leds, _) in board.led_grids() { hello.push(frame(1, format!("{{\"t\":\"grid\",\"id\":\"{}\",\"leds\":[{}]}}", id, leds_json(leds)).as_bytes())); }
+             w.set_hello(hello);
+         }
+@@ -133,6 +139,14 @@ impl<S: Soc> Machine<S> {
+             match t.as_str() {
+                 "btn" => { let pin: u8 = field("pin").and_then(|x| x.parse().ok()).unwrap_or(0); let v = field("v").unwrap_or_default() == "1";
+                            self.bus.gpio_set_input(pin, !v); *self.bus.irq_dirty() = true; }
++                // a named key: one the board handles itself (FH1: the buttons on its MCP23017), else a named GPIO
++                "press" => { let name = field("name").unwrap_or_default(); let v = field("v").unwrap_or_default() == "1";
++                             if !self.bus.board().key(&name, v) {
++                                 if let Some(pin) = self.bus.board_ref().named_pin(&name) { self.bus.gpio_set_input(pin, !v); *self.bus.irq_dirty() = true; }
++                             } }
++                // a constant voltage on an analog pad, as a script's `adc <gpio> <volts>` (a thumbstick's axis)
++                "adc" => { let pin: u8 = field("pin").and_then(|x| x.parse().ok()).unwrap_or(0);
++                           if let Some(v) = field("v").and_then(|x| x.parse::<f32>().ok()) { self.bus.analog_set(pin, esp_periph::AnalogSource::Const(v.clamp(0.0, 3.3))); } }
+                 "knobpress" => { let v = field("v").unwrap_or_default() == "1"; if let Some(sw) = self.bus.board_ref().named_pin("sw") { self.bus.gpio_set_input(sw, !v); *self.bus.irq_dirty() = true; } }
+                 "knob" => {
+                     // Bound each browser message to about one second of encoder motion.
 diff --git a/esp32s3/src/board/fh1.rs b/esp32s3/src/board/fh1.rs
 new file mode 100644
-index 00000000..2e02967c
+index 00000000..b8391fde
 --- /dev/null
 +++ b/esp32s3/src/board/fh1.rs
-@@ -0,0 +1,130 @@
+@@ -0,0 +1,144 @@
 +//! The FH1 handheld (github.com/acesso/fh1, hardware/wiring.md): an ST7789 240x320 module turned to
 +//! landscape on SPI2 (SCK 18, MOSI 39, CS 38, DC 47, RST 48, backlight PWM 40); I2C0 on SDA 3 / SCL 1 with
 +//! two MCP23017 expanders (0x20: the face buttons on GPA0-5 and their LEDs on GPB0-3, low = on; 0x21:
 +//! the amplifier enable and the radio's lines), an ES8311 codec (0x18) and a PCF8563 clock (0x51); I2S
 +//! to the codec on BCK 14, WS 10, DOUT 12; the stick on ADC GPIO2 (X) and GPIO4 (Y); Menu on GPIO0.
 +//! Not modelled: the micro-SD slot (SDMMC), the E28 radio (SPI3), the IMU.
++//! Keys (`press` from the UI, `press NAME` in scripts): a, b, x, y, start, select on MCP #1 GPA0-5, menu on GPIO0.
++//! The stick is two ADC voltages (`adc 2 V`, `adc 4 V`; 1.65 V centred, low = left / up). `lights()` gives the
++//! A, B, X, Y LEDs in the buttons' colours.
 +use esp_soc::board::BoardModel;
 +use esp_soc::devices::DcsPanel;
 +use std::sync::{Arc, Mutex};
@@ -43,6 +155,10 @@ index 00000000..2e02967c
 +pub const PIN_STICK_Y: u8 = 4;
 +pub const LCD_W: usize = 320;
 +pub const LCD_H: usize = 240;
++/// The face buttons in MCP #1 GPA0-5 order.
++pub const KEYS: [&str; 6] = ["a", "b", "x", "y", "start", "select"];
++/// The A, B, X, Y buttons' colours (their LEDs on MCP #1 GPB0-3).
++pub const LIGHT_RGB: [[u8; 3]; 4] = [[0xe5, 0x30, 0x2c], [0xf4, 0xc2, 0x1f], [0x2f, 0x6f, 0xe8], [0x2f, 0xb3, 0x6a]];
 +
 +/// An MCP23017's registers (IOCON.BANK = 0: A and B interleaved) and the levels outside drives on its
 +/// pins (`inputs`: bit set = high; the firmware enables pull-ups, so an unpressed button reads high).
@@ -143,6 +259,13 @@ index 00000000..2e02967c
 +    }
 +    fn input_levels(&self) -> Vec<(u8, bool)> { vec![(PIN_MENU, true)] }
 +    fn named_pin(&self, name: &str) -> Option<u8> { match name { "menu" | "boot" => Some(PIN_MENU), _ => None } }
++    fn key(&mut self, name: &str, down: bool) -> bool {
++        let Some(bit) = KEYS.iter().position(|k| *k == name) else { return false };
++        let mut s = self.mcp[0].lock().unwrap();
++        if down { s.inputs[0] &= !(1 << bit); } else { s.inputs[0] |= 1 << bit; }
++        true
++    }
++    fn lights(&self) -> Vec<[u8; 3]> { self.leds().iter().zip(LIGHT_RGB).map(|(&on, rgb)| if on { rgb } else { [0; 3] }).collect() }
 +    fn display(&self) -> Option<(u32, u32, Vec<u16>, u64)> { Some((LCD_W as u32, LCD_H as u32, self.glass(), self.panel.pixels_written)) }
 +    fn display_version(&self) -> u64 { self.panel.pixels_written }
 +    fn display_frames(&self) -> u64 { self.panel.frames }
