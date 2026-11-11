@@ -1,5 +1,6 @@
 {
-  "id": "org.fh1.assets.rpg-sfx",
+  "id": "rpg-sfx",
+  "publisher": "org.fh1",
   "name": "Sons RPG",
   "version": "1",
   "sdk": "0.7",

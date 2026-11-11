@@ -1,6 +1,6 @@
 # Into the fire realm's first boss (the Alpha's den) on the FH1, saving off: 0 Artur, 1 Lia, 2 Tomé, 3 the Alpha,
 # 4-5 its guards.
-op start "" org.fh1.isotest
+op start "" taticas-da-ilha
 sleep 2.5
 dev nosave
 key A

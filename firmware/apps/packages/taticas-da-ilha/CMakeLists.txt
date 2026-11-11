@@ -1,8 +1,8 @@
-# A packaged FH1 app: an ESP-IDF project built into a relocatable ELF (build/isotest.app.elf),
+# A packaged FH1 app: an ESP-IDF project built into a relocatable ELF (build/taticas_da_ilha.app.elf),
 # then packed with tools/fpk.py. It links against the SDK header only.
 cmake_minimum_required(VERSION 3.22)
 set(EXTRA_COMPONENT_DIRS ../../../components/fh1_sdk)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(isotest)
+project(taticas_da_ilha)
 include(elf_loader)
-project_elf(isotest)
+project_elf(taticas_da_ilha)

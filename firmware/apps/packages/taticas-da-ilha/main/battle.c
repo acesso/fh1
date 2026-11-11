@@ -1504,7 +1504,7 @@ void battle_debug(void)
 }
 #endif
 
-// Development hooks (dev_command in isotest.c: the PC host's scripts and the FH1's console): stage a scene, play
+// Development hooks (dev_command in taticas.c: the PC host's scripts and the FH1's console): stage a scene, play
 // an action, end the battle, to look at it without playing to it.
 void battle_host_place(int i, int c, int r, int dir)
 {

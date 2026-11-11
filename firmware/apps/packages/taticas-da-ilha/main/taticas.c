@@ -421,7 +421,7 @@ int app_main(int argc, char *argv[])
     if (snd_open()) {
         snd_load_begin(SND_SET_MENU);
         while (snd_load_step(256 * 1024) < 1.0f) {}
-    } else fh1_log("no sounds: install org.fh1.assets.rpg-sfx");
+    } else fh1_log("no sounds: install rpg-sfx");
     for (int k = 0; k < KEYS; k++)
         if (fh1_input_is_down(k)) g_keys.down |= 1u << k;   // a key held on entry is not a press
     enter(SCR_TITLE);

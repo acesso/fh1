@@ -1,4 +1,4 @@
-// The game's sounds, from the shared asset package org.fh1.assets.rpg-sfx (a .fsfx bank on the SD card): loaded
+// The game's sounds, from the shared asset package rpg-sfx (a .fsfx bank on the SD card): loaded
 // a set at a time (the menus' once, a battle's before it starts, a little each frame for a loading screen), played
 // through the firmware's mixer.
 #pragma once

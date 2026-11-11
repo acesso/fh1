@@ -1,5 +1,6 @@
 {
-  "id": "org.fh1.hello",
+  "id": "hello",
+  "publisher": "org.fh1",
   "name": "Hello FH1",
   "version": "0.2.0",
   "sdk": "0.4",

@@ -46,7 +46,7 @@ for g in $groups; do
     : > "$out/log.txt"
     for s in $scripts; do
         if [ $device = 1 ]; then
-            { printf 'op stop\nsleep 1.5\nop start "" org.fh1.isotest\nsleep 2.5\ninfo\n'; cat "$s"; printf 'sleep 3\nop stop\n'; } > "$out/device.script"
+            { printf 'op stop\nsleep 1.5\nop start "" taticas-da-ilha\nsleep 2.5\ninfo\n'; cat "$s"; printf 'sleep 3\nop stop\n'; } > "$out/device.script"
             timeout 600 /usr/bin/python3 host/device.py "$out/device.script" "$out" >> "$out/log.txt" 2>&1
         else
             timeout 300 host/host "$s" "$out" >> "$out/log.txt" 2>&1

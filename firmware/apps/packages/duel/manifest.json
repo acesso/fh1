@@ -1,5 +1,6 @@
 {
-  "id": "org.fh1.duel",
+  "id": "duel",
+  "publisher": "org.fh1",
   "name": "Duelo",
   "version": "0.3.0",
   "sdk": "0.3",

@@ -1,12 +1,13 @@
 {
-  "id": "org.fh1.isotest",
-  "name": "T\u00e1ticas da Ilha",
+  "id": "taticas-da-ilha",
+  "publisher": "org.fh1",
+  "name": "Táticas da Ilha",
   "version": "0.9.0",
   "sdk": "0.8",
   "entry": "app.elf",
   "needs": [],
   "wants": [],
   "uses": [
-    "org.fh1.assets.rpg-sfx"
+    "rpg-sfx"
   ]
 }

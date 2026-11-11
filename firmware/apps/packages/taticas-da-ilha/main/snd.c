@@ -4,7 +4,7 @@
 #include <string.h>
 #include "fh1_sdk.h"
 
-#define ASSETS "org.fh1.assets.rpg-sfx"
+#define ASSETS "rpg-sfx"
 
 // Each sound: its name in the bank and the set it belongs to.
 static const struct { const char *name; uint8_t set; } s_def[S_COUNT] = {

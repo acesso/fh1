@@ -1,5 +1,5 @@
 # The game on the PC (host.c). From the package's folder: make -C host, then host/host SCRIPT OUTDIR.
-SRC = host.c $(addprefix ../main/,isotest.c battle.c fx.c snd.c screens.c summary.c mapgen.c data.c iso.c fart.c ui.c)
+SRC = host.c $(addprefix ../main/,taticas.c battle.c fx.c snd.c screens.c summary.c mapgen.c data.c iso.c fart.c ui.c)
 FONT = ../../../../components/fh1_ui/fh1_font8.c
 
 host: $(SRC) ../main/*.h font.inc
