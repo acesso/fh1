@@ -2,6 +2,17 @@
 
 Releases of the FH1 firmware and its apps, newest first. Each is a tag (`vX.Y.Z`) on `main`.
 
+## 0.5.2 (2026-11-11)
+
+0.5.0 and 0.5.1's site and downloads go out.
+
+### Releases
+
+- **Fixed:** the packages' build stopped installing Pillow and numpy (Ubuntu's package mirror failed from GitHub's
+  build machines, every other download working), so neither 0.5.0 nor 0.5.1 was published. It now asks the mirror
+  over IPv4, and if that fails installs them from PyPI into ESP-IDF's own Python (`FH1_PYTHON` tells the art and
+  sound tools which Python to use). This release carries 0.5.0's and 0.5.1's changes.
+
 ## 0.5.1 (2026-11-11)
 
 The simulator's keys follow the buttons on screen, and 0.5.0's site and downloads go out.
