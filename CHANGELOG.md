@@ -2,6 +2,26 @@
 
 Releases of the FH1 firmware and its apps, newest first. Each is a tag (`vX.Y.Z`) on `main`.
 
+## 0.3.3 (2026-11-11)
+
+Táticas da Ilha does less than half the work for the same picture, and the simulator shows the FH1 larger.
+
+### Táticas da Ilha 0.8.2
+
+- **The menus' background** (night blue with a diamond grid) is painted once and copied, instead of computed for
+  every pixel of every frame: it was 82% of the game's own work on the title screen. **Menu boxes** draw by rows,
+  without tests per pixel. The title screen runs 58% fewer instructions, pixel for pixel the same.
+
+### Firmware
+
+- **Apps' code address in the log** (`text at ..., linked at ...`): with the app's unstripped ELF, a crash or a
+  profile inside an app reads as its functions and lines (`firmware/README.md`, "Reading a crash or a profile").
+
+### Simulator
+
+- **The FH1 at 1.5 to 2 times its real size**, as large as the window allows, with every screen pixel the same size
+  (a whole-number nearest-neighbour blow-up, then a smooth scale to the screen's own pixels).
+
 ## 0.3.2 (2026-11-11)
 
 The simulator loads on GitHub Pages again, and games and boot cost less.
