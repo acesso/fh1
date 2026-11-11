@@ -2,6 +2,30 @@
 
 Releases of the FH1 firmware and its apps, newest first. Each is a tag (`vX.Y.Z`) on `main`.
 
+## 0.2.0 (2026-11-10)
+
+The firmware for the FH1 board itself, and the FH1 in the browser.
+
+### FH1 board
+
+- **Chosen at build time** (`sdkconfig.defaults.fh1`, `tools/build-board.sh fh1`): the ST7789 screen at 320 × 240
+  over SPI2; A, B, X, Y, Start and Select with their lights on MCP23017 #1; the amplifier on #2; the thumbstick on
+  ADC1; Menu on GPIO0; the PCF8563 clock.
+- **Console:** an empty command is ignored, so scripts can end a line of keys with `!`.
+
+### Web simulator and site
+
+- **[acesso.github.io/fh1](https://acesso.github.io/fh1/):** the FH1's page in Portuguese and English, in dark,
+  light and auto themes, with feedback through GitHub issues (Bug, Sugestão, Outro).
+- **The real firmware in the browser:** the FH1-board build with Táticas da Ilha and Duelo installed, on
+  [esp32sim](https://github.com/mikroverk/esp32sim) compiled to WebAssembly with an `fh1` board model (`simulator/`).
+
+### Builds and releases
+
+- **CI** (`.github/workflows/pages.yml`): every push builds the firmware for both boards, the packages and the
+  site. `main` publishes the site. Each release carries `fh1-firmware-fh1.bin`, `fh1-firmware-guition.bin` and
+  the packages.
+
 ## 0.1.0 (2026-11-10)
 
 The first tagged release: the firmware on the Guition dev board, with packaged games on an isometric engine.
