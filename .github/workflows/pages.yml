@@ -1,0 +1,120 @@
+# Builds the firmware for every board, the packages, the browser emulator and the site; publishes the site
+# to GitHub Pages from main. Other branches build everything (and keep the artifacts) without publishing.
+# A vX.Y.Z tag also creates its GitHub release, with each board's firmware and the CHANGELOG.md entry.
+name: Site
+on:
+  push:
+    branches: [main, "feature/**"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  firmware:
+    name: Firmware (${{ matrix.board }})
+    runs-on: ubuntu-latest
+    container: espressif/idf:v6.1
+    strategy:
+      matrix:
+        board: [fh1, guition]
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Build
+        shell: bash
+        run: |
+          git config --global --add safe.directory '*'
+          . "$IDF_PATH/export.sh"
+          firmware/tools/build-board.sh ${{ matrix.board }} "$PWD/out"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ matrix.board }}
+          path: out/
+
+  packages:
+    name: Packages
+    runs-on: ubuntu-latest
+    container: espressif/idf:v6.1
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Build
+        shell: bash
+        run: |
+          git config --global --add safe.directory '*'
+          apt-get update -qq && apt-get install -y -qq python3-pil python3-numpy >/dev/null
+          . "$IDF_PATH/export.sh"
+          firmware/tools/build-packages.sh "$PWD/out"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: out/*.fpk
+
+  site:
+    name: Site
+    needs: [firmware, packages]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/download-artifact@v4
+        with: { name: firmware-fh1, path: dl/firmware-fh1 }
+      - uses: actions/download-artifact@v4
+        with: { name: packages, path: dl/packages }
+      - name: Python tools
+        run: pip install --quiet esptool==5.6.0 littlefs-python==0.15.0
+      - name: esp32sim, patched, for the browser
+        run: |
+          read url rev < simulator/esp32sim.pin
+          git clone --quiet "$url" esp32sim
+          git -C esp32sim checkout --quiet "$rev"
+          git -C esp32sim apply "$PWD/simulator/esp32sim.patch"
+          (cd esp32sim && tools/wasm-build.sh)
+      - name: Flash image and site
+        run: |
+          simulator/build-flash.sh dl/firmware-fh1 fh1.bin dl/packages/*.fpk
+          simulator/build-site.sh esp32sim fh1.bin site
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: site }
+
+  deploy:
+    name: Publish
+    if: github.ref == 'refs/heads/main'
+    needs: site
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
+
+  release:
+    name: Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [firmware, packages]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { pattern: firmware-*, path: dl }
+      - uses: actions/download-artifact@v4
+        with: { name: packages, path: dl/packages }
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"; v="${tag#v}"
+          # The CHANGELOG.md entry for this version: from its heading to the next one.
+          awk -v v="$v" '$0 ~ "^## " v "( |$)" {on=1; next} /^## / {on=0} on' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "FH1 $tag" > notes.md
+          gh release create "$tag" --title "FH1 $tag" --notes-file notes.md \
+            dl/firmware-fh1/fh1-firmware-fh1.bin dl/firmware-guition/fh1-firmware-guition.bin dl/packages/*.fpk

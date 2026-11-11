@@ -1,0 +1,20 @@
+#!/bin/sh
+# Builds the packages that ship with the firmware and copies the .fpk files to OUT_DIR:
+#   tools/build-packages.sh OUT_DIR [PACKAGE...]
+# PACKAGE names a folder in apps/packages (default: isotest duel). Every asset pool in assets/pools with a
+# sound recipe (sfx.json) is built and packed too. Needs ESP-IDF's environment (export.sh), and Pillow and
+# numpy for /usr/bin/python3 (tools/fh1art.py, tools/fh1sfx.py).
+set -e
+out=$(mkdir -p "$1" && cd "$1" && pwd); shift
+fw=$(cd "$(dirname "$0")/.." && pwd); repo=$(dirname "$fw")
+[ $# -gt 0 ] || set -- isotest duel
+for p in "$@"; do
+  "$fw/tools/pkgbuild.sh" "$fw/apps/packages/$p"
+  cp "$fw/apps/packages/$p"/*.fpk "$out/"
+done
+for recipe in "$repo"/assets/pools/*/sfx.json; do
+  pool=$(dirname "$recipe")
+  (cd "$pool" && /usr/bin/python3 "$fw/tools/fh1sfx.py" build sfx.json && rm -f ./*.fpk && python "$fw/tools/fpk.py" pack .)
+  cp "$pool"/*.fpk "$out/"
+done
+ls -l "$out"

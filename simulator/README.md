@@ -23,13 +23,11 @@ Not modelled yet: the micro-SD slot, the radio, the IMU, Wi-Fi.
 
 ```sh
 # 1. The firmware for the FH1 board (firmware/README.md), and the packages to install
-cd firmware
-idf.py -B build-fh1 -D SDKCONFIG=build-fh1/sdkconfig -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.defaults.fh1" build
-tools/pkgbuild.sh apps/packages/isotest; tools/pkgbuild.sh apps/packages/duel
-cd ..
+firmware/tools/build-board.sh fh1 out/firmware-fh1      # with ESP-IDF's environment (export.sh)
+firmware/tools/build-packages.sh out/packages
 
 # 2. The flash image (pip install esptool littlefs-python==0.15.0)
-simulator/build-flash.sh firmware/build-fh1 fh1.bin firmware/apps/packages/*/*.fpk assets/pools/*/*.fpk
+simulator/build-flash.sh out/firmware-fh1 fh1.bin out/packages/*.fpk
 
 # 3. esp32sim at the pinned commit, patched, built for the browser (Rust with the wasm32-unknown-unknown target)
 read url rev < simulator/esp32sim.pin
@@ -53,6 +51,12 @@ The emulator page opens at `run.html?wasm&fw=fh1`. Keys go to the UART0 console 
 
 ## Publishing
 
-The site is published from the `gh-pages` branch, which holds one commit: the output of `build-site.sh`.
-Each publish replaces that commit, so the 16 MB image never piles up in history. Pages serves that branch's
-root (Settings → Pages → Deploy from a branch → `gh-pages` / root).
+`.github/workflows/pages.yml` builds everything on each push and publishes the site from `main`:
+
+- the firmware for both boards (`firmware/tools/build-board.sh fh1|guition`) in the `espressif/idf:v6.1` container;
+- the packages and sound packs (`firmware/tools/build-packages.sh`);
+- the flash image, esp32sim's WebAssembly module and the site.
+
+Pages takes it from GitHub Actions (Settings → Pages → Source: GitHub Actions). Pushes to other branches run
+the same build without publishing. Each run keeps the firmware images (`firmware-fh1`, `firmware-guition`)
+and the packages as artifacts.

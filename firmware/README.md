@@ -35,6 +35,17 @@ idf.py -B build-fh1 -D SDKCONFIG=build-fh1/sdkconfig -D SDKCONFIG_DEFAULTS="sdkc
 
 The FH1 board does not yet set up the ES8311's registers or read the micro-SD card, the battery or the IMU.
 
+`tools/build-board.sh guition|fh1 OUT_DIR` does either build and writes one image to flash at 0x0,
+`fh1-firmware-<board>.bin`, plus its parts. CI builds both on every push (`.github/workflows/pages.yml`), and
+each release on GitHub carries both images. To write a release image:
+
+```sh
+python -m esptool --chip esp32s3 -p /dev/ttyUSB0 -b 460800 write-flash 0x0 fh1-firmware-guition.bin
+```
+
+That image holds the bootloader, the partition table, the OTA data and the app; settings (NVS) and installed apps
+stay as they are.
+
 ## First start
 
 1. Set the Wi-Fi network over the serial console. Either type in a serial terminal at 115200 baud, or run `tools/keys.py` and type `!`:
