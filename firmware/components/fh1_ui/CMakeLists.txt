@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "ui.c" "fh1_font8.c" "fh1_sym8.c" "lv_mem_psram.c" "post.c"
+    SRCS "ui.c" "ui_sound.c" "ui_look.c" "fh1_font8.c" "fh1_sym8.c" "lv_mem_psram.c" "post.c"
     INCLUDE_DIRS "include"
     REQUIRES fh1_core fh1_board esp_timer
 )

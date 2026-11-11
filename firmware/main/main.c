@@ -52,7 +52,11 @@ static fh1_device_t s_baudio[2] = {
 static fh1_device_t s_devinput = { .id = "devinput0", .cls = "input.buttons", .caps = FH1_CAP_BUTTONS,
                                    .drv = &fh1_devinput_driver, .default_on = true, .essential = true };
 
-// Serial console commands: !wifi <ssid> <password>, !bl <percent>, !mode <native|fh1>, !theme <gen1|gen2>
+// The UI's theme, changed on its own task (no restart: it applies at once).
+static void set_theme(void *id) { fh1_ui_set_theme(id); }
+
+// Serial console commands: !wifi <ssid> <password>, !bl <percent>, !mode <native|fh1>, !theme <gen1|gen2|hex|...> (at once),
+// !sounds <on|off>
 static void on_command(const char *line)
 {
     char ssid[33], pass[65];
@@ -69,12 +73,16 @@ static void on_command(const char *line)
         fh1_settings_set_str("display", "mode", ssid);
         ESP_LOGI(TAG, "screen mode %s, restarting", ssid);
         fh1_system_restart();
+    } else if (sscanf(line, "sounds %3s", ssid) == 1) {
+        fh1_ui_set_sounds(strcmp(ssid, "on") == 0);
+        ESP_LOGI(TAG, "system sounds %s", fh1_ui_sounds() ? "on" : "off");
     } else if (sscanf(line, "theme %15s", ssid) == 1) {
-        fh1_settings_set_str("ui", "theme", ssid);
-        ESP_LOGI(TAG, "theme %s, restarting", ssid);
-        fh1_system_restart();
+        static char theme[16];                  // read by the UI task, after this returns
+        strlcpy(theme, ssid, sizeof(theme));
+        fh1_ui_async(set_theme, theme);
+        ESP_LOGI(TAG, "theme %s", theme);
     } else {
-        ESP_LOGW(TAG, "unknown command: %s (try: !wifi <ssid> <password>, !bl <percent>, !mode <native|fh1>, !theme <gen1|gen2>)", line);
+        ESP_LOGW(TAG, "unknown command: %s (try: !wifi <ssid> <password>, !bl <percent>, !mode <native|fh1>, !theme <gen1|gen2|hex|garden|scifi>, !sounds <on|off>)", line);
     }
 }
 

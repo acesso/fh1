@@ -155,6 +155,7 @@ static void open_devices(void);
 static void open_storage(void);
 static void open_installer(void);
 static void open_about(void);
+static void themes_open(void);
 
 
 // "GameBoy" in the pixel font, then "Color" in another typeface, each letter its own colour, hopping. The
@@ -173,6 +174,7 @@ static const builtin_t s_user_builtins[] = {
     { "sys.nes", "NES", games_open_nes, FH1_ICON_MENU_NES },
     { "sys.sms", "Master System", games_open_sms, FH1_ICON_MENU_SMS },
     { "sys.music", "Music", music_open, FH1_ICON_MENU_MUSIC },
+    { "sys.themes", "Themes", themes_open, FH1_ICON_MENU_THEMES },
 };
 #define NUSER (sizeof(s_user_builtins) / sizeof(s_user_builtins[0]))
 
@@ -331,9 +333,10 @@ static void mode_cb(void *u);
 static void theme_cb(void *u);
 static void lang_cb(void *u);
 static void fps_cb(void *u);
+static void sounds_cb(void *u);
 static void open_wifi(void *u);
 static void wifi_forget_cb(void *u);
-static lv_obj_t *s_btn_mode, *s_btn_theme, *s_btn_lang, *s_btn_fps;
+static lv_obj_t *s_btn_mode, *s_btn_theme, *s_btn_lang, *s_btn_fps, *s_btn_snd;
 
 typedef struct {
     const char *name;
@@ -551,7 +554,7 @@ static void kind_closed(fh1_win_t *w, void *u)
 {
     if (s_kw.timer) lv_timer_delete(s_kw.timer);
     memset(&s_kw, 0, sizeof(s_kw));
-    s_btn_mode = s_btn_theme = s_btn_lang = s_btn_fps = NULL;
+    s_btn_mode = s_btn_theme = s_btn_lang = s_btn_fps = s_btn_snd = NULL;
 }
 
 static void open_fw_update(void *u);
@@ -584,6 +587,7 @@ static void open_kind(void *user)
         if (strcmp(d->cls, "display") == 0) {
             s_btn_mode = fh1_ui_button(w, pg, "", mode_cb, NULL);
             s_btn_theme = fh1_ui_button(w, pg, "", theme_cb, NULL);
+            s_btn_snd = fh1_ui_button(w, pg, "", sounds_cb, NULL);
             s_btn_fps = fh1_ui_button(w, pg, "", fps_cb, NULL);
             s_btn_lang = fh1_ui_button(w, pg, "", lang_cb, NULL);
         } else if (strcmp(d->cls, "display.backlight") == 0) {
@@ -951,6 +955,8 @@ static void settings_labels(void)
     if (s_btn_lang) fh1_ui_button_set_text(s_btn_lang, t);
     snprintf(t, sizeof(t), T("FPS: %s"), fh1_ui_show_fps() ? T("on") : T("off"));
     if (s_btn_fps) fh1_ui_button_set_text(s_btn_fps, t);
+    snprintf(t, sizeof(t), T("System sounds: %s"), fh1_ui_sounds() ? T("on") : T("off"));
+    if (s_btn_snd) fh1_ui_button_set_text(s_btn_snd, t);
 }
 
 static void restart_yes(bool yes, void *u)
@@ -1000,6 +1006,74 @@ static void fps_cb(void *u)
 {
     fh1_ui_set_show_fps(!fh1_ui_show_fps());
     settings_labels();
+}
+
+static void sounds_cb(void *u)
+{
+    fh1_ui_set_sounds(!fh1_ui_sounds());
+    settings_labels();
+}
+
+// The UI's system sounds go through the apps' mixer, under the sound volume.
+static void ui_sound_play(const int16_t *pcm, uint32_t frames, uint32_t rate) { fh1_sfx_play(pcm, frames, rate, 200); }
+
+// ── Themes: the interface's looks and voices, tried at once ──
+// One line a theme (the one in use says so), A puts it on (no restart); then the system sounds' switch.
+
+#define THEMES_MAX 8
+static fh1_win_t *s_themes_win;
+static lv_obj_t *s_theme_btn[THEMES_MAX], *s_theme_snd;
+
+static void themes_labels(void)
+{
+    if (!s_themes_win) return;
+    const char *const *ids, *const *names;
+    const int n = fh1_ui_themes(&ids, &names);
+    char t[64];
+    for (int i = 0; i < n && i < THEMES_MAX; i++) {
+        snprintf(t, sizeof(t), strcmp(ids[i], fh1_ui_theme()) == 0 ? T("%s (in use)") : "%s", names[i]);
+        fh1_ui_button_set_text(s_theme_btn[i], t);
+    }
+    snprintf(t, sizeof(t), T("System sounds: %s"), fh1_ui_sounds() ? T("on") : T("off"));
+    fh1_ui_button_set_text(s_theme_snd, t);
+}
+
+static void theme_pick(void *u)
+{
+    const char *const *ids;
+    const int n = fh1_ui_themes(&ids, NULL), i = (int)(intptr_t)u;
+    if (i < n) fh1_ui_set_theme(ids[i]);
+    themes_labels();
+    settings_labels();
+}
+
+static void theme_sounds(void *u)
+{
+    fh1_ui_set_sounds(!fh1_ui_sounds());
+    themes_labels();
+    settings_labels();
+}
+
+static void themes_closed(fh1_win_t *w, void *u) { s_themes_win = NULL; }
+
+static void themes_open(void)
+{
+    if (s_themes_win) {
+        fh1_win_focus(s_themes_win);
+        return;
+    }
+    const char *const *ids;
+    const int n = fh1_ui_themes(&ids, NULL);
+    fh1_win_t *w = s_themes_win = fh1_win_create(T("Themes"), 200, 32 + 13 * (n + 1) + 24);
+    if (!w) return;
+    for (int i = 0; i < n && i < THEMES_MAX; i++) s_theme_btn[i] = fh1_ui_button(w, NULL, "", theme_pick, (void *)(intptr_t)i);
+    s_theme_snd = fh1_ui_button(w, NULL, "", theme_sounds, NULL);
+    const fh1_hint_t hints[] = { { FH1_KEY_A, T("Use") }, { FH1_KEY_B, T("Close") } };
+    fh1_win_set_hints(w, hints, 2);
+    fh1_win_on_close(w, themes_closed, NULL);
+    themes_labels();
+    for (int i = 0; i < n; i++)                     // the cursor on the theme in use
+        if (strcmp(ids[i], fh1_ui_theme()) == 0) fh1_ui_focus_index(w, i);
 }
 
 // ── Wi-Fi: scan, pick a network, type its password ──
@@ -1728,6 +1802,7 @@ static void rescan_tick(lv_timer_t *t)
 
 void fh1_apps_start(void)
 {
+    fh1_ui_set_sound_fn(ui_sound_play);
     s_lock = xSemaphoreCreateMutex();
     run_init();
     scan_installed();

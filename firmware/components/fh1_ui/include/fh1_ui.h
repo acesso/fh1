@@ -65,6 +65,13 @@ int fh1_ui_themes(const char *const **ids, const char *const **names);
 const char *fh1_ui_theme(void);
 void fh1_ui_set_theme(const char *id);
 
+// System sounds (moving, choosing, going back, an alert, a notice), in the theme's voice. The UI makes the samples;
+// whoever plays sound registers how (fh1_apps: its mixer). Off unless switched on; the choice is saved.
+typedef void (*fh1_ui_sound_fn)(const int16_t *pcm, uint32_t frames, uint32_t rate);
+void fh1_ui_set_sound_fn(fh1_ui_sound_fn fn);
+bool fh1_ui_sounds(void);
+void fh1_ui_set_sounds(bool on);
+
 // ── Windows ──
 typedef struct fh1_win fh1_win_t;
 typedef bool (*fh1_win_key_cb)(fh1_win_t *win, int key, void *user);   // true if handled
@@ -146,7 +153,7 @@ typedef enum {
     FH1_ICON_MENU_ABOUT, FH1_ICON_MENU_NETWORK, FH1_ICON_MENU_RENAME, FH1_ICON_MENU_FORGET, FH1_ICON_MENU_USERS,
     // The top-level menus' tabs, and the apps in the Apps menu (10 x 9, still).
     FH1_ICON_MENU_APPS, FH1_ICON_MENU_SYSTEM, FH1_ICON_MENU_GAMEBOY, FH1_ICON_MENU_NES, FH1_ICON_MENU_SMS, FH1_ICON_MENU_MUSIC,
-    FH1_ICON_MENU_PACKAGE,
+    FH1_ICON_MENU_PACKAGE, FH1_ICON_MENU_THEMES,
     FH1_ICON_COUNT,
 } fh1_ui_icon_t;
 lv_obj_t *fh1_ui_icon(lv_obj_t *parent, fh1_ui_icon_t icon, bool big, bool animated);

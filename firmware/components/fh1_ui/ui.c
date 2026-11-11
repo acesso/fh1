@@ -29,28 +29,55 @@ LV_FONT_DECLARE(fh1_font_8);    // unscii-8 with Latin-1 accents (fh1_font8.c)
 #include "esp_timer.h"
 #include "esp_log.h"
 
+#include "ui_priv.h"
+#include "ui_look.h"
+
 static const char *TAG = "ui";
 
 #define MAX_WINS 12
 
 // ── Themes ──
 
+// Four looks (ui_look.h): Gen (rounded boxes, a ball on each corner, the title in a pill the border runs into, a
+// dotted or latticed desktop), Hex (square boxes cut at the corners, the title on a band of warning stripes, a
+// honeycomb desktop; the window in focus bright, the others dim, alerts red), and the framed looks, whose windows
+// wear a frame drawn by ui_look.c: Garden (wooden planks, a vine that grows round, flowers, a butterfly) and
+// Command (metal plates that close round the window, brackets, a lit tab, a spark running along the light).
+
 typedef struct {
     const char *id, *name;
     uint32_t paper, ink, dim, desk_a, desk_b;
-    uint32_t ball;        // the top half of the corner balls
-    bool lattice;         // desktop pattern: diamond lattice (else dots)
+    uint32_t ball;        // the top half of the corner balls (Gen); the alert colour (Hex)
+    bool lattice;         // desktop pattern: diamond lattice (else dots; Hex: honeycomb)
+    int look;             // LOOK_*
+    uint32_t text, inset; // body text and the inner line (0: the ink)
+    int voice;            // the system sounds' voice (UI_VOICE_*)
 } theme_t;
 
 static const theme_t s_themes[] = {
-    { "gen1", "Gen 1 (green)", 0xe0f8d0, 0x081820, 0x6a9a6a, 0x88c070, 0x78b060, 0x346856, false },
-    { "gen2", "Gen 2 (colour)", 0xf8f8f8, 0x202020, 0x8a8f9a, 0xa8d0f0, 0x98c0e8, 0xd83838, true },
+    { "gen1", "Gen 1 (green)", 0xe0f8d0, 0x081820, 0x6a9a6a, 0x88c070, 0x78b060, 0x346856, false, LOOK_GEN, 0, 0, UI_VOICE_SOFT },
+    { "gen2", "Gen 2 (colour)", 0xf8f8f8, 0x202020, 0x8a8f9a, 0xa8d0f0, 0x98c0e8, 0xd83838, true, LOOK_GEN, 0, 0, UI_VOICE_SOFT },
+    // An early-warning console: amber on black, alarm red, warm white text, dim amber for what is not in focus.
+    { "hex", "Hex (alert)", 0x000000, 0xffaa00, 0x7a5200, 0x000000, 0x2e1f00, 0xe60908, false, LOOK_HEX, 0xf2eee6, 0x5c3d00,
+      UI_VOICE_ALARM },
+    // A garden shed's sign: cream paper, brown ink, a lawn; the frame is wood with a vine on it.
+    { "garden", "Garden", 0xf3ead2, 0x3b2a1a, 0x9c8a6e, 0x4e8a3a, 0x3f7530, 0xc0392b, false, LOOK_GARDEN, 0x3b2a1a, 0xc9b48c,
+      UI_VOICE_GARDEN },
+    // A command console: cyan light on near-black glass, steel plates, red alerts.
+    { "scifi", "Command", 0x07141c, 0x3fd8ff, 0x1d5a6b, 0x050c12, 0x0d2430, 0xff4a3a, false, LOOK_SCIFI, 0xd6f4ff, 0x0e3442,
+      UI_VOICE_SCIFI },
 };
 #define NTHEMES (sizeof(s_themes) / sizeof(s_themes[0]))
 static const theme_t *s_theme = &s_themes[0];
+#define HEX (s_theme->look == LOOK_HEX)
+#define FRAMED (s_theme->look >= LOOK_GARDEN)     // the frame is drawn by ui_look.c
+static uint32_t text_rgb(void) { return s_theme->text ? s_theme->text : s_theme->ink; }
+static uint32_t inset_rgb(void) { return s_theme->inset ? s_theme->inset : s_theme->ink; }
+#define HEX_ALERT_INSET 0x5c0a08            // Hex: an alert's inner line, the red's dim (as the inset is the amber's)
 
 struct fh1_win {
     lv_obj_t *box, *title, *body, *footer;
+    lv_obj_t *inset;                // the inner line
     int cw, ch, body_y;             // content size and where the body starts
     lv_obj_t *frame;                // the title frame image (title_frame())
     uint32_t *frame_px;
@@ -65,6 +92,19 @@ struct fh1_win {
     fh1_win_close_cb close_cb;
     void *close_user;
     void *owner;
+    bool alert;                     // a message or a question (Hex: red)
+    signed char band;               // Hex: how its band was last drawn (-1 never, 0 dim, 1 focused, 2 alert)
+    unsigned char phase;            // Hex: where the stripes are (they run, look_tick)
+    short band_w;                   // Hex: the band image's width, as last set
+    // Framed looks: the four sides of the frame, its corners and the mote, as pictures of their own (PSRAM).
+    lv_obj_t *strip[4];
+    uint32_t *strip_px[4], *corner_px, *mote_px;
+    lv_image_dsc_t strip_dsc[4], corner_dsc[4];
+    lv_obj_t *mote, *scan;
+    short grow;                     // how far the opening has got (0..256), as the frame was drawn
+    signed char fstate;             // the state the frame was drawn in (-1 never)
+    bool building;                  // opening or closing (frame_build)
+    unsigned char copa;             // the content's opacity during the build
 };
 
 typedef struct {
@@ -85,29 +125,70 @@ static void *s_menu_arg;
 static struct { fh1_ui_fn fn; void *arg; } s_watchers[8];
 static int s_nwatchers;
 static int s_w, s_h, s_u;              // screen size, and the unit (1 or 2 pixels)
+static void look_palette(look_pal_t *p)
+{
+    *p = (look_pal_t){ s_u, s_theme->paper, s_theme->ink, s_theme->dim, s_theme->ball, text_rgb(), inset_rgb(), s_theme->desk_a,
+                       s_theme->desk_b };
+}
 static const lv_font_t *s_font;
 static int s_line;                     // font line height
 static lv_style_t st_box, st_inset, st_title, st_text, st_item, st_dim, st_cursor, st_bar, st_tab_on, st_icon, st_icon_off;
 
 #define U(x) ((x) * s_u)
 
+// Items: the text starts 9 units in, the cursor 8 to its left (Gen's 5-unit triangle); Hex's 7-unit hexagon takes
+// 10 and 9, so two units part it from the text.
+static int item_pad(void) { return FRAMED ? U(11) : HEX ? U(10) : U(9); }
+static int cursor_ofs(void) { return FRAMED ? -U(9) : HEX ? -U(9) : -U(8); }
+
 // ── Cursor bitmaps (A8, recoloured with the ink colour): a solid and a hollow ▶ ──
 
-static uint8_t s_cur_px[2][14 * 10];
+static uint8_t s_cur_px[2][16 * 16];
 static lv_image_dsc_t s_cur[2];
+
+// Hex: a pointy-top hexagon, solid in the window in focus and hollow in the others.
+static const char *const s_hexcur[2][8] = {
+    { "...#...", ".#####.", "#######", "#######", "#######", "#######", ".#####.", "...#..." },
+    { "...#...", ".##.##.", "#.....#", "#.....#", "#.....#", "#.....#", ".##.##.", "...#..." },
+};
+
+static uint32_t *s_cur_argb[2];        // framed looks: cursors in colour (PSRAM)
 
 static void make_cursors(void)
 {
-    const int w = U(5), h = U(7);
+    if (FRAMED) {
+        look_pal_t p;
+        look_palette(&p);
+        for (int k = 0; k < 2; k++) {
+            if (!s_cur_argb[k]) s_cur_argb[k] = heap_caps_malloc(16 * 16 * 4, MALLOC_CAP_SPIRAM);
+            int w = 0, h = 0;
+            if (!s_cur_argb[k] || !look_cursor(s_theme->look, &p, k, s_cur_argb[k], &w, &h)) continue;
+            s_cur[k].header.magic = LV_IMAGE_HEADER_MAGIC;
+            s_cur[k].header.cf = LV_COLOR_FORMAT_ARGB8888;
+            s_cur[k].header.w = w;
+            s_cur[k].header.h = h;
+            s_cur[k].header.stride = w * 4;
+            s_cur[k].data_size = w * h * 4;
+            s_cur[k].data = (const uint8_t *)s_cur_argb[k];
+        }
+        return;
+    }
+    const int w = HEX ? U(7) : U(5), h = HEX ? U(8) : U(7);
     for (int k = 0; k < 2; k++) {
         memset(s_cur_px[k], 0, sizeof(s_cur_px[k]));
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
-                // triangle: column x is filled while |y - centre| <= (w - x) * h / (2w)
-                int c = h / 2, half = (w - x) * h / (2 * w);
-                bool in = y >= c - half && y <= c + half;
-                bool edge = in && (x == 0 || y == c - half || y == c + half);
-                if (k == 0 ? in : edge) s_cur_px[k][y * w + x] = 0xff;
+                bool on;
+                if (HEX) {
+                    on = s_hexcur[k][y / s_u][x / s_u] == '#';
+                } else {
+                    // triangle: column x is filled while |y - centre| <= (w - x) * h / (2w)
+                    int c = h / 2, half = (w - x) * h / (2 * w);
+                    bool in = y >= c - half && y <= c + half;
+                    bool edge = in && (x == 0 || y == c - half || y == c + half);
+                    on = k == 0 ? in : edge;
+                }
+                if (on) s_cur_px[k][y * w + x] = 0xff;
             }
         }
         s_cur[k].header.magic = LV_IMAGE_HEADER_MAGIC;
@@ -703,6 +784,17 @@ SPRITE(mi_music,
     "KDDLLLLDDK",
     "KKKKKKKKKK",
     "..........")
+// The Themes app: a painter's palette, its thumb hole and four paints.
+SPRITE(mi_themes,
+    "...KKKKK..",
+    "..KBBBBBK.",
+    ".KBrBBYBBK",
+    "KBBBBBBBBK",
+    "KBGBK..KBK",
+    "KBBBK..KBK",
+    "KBbBBKKBBK",
+    ".KBBBBBBK.",
+    "..KKKKKK..")
 SPRITE(mi_package,
     "..........",
     "..........",
@@ -761,6 +853,7 @@ static const icon_def_t s_icon_defs[FH1_ICON_COUNT] = {
     [FH1_ICON_MENU_SMS] = { &mi_sms, NULL, 0, 0, 0, 0, MOVE_NONE, 0 },
     [FH1_ICON_MENU_MUSIC] = { &mi_music, NULL, 0, 0, 0, 0, MOVE_NONE, 0 },
     [FH1_ICON_MENU_PACKAGE] = { &mi_package, NULL, 0, 0, 0, 0, MOVE_NONE, 0 },
+    [FH1_ICON_MENU_THEMES] = { &mi_themes, NULL, 0, 0, 0, 0, MOVE_NONE, 0 },
 };
 
 static void make_sprites(void)
@@ -773,7 +866,7 @@ static void make_sprites(void)
                         &ic_cartridge, &ic_nes, &ic_nes_cart, &ic_sms, &ic_cassette, &ic_cassette_hubs,
                         &mi_install, &mi_storage, &mi_devices, &mi_io, &mi_bridge, &mi_about, &mi_network,
                         &mi_rename, &mi_forget, &mi_users, &mi_apps, &mi_system, &mi_gbc, &mi_nes, &mi_sms,
-                        &mi_music, &mi_package };
+                        &mi_music, &mi_package, &mi_themes };
     for (size_t i = 0; i < sizeof(all) / sizeof(all[0]); i++) sprite_draw(all[i]);
 }
 
@@ -853,12 +946,39 @@ static uint32_t tick_ms(void) { return (uint32_t)(esp_timer_get_time() / 1000); 
 
 static fh1_win_t *top(void) { return s_nwins ? s_wins[s_nwins - 1] : NULL; }
 
+static void title_frame(fh1_win_t *win);
+// The parts of a framed look's frame (frame_render)
+#define FR_STRIPS 0x0f
+#define FR_CORNERS 0x10
+#define FR_TITLE 0x20
+#define FR_ALL 0x3f
+static void frame_render(fh1_win_t *w, int mask);
+static void mote_set(fh1_win_t *w, bool on);
+
 static void restyle(void)
 {
     for (int i = 0; i < s_nwins; i++) {
         fh1_win_t *w = s_wins[i];
         bool on = (i == s_nwins - 1);
-        lv_obj_set_style_text_color(w->title, lv_color_hex(on ? s_theme->ink : s_theme->dim), 0);
+        if (FRAMED) {
+            look_pal_t p;
+            look_palette(&p);
+            const int st = w->alert ? 2 : on ? 1 : 0;
+            lv_obj_set_style_text_color(w->title, lv_color_hex(look_title_ink(s_theme->look, &p, st)), 0);
+            if (w->fstate != st) frame_render(w, FR_ALL);
+            mote_set(w, on && !w->building);
+        } else {
+            lv_obj_set_style_text_color(w->title, lv_color_hex(HEX && w->alert ? 0xffffff : on ? s_theme->ink : s_theme->dim), 0);
+        }
+        if (HEX) {
+            lv_obj_set_style_border_color(w->box, lv_color_hex(w->alert ? s_theme->ball : on ? s_theme->ink : s_theme->dim), 0);
+            if (w->alert) lv_obj_set_style_border_color(w->inset, lv_color_hex(HEX_ALERT_INSET), 0);
+            else lv_obj_remove_local_style_prop(w->inset, LV_STYLE_BORDER_COLOR, 0);
+            if (w->band != (w->alert ? 2 : on ? 1 : 0)) title_frame(w);
+        } else {
+            lv_obj_remove_local_style_prop(w->box, LV_STYLE_BORDER_COLOR, 0);
+            lv_obj_remove_local_style_prop(w->inset, LV_STYLE_BORDER_COLOR, 0);
+        }
         lv_obj_t *f = lv_group_get_focused(w->group);
         uint32_t n = lv_group_get_obj_count(w->group);
         for (uint32_t k = 0; k < n; k++) {
@@ -875,6 +995,16 @@ static void restyle(void)
             if (l && lv_obj_check_type(l, &lv_label_class)) {
                 lv_label_long_mode_t m = (o == f && on) ? LV_LABEL_LONG_MODE_SCROLL : LV_LABEL_LONG_MODE_CLIP;
                 if (lv_label_get_long_mode(l) != m) lv_label_set_long_mode(l, m);
+            }
+            // Hex: the item in focus reads amber, the others warm white (plain or rich text: its own colours stay).
+            if (l) {
+                if (HEX) lv_obj_set_style_text_color(l, lv_color_hex(o == f && on ? s_theme->ink : text_rgb()), 0);
+                else if (FRAMED) {
+                    look_pal_t p;
+                    look_palette(&p);
+                    lv_obj_set_style_text_color(l, lv_color_hex(o == f && on ? look_focus_text(s_theme->look, &p) : text_rgb()), 0);
+                }
+                else lv_obj_remove_local_style_prop(l, LV_STYLE_TEXT_COLOR, 0);
             }
         }
     }
@@ -904,7 +1034,8 @@ static void raise(fh1_win_t *w)
 
 static void box_ext_draw(lv_event_t *e)
 {
-    lv_event_set_ext_draw_size(e, U(5) + 1);      // half a corner ball, past the outer border
+    // half a corner ball past the outer border; framed looks: the corners' flowers, the butterfly
+    lv_event_set_ext_draw_size(e, FRAMED ? U(10) + 1 : U(5) + 1);
 }
 
 static lv_obj_t *plain(lv_obj_t *parent)
@@ -913,6 +1044,443 @@ static lv_obj_t *plain(lv_obj_t *parent)
     lv_obj_remove_style_all(o);
     lv_obj_set_scrollable(o, false);
     return o;
+}
+
+// ── Corners: a ball on each (Gen), or the corner cut at 45 degrees (Hex) ──
+// A Hex corner is a sprite laid over the box's square corner: outside the cut it paints the paper (the desktop and
+// the windows are both black there), then the 2-unit border along the cut, the 1-unit gap, and the inner line cut
+// parallel to it. At the top the title band takes the inner line's place, so the top corners leave it out.
+// One set per state of the window, like its border: dim, in focus, alert (in PSRAM: internal RAM is scarce).
+#define CHAMFER 9                           // the corner sprites' size, in units
+static uint32_t *s_cham_px[3][4];
+static lv_image_dsc_t s_cham[3][4];
+
+static void make_chamfers(void)
+{
+    const int S = U(CHAMFER);
+    for (int k = 0; k < 3; k++) {
+    const uint32_t paper = argb(s_theme->paper), inset = argb(k == 2 ? HEX_ALERT_INSET : inset_rgb());
+    const uint32_t ink = argb(k == 2 ? s_theme->ball : k == 1 ? s_theme->ink : s_theme->dim);
+    for (int i = 0; i < 4; i++) {          // 0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right
+        if (!s_cham_px[k][i]) s_cham_px[k][i] = heap_caps_malloc(18 * 18 * 4, MALLOC_CAP_SPIRAM);
+        uint32_t *px = s_cham_px[k][i];
+        if (!px) return;
+        for (int py = 0; py < S; py++) {
+            for (int px_ = 0; px_ < S; px_++) {
+                const int x = ((i & 1) ? S - 1 - px_ : px_) / s_u, y = ((i & 2) ? S - 1 - py : py) / s_u, d = x + y;
+                uint32_t c = 0;
+                if (d < 5) c = paper;
+                else if (d <= 6) c = ink;
+                else if (d == 7 && x >= 2 && y >= 2) c = paper;     // inside the border only: no notch in it
+                else if (d == 8 && x >= 3 && y >= 3) c = (i & 2) ? inset : 0;
+                else if ((x == 3 || y == 3) && d < 8) c = paper;
+                px[py * S + px_] = c;
+            }
+        }
+        lv_image_dsc_t *d = &s_cham[k][i];
+        d->header.magic = LV_IMAGE_HEADER_MAGIC;
+        d->header.cf = LV_COLOR_FORMAT_ARGB8888;
+        d->header.w = S;
+        d->header.h = S;
+        d->header.stride = S * 4;
+        d->data_size = S * S * 4;
+        d->data = (const uint8_t *)px;
+    }
+    }
+}
+
+static void shake_anim(void *var, int32_t v);
+static void stripe_anim(void *var, int32_t v);
+
+// Places corner ornament i (0 top-left .. 3 bottom-right) of a box whose outer edge starts at left/top, w x h,
+// in its parent's content coordinates.
+static void corner_place(lv_obj_t *b, int i, int left, int top, int w, int h, int state)
+{
+    lv_anim_delete(b, shake_anim);             // a ball shaking when the theme changes stops, upright
+    lv_image_set_src(b, NULL);
+    if (HEX) {
+        const int S = U(CHAMFER);
+        lv_image_set_src(b, &s_cham[state][i]);
+        lv_image_set_rotation(b, 0);
+        lv_obj_set_pos(b, left + ((i & 1) ? w - S : 0), top + ((i & 2) ? h - S : 0));
+    } else {
+        const int d = sp_ball.dsc.header.w;
+        lv_image_set_src(b, &sp_ball.dsc);
+        lv_image_set_pivot(b, d / 2, d / 2);
+        lv_obj_set_pos(b, left + ((i & 1) ? w - U(2) : U(2)) - d / 2, top + ((i & 2) ? h - U(2) : U(2)) - d / 2);
+    }
+}
+
+// Where a window's body starts: under the pill (Gen), or under the band, its line and a gap (Hex).
+#define BAND_ROWS 10
+static int body_top(void) { return HEX ? U(BAND_ROWS + 3) : U(7); }
+
+// ── The Hex title band ──
+// Across the top, one unit inside the border: warning stripes at 45 degrees, 4 units on and 4 off, and the title
+// on a black plate leaning with them (a parallelogram as wide as the title on every row), then an amber line.
+// Amber in the window in focus, dim in the others, red for an alert; the stripes run in the idle flourish.
+static void title_band(fh1_win_t *win)
+{
+    const int bw = win->cw - U(2), BH = U(BAND_ROWS + 1), tw = lv_obj_get_width(win->title);
+    if (bw <= 0) return;
+    // Opaque: RGB565, half the bytes of ARGB, copied without blending (it is redrawn as the stripes run).
+    uint16_t *px = win->frame_px ? heap_caps_realloc(win->frame_px, bw * BH * 2, MALLOC_CAP_SPIRAM)
+                                 : heap_caps_malloc(bw * BH * 2, MALLOC_CAP_SPIRAM);
+    if (!px) return;
+    win->frame_px = (uint32_t *)px;
+    const bool focus = win == top();
+    const int state = win->alert ? 2 : focus ? 1 : 0;
+    const uint32_t col = state == 2 ? s_theme->ball : state == 1 ? s_theme->ink : s_theme->dim;
+    const uint16_t stripe = lv_color_to_u16(lv_color_hex(col)), black = lv_color_to_u16(lv_color_hex(s_theme->paper));
+    const int pw = tw + U(6) + U(BAND_ROWS - 1), c = (bw - pw) / 2;
+    for (int y = 0; y < BH; y++) {
+        const int r = y / s_u;
+        uint16_t *row = px + y * bw;
+        if (r == BAND_ROWS) {
+            for (int x = 0; x < bw; x++) row[x] = stripe;
+            continue;
+        }
+        const int x0 = c + U(BAND_ROWS - 1 - r) - U(4);
+        for (int x = 0; x < bw; x++) {
+            if (tw > 0 && x >= x0 && x < x0 + pw) row[x] = black;
+            else row[x] = ((x / s_u + r + win->phase) % 8) < 4 ? stripe : black;
+        }
+    }
+    win->frame_dsc.header.magic = LV_IMAGE_HEADER_MAGIC;
+    win->frame_dsc.header.cf = LV_COLOR_FORMAT_RGB565;
+    win->frame_dsc.header.w = bw;
+    win->frame_dsc.header.h = BH;
+    win->frame_dsc.header.stride = bw * 2;
+    win->frame_dsc.data_size = bw * BH * 2;
+    win->frame_dsc.data = (const uint8_t *)px;
+    if (!win->frame) win->frame = lv_image_create(win->box);
+    if (lv_image_get_src(win->frame) == &win->frame_dsc && win->band == state && win->band_w == bw) {
+        // The stripes moved: same picture, new pixels; only the band is drawn again (raising the objects again
+        // would redraw the whole window).
+        lv_obj_invalidate(win->frame);
+        lv_obj_set_pos(win->title, U(1) + (bw - tw) / 2, U(1) + U(1) - 1);    // (the title may have changed)
+        return;
+    } else {
+        lv_image_set_src(win->frame, NULL);
+        lv_image_set_src(win->frame, &win->frame_dsc);
+    }
+    win->band_w = bw;
+    lv_obj_set_pos(win->frame, U(1), U(1));
+    lv_obj_move_foreground(win->frame);
+    // The letters' top on the band's second row (the font leaves a blank row above its glyphs).
+    lv_obj_set_pos(win->title, U(1) + (bw - tw) / 2, U(1) + U(1) - 1);
+    lv_obj_move_foreground(win->title);
+    for (int i = 0; i < 4; i++) {
+        if (!win->balls[i]) continue;
+        if (win->band != state) lv_image_set_src(win->balls[i], &s_cham[state][i]);
+        lv_obj_move_foreground(win->balls[i]);
+    }
+    win->band = state;
+}
+
+
+// ── The framed looks (Garden, Command) ──
+// The frame's four sides, its corners and the title's plate are pictures drawn by ui_look.c for the window's size
+// and state (dim, in focus, alert), in PSRAM; drawn again when the window's state changes, while it opens or
+// closes (frame_build), and in small parts as its decoration runs (look_tick). The box keeps its 2-unit border,
+// unseen, so everything inside a window sits where it does in the other looks.
+
+static int win_state(fh1_win_t *w) { return w->alert ? 2 : w == top() ? 1 : 0; }
+
+// Moves an object only if it is somewhere else (a style set anew costs a refresh even when nothing changes).
+static void move_to(lv_obj_t *o, int x, int y)
+{
+    if (lv_obj_get_style_x(o, 0) != x || lv_obj_get_style_y(o, 0) != y) lv_obj_set_pos(o, x, y);
+}
+
+static uint32_t *px_buf(uint32_t **pp, size_t bytes)
+{
+    uint32_t *p = *pp ? heap_caps_realloc(*pp, bytes, MALLOC_CAP_SPIRAM) : heap_caps_malloc(bytes, MALLOC_CAP_SPIRAM);
+    if (p) *pp = p;
+    return p;
+}
+
+// Shows an ARGB picture: new pixels in the same picture are only redrawn; another size or buffer is set afresh.
+static void show_argb(lv_obj_t *img, lv_image_dsc_t *d, uint32_t *px, int w, int h)
+{
+    const bool same = lv_image_get_src(img) == d && d->header.cf == LV_COLOR_FORMAT_ARGB8888 && d->header.w == w &&
+                      d->header.h == h && d->data == (const uint8_t *)px;
+    lv_image_cache_drop(d);
+    d->header.magic = LV_IMAGE_HEADER_MAGIC;
+    d->header.cf = LV_COLOR_FORMAT_ARGB8888;
+    d->header.w = w;
+    d->header.h = h;
+    d->header.stride = w * 4;
+    d->data_size = w * h * 4;
+    d->data = (const uint8_t *)px;
+    if (same) {
+        lv_obj_invalidate(img);
+    } else {
+        lv_image_set_src(img, NULL);
+        lv_image_set_src(img, d);
+    }
+}
+
+// How far the frame's sides have got: Garden's vine grows all through the opening, Command's plates close in its
+// middle third (frame_build).
+static int strip_grow(fh1_win_t *w)
+{
+    if (s_theme->look != LOOK_SCIFI) return w->grow;
+    return w->grow <= 96 ? 0 : w->grow >= 192 ? 256 : (w->grow - 96) * 256 / 96;
+}
+
+static void corner_home(fh1_win_t *w, int i, int *x, int *y)
+{
+    const int S = U(look_corner_size(s_theme->look)), o = U(look_corner_out(s_theme->look));
+    *x = (i & 1) ? -U(2) + w->cw + U(4) - S + o : -U(2) - o;
+    *y = (i & 2) ? -U(2) + w->ch + U(4) - S + o : -U(2) - o;
+}
+
+// Bottom to top: the sides, the mote (Garden: over the corners), the title's plate, the title, the scan line.
+static void frame_order(fh1_win_t *w)
+{
+    for (int k = 0; k < 4; k++) if (w->strip[k]) lv_obj_move_foreground(w->strip[k]);
+    const bool fly = s_theme->look == LOOK_GARDEN;         // the butterfly lands on the flowers; the spark goes under
+    if (w->mote && !fly) lv_obj_move_foreground(w->mote);
+    for (int i = 0; i < 4; i++) lv_obj_move_foreground(w->balls[i]);
+    if (w->mote && fly) lv_obj_move_foreground(w->mote);
+    if (w->frame) lv_obj_move_foreground(w->frame);
+    lv_obj_move_foreground(w->title);
+    if (w->scan) lv_obj_move_foreground(w->scan);
+}
+
+static void frame_render(fh1_win_t *w, int mask)
+{
+    const int look = s_theme->look, state = win_state(w), W = w->cw + U(4), H = w->ch + U(4);
+    look_pal_t p;
+    look_palette(&p);
+    bool created = false;
+    const int O = U(look_strip_out(look)), T = U(look_strip_thick(look)) + O, g = strip_grow(w);
+    for (int side = 0; side < 4; side++) {
+        if (!(mask & (1 << side))) continue;
+        const bool horiz = side < 2;
+        const int sw = horiz ? W : T, sh = horiz ? T : H;
+        uint32_t *px = px_buf(&w->strip_px[side], (size_t)sw * sh * 4);
+        if (!px) continue;
+        look_strip(look, &p, side, horiz ? W : H, W, H, state, g, w->phase, px);
+        // Each side is drawn with its outer edge first: the bottom's goes last, the right's on the right.
+        if (side == 1) {
+            for (int y = 0; y < sh / 2; y++)
+                for (int x = 0; x < sw; x++) {
+                    const uint32_t t = px[y * sw + x];
+                    px[y * sw + x] = px[(sh - 1 - y) * sw + x];
+                    px[(sh - 1 - y) * sw + x] = t;
+                }
+        } else if (side == 3) {
+            for (int y = 0; y < sh; y++)
+                for (int x = 0; x < sw / 2; x++) {
+                    const uint32_t t = px[y * sw + x];
+                    px[y * sw + x] = px[y * sw + sw - 1 - x];
+                    px[y * sw + sw - 1 - x] = t;
+                }
+        }
+        if (!w->strip[side]) {
+            w->strip[side] = lv_image_create(w->box);
+            created = true;
+        }
+        show_argb(w->strip[side], &w->strip_dsc[side], px, sw, sh);
+        move_to(w->strip[side], side == 2 ? -U(2) - O : side == 3 ? -U(2) + W - T + O : -U(2),
+                       side == 0 ? -U(2) - O : side == 1 ? -U(2) + H - T + O : -U(2));
+    }
+    if (mask & FR_CORNERS) {
+        const int S = U(look_corner_size(look));
+        uint32_t *px = px_buf(&w->corner_px, (size_t)S * S * 4 * 4);
+        for (int i = 0; px && i < 4; i++) {
+            look_corner(look, &p, i, state, w->grow, w->phase, px + i * S * S);
+            show_argb(w->balls[i], &w->corner_dsc[i], px + i * S * S, S, S);
+            if (!w->building) {
+                int x, y;
+                corner_home(w, i, &x, &y);
+                move_to(w->balls[i], x, y);
+            }
+        }
+    }
+    if (mask & FR_TITLE) {
+        const int tw = lv_obj_get_width(w->title);
+        int pw, ph, x, y, tx, ty;
+        look_title_box(look, s_u, w->cw, tw, s_line, &pw, &ph, &x, &y, &tx, &ty);
+        uint32_t *px = px_buf(&w->frame_px, (size_t)pw * ph * 4);
+        if (px) {
+            look_title(look, &p, pw, ph, tw, state, w->phase, px);
+            if (!w->frame) {
+                w->frame = lv_image_create(w->box);
+                created = true;
+            }
+            show_argb(w->frame, &w->frame_dsc, px, pw, ph);
+            move_to(w->frame, x, y);
+        }
+        move_to(w->title, tx, ty);
+        if (w->fstate != state || created)
+            lv_obj_set_style_text_color(w->title, lv_color_hex(look_title_ink(look, &p, state)), 0);
+    }
+    if (created) frame_order(w);
+    w->fstate = state;
+}
+
+// Back to a plain box (a theme without a drawn frame): the frame's pictures go.
+static void frame_drop(fh1_win_t *w)
+{
+    for (int k = 0; k < 4; k++) {
+        if (w->strip[k]) lv_obj_delete(w->strip[k]);
+        w->strip[k] = NULL;
+        lv_image_cache_drop(&w->strip_dsc[k]);
+        heap_caps_free(w->strip_px[k]);
+        w->strip_px[k] = NULL;
+        lv_image_cache_drop(&w->corner_dsc[k]);
+    }
+    heap_caps_free(w->corner_px);
+    w->corner_px = NULL;
+    if (w->mote) lv_obj_delete(w->mote);
+    if (w->scan) lv_obj_delete(w->scan);
+    w->mote = w->scan = NULL;
+}
+
+// The window's contents (body, title, footer) fading in at the end of Command's build.
+static void content_opa(fh1_win_t *w, int opa)
+{
+    if (w->copa == opa) return;
+    w->copa = opa;
+    lv_obj_t *o[3] = { w->body, w->title, w->footer };
+    for (int k = 0; k < 3; k++) {
+        if (!o[k]) continue;
+        if (opa >= 255) lv_obj_remove_local_style_prop(o[k], LV_STYLE_OPA, 0);
+        else lv_obj_set_style_opa(o[k], opa, 0);
+    }
+}
+
+// The opening (v from 0 to 256) and the closing (back to 0).
+// Garden: the window fades in at once while the vine grows round it clockwise from the top-left, and each corner's
+// flower opens as the vine reaches it. Command builds itself: the corner brackets fly out from the middle (first
+// third), the plates close from the corners (second), the glass lights up behind a scan line and the contents come
+// on (last).
+static void frame_build(fh1_win_t *w, int v)
+{
+    const int prev = w->grow, W = w->cw + U(4), H = w->ch + U(4);
+    w->grow = v;
+    if (s_theme->look == LOOK_GARDEN) {
+        lv_obj_set_style_opa(w->box, v >= 64 ? LV_OPA_COVER : v * 4, 0);
+        // the sides the vine's tip passed over, and the corners (their flowers)
+        const int lw = W / s_u, lh = H / s_u, P = 2 * (lw + lh);
+        const int a = P * (prev < v ? prev : v) / 256, b = P * (prev < v ? v : prev) / 256;
+        const int s0[4] = { 0, lw + lh, 2 * lw + lh, lw }, s1[4] = { lw, 2 * lw + lh, P, lw + lh };   // top, bottom, left, right
+        int mask = FR_CORNERS;
+        for (int k = 0; k < 4; k++)
+            if (a < s1[k] && b >= s0[k]) mask |= 1 << k;
+        frame_render(w, mask);
+        return;
+    }
+    // Command
+    const int t = v >= 96 ? 256 : v * 256 / 96, e = 256 - (256 - t) * (256 - t) / 256;   // eased out
+    const int S = U(look_corner_size(LOOK_SCIFI));
+    for (int i = 0; i < 4; i++) {
+        int x, y;
+        corner_home(w, i, &x, &y);
+        const int fx = (W - S) / 2 - U(2), fy = (H - S) / 2 - U(2);
+        lv_obj_set_pos(w->balls[i], fx + (x - fx) * e / 256, fy + (y - fy) * e / 256);
+    }
+    const int pg = prev <= 96 ? 0 : prev >= 192 ? 256 : (prev - 96) * 256 / 96, g = strip_grow(w);
+    if (g != pg) frame_render(w, FR_STRIPS);
+    const int glass = v < 192 ? 0 : v >= 256 ? 255 : (v - 192) * 4;
+    if (glass >= 255) lv_obj_remove_local_style_prop(w->box, LV_STYLE_BG_OPA, 0);
+    else lv_obj_set_style_bg_opa(w->box, glass, 0);
+    if (w->frame) {
+        if (glass >= 255) lv_obj_remove_local_style_prop(w->frame, LV_STYLE_OPA, 0);
+        else lv_obj_set_style_opa(w->frame, glass, 0);
+    }
+    if (v > 192 && v < 256) {
+        if (!w->scan) {
+            w->scan = plain(w->box);
+            lv_obj_set_style_bg_opa(w->scan, LV_OPA_COVER, 0);
+            lv_obj_set_style_bg_color(w->scan, lv_color_hex(s_theme->ink), 0);
+            lv_obj_set_size(w->scan, W - U(12), s_u);
+        }
+        lv_obj_set_pos(w->scan, U(4), -U(2) + U(3) + (H - U(6)) * (v - 192) / 64);
+    } else if (w->scan) {
+        lv_obj_delete(w->scan);
+        w->scan = NULL;
+    }
+    content_opa(w, v < 224 ? 0 : v >= 256 ? 255 : (v - 224) * 8);
+}
+
+// The opening's end (or its interruption by a theme change): everything as it stays.
+static void frame_finish(fh1_win_t *w)
+{
+    w->building = false;
+    w->grow = 256;
+    lv_obj_remove_local_style_prop(w->box, LV_STYLE_OPA, 0);
+    lv_obj_remove_local_style_prop(w->box, LV_STYLE_BG_OPA, 0);
+    if (w->frame) lv_obj_remove_local_style_prop(w->frame, LV_STYLE_OPA, 0);
+    content_opa(w, 255);
+    if (w->scan) lv_obj_delete(w->scan);
+    w->scan = NULL;
+}
+
+static void frame_anim(lv_anim_t *a, int32_t v) { frame_build(lv_anim_get_user_data(a), v); }
+
+static void restyle(void);
+static void frame_opened(lv_anim_t *a)
+{
+    fh1_win_t *w = lv_anim_get_user_data(a);
+    frame_finish(w);
+    frame_render(w, FR_ALL);
+    restyle();                          // its mote, if it has the focus
+}
+
+static void frame_animate(fh1_win_t *w, int from, int to, int ms, lv_anim_completed_cb_t done)
+{
+    w->building = true;
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, w->box);
+    lv_anim_set_custom_exec_cb(&a, frame_anim);
+    lv_anim_set_values(&a, from, to);
+    lv_anim_set_duration(&a, ms > 0 ? ms : 1);
+    lv_anim_set_user_data(&a, w);
+    lv_anim_set_completed_cb(&a, done);
+    lv_anim_start(&a);
+}
+
+// The mote of the window in focus (a butterfly, a spark): one picture of two, moved by mote_tick.
+static uint32_t *s_mote_px[2];
+static lv_image_dsc_t s_mote[2];
+
+static void make_motes(void)
+{
+    look_pal_t p;
+    look_palette(&p);
+    for (int k = 0; k < 2; k++) {
+        lv_image_cache_drop(&s_mote[k]);
+        s_mote[k].data = NULL;
+        if (!FRAMED) continue;
+        if (!s_mote_px[k]) s_mote_px[k] = heap_caps_malloc(16 * 16 * 4, MALLOC_CAP_SPIRAM);
+        int w, h;
+        if (!s_mote_px[k] || !look_mote(s_theme->look, &p, k, s_mote_px[k], &w, &h)) continue;
+        s_mote[k].header.magic = LV_IMAGE_HEADER_MAGIC;
+        s_mote[k].header.cf = LV_COLOR_FORMAT_ARGB8888;
+        s_mote[k].header.w = w;
+        s_mote[k].header.h = h;
+        s_mote[k].header.stride = w * 4;
+        s_mote[k].data_size = w * h * 4;
+        s_mote[k].data = (const uint8_t *)s_mote_px[k];
+    }
+}
+
+static void mote_set(fh1_win_t *w, bool on)
+{
+    if (on && !w->mote && s_mote[0].data) {
+        w->mote = lv_image_create(w->box);
+        lv_image_set_src(w->mote, &s_mote[0]);
+        lv_obj_set_hidden(w->mote, true);           // until mote_tick places it
+        frame_order(w);
+    } else if (!on && w->mote) {
+        lv_obj_delete(w->mote);
+        w->mote = NULL;
+    }
 }
 
 // ── The title frame ──
@@ -943,6 +1511,14 @@ static const char s_frame_mid[FRAME_ROWS + 1] = "##.........#";
 
 static void title_frame(fh1_win_t *win)
 {
+    if (FRAMED) {
+        frame_render(win, FR_TITLE);
+        return;
+    }
+    if (HEX) {
+        title_band(win);
+        return;
+    }
     const int tw = (lv_obj_get_width(win->title) + s_u - 1) / s_u;
     const int W = tw + 2 * (FRAME_END_W + FRAME_PAD), H = FRAME_ROWS;
     if (W > 240) return;
@@ -1015,6 +1591,13 @@ static void close_done(lv_anim_t *a) { lv_async_call(win_destroy, lv_anim_get_us
 
 static void close_animated(fh1_win_t *win)
 {
+    if (FRAMED) {                 // the opening in reverse, from wherever it got to
+        lv_anim_delete(win->box, NULL);
+        mote_set(win, false);
+        const int from = win->grow;
+        frame_animate(win, from, 0, 350 * from / 256, close_done);
+        return;
+    }
     int from = 256;
     if (win->ghost) {             // still opening: shrink from where it got to
         lv_anim_delete(win->ghost, open_anim);
@@ -1041,6 +1624,13 @@ static void close_animated(fh1_win_t *win)
 
 static void open_animated(fh1_win_t *win)
 {
+    ui_sound(s_theme->voice, UI_SND_OPEN);
+    if (FRAMED) {
+        win->grow = 0;
+        frame_build(win, 0);
+        frame_animate(win, 0, 256, s_theme->look == LOOK_GARDEN ? 700 : 650, frame_opened);
+        return;
+    }
     // Invisible, not hidden, while the outline grows: LVGL gives no focus to what is inside a hidden object,
     // and the window's first item must be focused (cursor shown, A works) as soon as it is built.
     lv_obj_set_style_opa(win->box, LV_OPA_TRANSP, 0);
@@ -1097,20 +1687,19 @@ fh1_win_t *fh1_win_create(const char *title, int w, int h)
     const int cw = w - U(4), ch = h - U(4);
     win->cw = cw;
     win->ch = ch;
-    lv_obj_t *inset = plain(win->box);
+    lv_obj_t *inset = win->inset = plain(win->box);
     lv_obj_add_style(inset, &st_inset, 0);
     lv_obj_set_pos(inset, U(1), U(1));
     lv_obj_set_size(inset, cw - U(2), ch - U(2));
-    // A ball centred on each corner of the double border. Content coordinates start inside the outer line:
-    // the border band runs from -2 to +2 on the left and top, and around cw / ch on the right and bottom,
-    // so its middle is at 0 and cw / ch. Both lines run on under the ball.
-    const int d = sp_ball.dsc.header.w;
+    // An ornament on each corner of the double border (corner_place). Content coordinates start inside the outer
+    // line: the box's outer edge is at -2.
+    win->band = -1;
+    win->fstate = -1;
+    win->copa = 255;
+    if (FRAMED) lv_obj_set_hidden(inset, true);
     for (int i = 0; i < 4; i++) {
-        lv_obj_t *b = lv_image_create(win->box);
-        win->balls[i] = b;
-        lv_image_set_src(b, &sp_ball.dsc);
-        lv_image_set_pivot(b, d / 2, d / 2);
-        lv_obj_set_pos(b, ((i & 1) ? cw : 0) - d / 2, ((i & 2) ? ch : 0) - d / 2);
+        win->balls[i] = lv_image_create(win->box);
+        if (!FRAMED) corner_place(win->balls[i], i, -U(2), -U(2), w, h, 1);
     }
 
     win->title = lv_label_create(win->box);
@@ -1119,7 +1708,7 @@ fh1_win_t *fh1_win_create(const char *title, int w, int h)
     title_layout(win);
 
     win->body = plain(win->box);
-    win->body_y = U(7);                  // just under the title's pill
+    win->body_y = body_top();
     lv_obj_set_pos(win->body, U(3), win->body_y);
     lv_obj_set_size(win->body, cw - U(6), ch - win->body_y - U(3));
     lv_obj_set_style_pad_all(win->body, U(1), 0);
@@ -1136,6 +1725,39 @@ fh1_win_t *fh1_win_create(const char *title, int w, int h)
     restyle();
     open_animated(win);
     return win;
+}
+
+// After a theme change: the body moves under the new title, the corners change, the title is drawn again.
+static void win_relayout(fh1_win_t *w)
+{
+    w->body_y = body_top();
+    const int bottom = w->footer ? lv_obj_get_y(w->footer) : w->ch - U(3);
+    lv_obj_set_y(w->body, w->body_y);
+    lv_obj_set_height(w->body, bottom - w->body_y);
+    lv_obj_refresh_ext_draw_size(w->box);
+    lv_obj_set_hidden(w->inset, FRAMED);
+    lv_image_cache_drop(&w->frame_dsc);
+    if (w->building) {                  // a theme change while it opens: open at once
+        lv_anim_delete(w->box, NULL);
+        frame_finish(w);
+    }
+    if (FRAMED) {
+        if (w->mote) {
+            lv_obj_delete(w->mote);     // restyle gives it the new look's mote
+            w->mote = NULL;
+        }
+        for (int i = 0; i < 4; i++) {
+            lv_anim_delete(w->balls[i], shake_anim);
+            lv_image_set_rotation(w->balls[i], 0);
+        }
+        w->grow = 256;
+        frame_render(w, FR_ALL);
+        return;
+    }
+    frame_drop(w);
+    for (int i = 0; i < 4; i++) corner_place(w->balls[i], i, -U(2), -U(2), w->cw + U(4), w->ch + U(4), w == top() ? 1 : 0);
+    w->band = -1;
+    title_frame(w);
 }
 
 lv_obj_t *fh1_win_body(fh1_win_t *win) { return win->body; }
@@ -1185,12 +1807,15 @@ void fh1_win_clear(fh1_win_t *win)
 
 static void win_destroy(void *p)
 {
+    lv_anim_delete(p, stripe_anim);
     fh1_win_t *win = p;
     if (win->ghost) lv_obj_delete(win->ghost);      // its animations go with it
     free(win->list);
     free(win->views);
     lv_group_delete(win->group);
+    frame_drop(win);
     lv_obj_delete(win->box);
+    lv_image_cache_drop(&win->frame_dsc);
     heap_caps_free(win->frame_px);
     free(win);
 }
@@ -1324,7 +1949,7 @@ lv_obj_t *fh1_ui_button(fh1_win_t *win, lv_obj_t *parent, const char *text, void
     lv_obj_t *cur = lv_image_create(b);           // child 0: the cursor
     lv_obj_add_style(cur, &st_cursor, 0);
     lv_image_set_src(cur, &s_cur[0]);
-    lv_obj_align(cur, LV_ALIGN_LEFT_MID, -U(8), 0);
+    lv_obj_align(cur, LV_ALIGN_LEFT_MID, cursor_ofs(), 0);
     lv_obj_set_hidden(cur, true);
     lv_obj_t *l = lv_label_create(b);             // child 1: the text
     lv_label_set_text(l, text);
@@ -1788,6 +2413,7 @@ void fh1_win_set_hints(fh1_win_t *win, const fh1_hint_t *hints, int n)
     lv_obj_update_layout(win->footer);
     const int fh = lv_obj_get_height(win->footer);
     lv_obj_set_pos(win->footer, U(3), win->ch - U(3) - fh);
+    if (win->copa < 255) lv_obj_set_style_opa(win->footer, win->copa, 0);     // Command: still building
     lv_obj_set_height(win->body, win->ch - U(3) - fh - win->body_y);
 }
 
@@ -2204,10 +2830,50 @@ uint32_t fh1_ui_level_colour(int pct_good)
 static void shake_anim(void *var, int32_t v) { lv_image_set_rotation(var, v); }
 static void shake_done(lv_anim_t *a) { lv_image_set_rotation(a->var, 0); }
 
+// The looks' running decoration, a step every 125 ms on the window in focus only (the others are still):
+// Hex's warning stripes run one unit a step, as a warning bar's do. Nothing runs while a program owns the screen
+// or the window is still opening.
+static void stripe_anim(void *var, int32_t v) {}      // (no animation object any more; kept for lv_anim_delete)
+
+static void look_tick(lv_timer_t *t)
+{
+    fh1_win_t *w = top();
+    if (!w || s_paused || w->ghost || w->building) return;
+    if (HEX) {
+        w->phase = (w->phase + 7) & 7;               // the stripes move right: '/' bands drift with the reading
+        title_frame(w);
+    } else if (FRAMED) {
+        // Garden: the flowers sway (a step every 500 ms). Command: the corner lights blink, the tab's lights cycle.
+        w->phase = (w->phase + 1) % 240;
+        int mask = 0;
+        if (s_theme->look == LOOK_GARDEN) {
+            if (w->phase % 4 == 0) mask |= FR_CORNERS;
+        } else {
+            if (w->phase % 6 == 0) mask |= FR_CORNERS;
+            if (w->phase % 3 == 0) mask |= FR_TITLE;
+        }
+        if (mask) frame_render(w, mask);
+    }
+}
+
+// The mote of the window in focus moves 20 times a second (only it: a small picture, a small redraw).
+static void mote_tick(lv_timer_t *t)
+{
+    fh1_win_t *w = top();
+    if (!w || !w->mote || s_paused || w->building) return;
+    int x, y, f;
+    const bool seen = look_mote_at(s_theme->look, s_u, w->cw + U(4), w->ch + U(4), tick_ms(), &x, &y, &f);
+    if (lv_obj_is_hidden(w->mote) == seen) lv_obj_set_hidden(w->mote, !seen);
+    if (!seen) return;
+    if (lv_image_get_src(w->mote) != &s_mote[f]) lv_image_set_src(w->mote, &s_mote[f]);
+    move_to(w->mote, x - U(2), y - U(2));
+}
+
 static void on_flourish(fh1_event_id_t id, const void *data, size_t len, void *user)
 {
     fh1_win_t *w = top();
-    if (!w || s_paused || w->ghost) return;
+    if (!w || s_paused || w->ghost || w->building) return;
+    if (HEX || FRAMED) return;            // their decorations run all the time (look_tick, mote_tick)
     lv_obj_t *b = w->balls[esp_random() % 4];
     if (lv_anim_get(b, shake_anim)) return;
     // Three wobbles of 200 ms: -15 to +15 degrees and back, then rest at 0.
@@ -2383,12 +3049,10 @@ static void ov_dress(void)
     lv_obj_set_overflow_visible(s_ov.box, true);
     lv_obj_add_event_cb(s_ov.box, box_ext_draw, LV_EVENT_REFR_EXT_DRAW_SIZE, NULL);
     lv_obj_refresh_ext_draw_size(s_ov.box);
-    const int d = sp_ball.dsc.header.w;
     for (int i = 0; i < 4; i++) {
         lv_obj_t *b = lv_image_create(s_ov.box);
-        lv_image_set_src(b, &sp_ball.dsc);
         lv_obj_set_ignore_layout(b, true);
-        lv_obj_set_pos(b, edge + ((i & 1) ? w - U(2) : U(2)) - d / 2, edge + ((i & 2) ? h - U(2) : U(2)) - d / 2);
+        corner_place(b, i, edge, edge, w, h, 1);
     }
 }
 
@@ -2456,9 +3120,11 @@ void fh1_ui_message(const char *title, const char *text)
 {
     fh1_win_t *w = fh1_win_create(title, 220, 96);
     if (!w) return;
+    w->alert = true;
     fh1_ui_label(w->body, text);
     fh1_ui_button(w, NULL, T("OK"), msg_ok, w);
     centre(w);
+    ui_sound(s_theme->voice, UI_SND_ALERT);
 }
 
 static void confirm_yes(void *user)
@@ -2493,6 +3159,8 @@ void fh1_ui_confirm(const char *title, const char *text, void (*cb)(bool yes, vo
         if (cb) cb(false, user);
         return;
     }
+    w->alert = true;
+    ui_sound(s_theme->voice, UI_SND_ALERT);
     confirm_t *c = calloc(1, sizeof(*c));
     c->cb = cb;
     c->user = user;
@@ -2687,38 +3355,116 @@ static void kb_open(const char *title, const char *initial, size_t max_len, bool
 
 // ── Theme ──
 
-static uint16_t s_pattern[8 * 8];
+#define PAT_MAX_W 48
+#define PAT_MAX_H 28
+static uint16_t s_pattern[PAT_MAX_W * PAT_MAX_H];
 static lv_image_dsc_t s_pattern_dsc;
+
+// Hex: a honeycomb of flat-topped cells, 16 x 14 units with sides of 8 (as near to regular as whole pixels go),
+// drawn with 1-unit lines on a 24 x 14 tile: one cell, and the next column's offset by half a cell.
+static void hex_line(bool *on, int W, int H, int x0, int y0, int x1, int y1)
+{
+    int dx = abs(x1 - x0), dy = -abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, err = dx + dy;
+    for (;;) {
+        on[((y0 % H + H) % H) * W + (x0 % W + W) % W] = true;
+        if (x0 == x1 && y0 == y1) break;
+        const int e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+}
+
+static uint16_t *s_pattern_big;        // framed looks' tiles: larger, in PSRAM
 
 static void make_pattern(void)
 {
-    // Gen 1: a dot every 4 pixels; Gen 2: a small diamond lattice.
-    for (int y = 0; y < 8; y++) {
-        for (int x = 0; x < 8; x++) {
-            bool dot = s_theme->lattice ? (((x + y) % 8 == 0) || ((x - y + 8) % 8 == 0)) : (x % 4 == 0 && y % 4 == 0);
-            s_pattern[y * 8 + x] = lv_color_to_u16(lv_color_hex(dot ? s_theme->desk_b : s_theme->desk_a));
+    int W = 8, H = 8;
+    lv_image_cache_drop(&s_pattern_dsc);
+    s_pattern_dsc.data = (const uint8_t *)s_pattern;
+    if (FRAMED) {
+        if (!s_pattern_big) s_pattern_big = heap_caps_malloc(LOOK_DESK_MAX * LOOK_DESK_MAX * 2, MALLOC_CAP_SPIRAM);
+        if (s_pattern_big) {
+            look_pal_t p;
+            look_palette(&p);
+            look_desk(s_theme->look, &p, s_pattern_big, &W, &H);
+            s_pattern_dsc.data = (const uint8_t *)s_pattern_big;
+        } else {
+            for (int i = 0; i < 64; i++) s_pattern[i] = lv_color_to_u16(lv_color_hex(s_theme->desk_a));
+        }
+    } else if (HEX) {
+        enum { S = 8, DX = 4, DY = 7 };
+        W = 2 * (DX + S);
+        H = 2 * DY;
+        bool on[2 * (DX + S) * 2 * DY] = { false };
+        static const int v[6][2] = { { DX, 0 }, { DX + S, 0 }, { 2 * DX + S, DY }, { DX + S, 2 * DY }, { DX, 2 * DY }, { 0, DY } };
+        for (int cell = 0; cell < 2; cell++) {
+            const int ox = cell ? DX + S : 0, oy = cell ? DY : 0;
+            for (int i = 0; i < 6; i++)
+                hex_line(on, W, H, v[i][0] + ox, v[i][1] + oy, v[(i + 1) % 6][0] + ox, v[(i + 1) % 6][1] + oy);
+        }
+        const uint16_t a = lv_color_to_u16(lv_color_hex(s_theme->desk_a)), b = lv_color_to_u16(lv_color_hex(s_theme->desk_b));
+        for (int y = 0; y < H * s_u; y++)
+            for (int x = 0; x < W * s_u; x++) s_pattern[y * W * s_u + x] = on[(y / s_u) * W + x / s_u] ? b : a;
+        W *= s_u;
+        H *= s_u;
+    } else {
+        // Gen 1: a dot every 4 pixels; Gen 2: a small diamond lattice.
+        for (int y = 0; y < 8; y++) {
+            for (int x = 0; x < 8; x++) {
+                bool dot = s_theme->lattice ? (((x + y) % 8 == 0) || ((x - y + 8) % 8 == 0)) : (x % 4 == 0 && y % 4 == 0);
+                s_pattern[y * 8 + x] = lv_color_to_u16(lv_color_hex(dot ? s_theme->desk_b : s_theme->desk_a));
+            }
         }
     }
     s_pattern_dsc.header.magic = LV_IMAGE_HEADER_MAGIC;
     s_pattern_dsc.header.cf = LV_COLOR_FORMAT_RGB565;
-    s_pattern_dsc.header.w = 8;
-    s_pattern_dsc.header.h = 8;
-    s_pattern_dsc.header.stride = 16;
-    s_pattern_dsc.data_size = sizeof(s_pattern);
-    s_pattern_dsc.data = (const uint8_t *)s_pattern;
+    s_pattern_dsc.header.w = W;
+    s_pattern_dsc.header.h = H;
+    s_pattern_dsc.header.stride = W * 2;
+    s_pattern_dsc.data_size = W * H * 2;
+}
+
+// After a theme change, the colours the widgets were given of their own (a footer's line, a pager, a slider, a
+// meter...) follow: the old theme's paper, ink and dim become the new one's.
+static void recolour_tree(lv_obj_t *o, const theme_t *from)
+{
+    static const lv_style_prop_t props[] = { LV_STYLE_TEXT_COLOR, LV_STYLE_BORDER_COLOR, LV_STYLE_BG_COLOR };
+    const uint32_t old[3] = { from->paper, from->ink, from->dim }, now[3] = { s_theme->paper, s_theme->ink, s_theme->dim };
+    for (size_t k = 0; k < sizeof(props) / sizeof(props[0]); k++) {
+        lv_style_value_t v;
+        if (lv_obj_get_local_style_prop(o, props[k], &v, 0) != LV_STYLE_RES_FOUND) continue;
+        for (int c = 0; c < 3; c++) {
+            if (lv_color_eq(v.color, lv_color_hex(old[c]))) {
+                v.color = lv_color_hex(now[c]);
+                lv_obj_set_local_style_prop(o, props[k], v, 0);
+                break;
+            }
+        }
+    }
+    const uint32_t n = lv_obj_get_child_count(o);
+    for (uint32_t i = 0; i < n; i++) recolour_tree(lv_obj_get_child(o, i), from);
 }
 
 static void apply_theme(void)
 {
+    static const theme_t *applied;
+    if (applied && applied != s_theme) recolour_tree(lv_screen_active(), applied);
+    applied = s_theme;
     lv_color_t paper = lv_color_hex(s_theme->paper), ink = lv_color_hex(s_theme->ink);
     lv_style_set_bg_color(&st_box, paper);
     lv_style_set_border_color(&st_box, ink);
-    lv_style_set_border_color(&st_inset, ink);
+    lv_style_set_radius(&st_box, HEX || FRAMED ? 0 : U(4));
+    lv_style_set_border_opa(&st_box, FRAMED ? LV_OPA_TRANSP : LV_OPA_COVER);     // framed: the frame is drawn over it
+    lv_style_set_border_color(&st_inset, lv_color_hex(inset_rgb()));
+    lv_style_set_radius(&st_inset, HEX ? 0 : U(6));
+    lv_style_set_radius(&st_tab_on, HEX ? 0 : U(2));
+    lv_style_set_pad_left(&st_item, item_pad());
     lv_style_set_text_color(&st_title, ink);
-    lv_style_set_text_color(&st_text, ink);
-    lv_style_set_text_color(&st_item, ink);
+    lv_style_set_text_color(&st_text, lv_color_hex(text_rgb()));
+    lv_style_set_text_color(&st_item, lv_color_hex(text_rgb()));
     lv_style_set_text_color(&st_dim, lv_color_hex(s_theme->dim));
     lv_style_set_image_recolor(&st_cursor, ink);
+    lv_style_set_image_recolor_opa(&st_cursor, FRAMED ? LV_OPA_TRANSP : LV_OPA_COVER);   // framed: cursors in colour
     lv_style_set_bg_color(&st_bar, paper);
     lv_style_set_border_color(&st_bar, ink);
     lv_style_set_text_color(&st_bar, ink);
@@ -2732,11 +3478,27 @@ static void apply_theme(void)
     lv_style_set_image_recolor(&st_icon_off, lv_color_hex(s_theme->dim));
     make_sprites();
     make_pattern();
+    make_cursors();
+    make_chamfers();
+    make_motes();
     lv_obj_t *scr = lv_screen_active();
     lv_obj_set_style_bg_color(scr, lv_color_hex(s_theme->desk_a), 0);
+    lv_obj_set_style_bg_image_src(scr, NULL, 0);
     lv_obj_set_style_bg_image_src(scr, &s_pattern_dsc, 0);
     lv_obj_report_style_change(NULL);
-    for (int i = 0; i < s_nwins; i++) title_frame(s_wins[i]);
+    for (int i = 0; i < s_nwins; i++) win_relayout(s_wins[i]);
+    // The cursors may have changed size: give each item's cursor its picture again.
+    for (int i = 0; i < s_nwins; i++) {
+        uint32_t n = lv_group_get_obj_count(s_wins[i]->group);
+        for (uint32_t k = 0; k < n; k++) {
+            lv_obj_t *cur = lv_obj_get_child(lv_group_get_obj_by_index(s_wins[i]->group, k), 0);
+            if (cur && lv_obj_check_type(cur, &lv_image_class)) {
+                lv_image_set_src(cur, NULL);
+                lv_image_set_src(cur, &s_cur[0]);
+                lv_obj_align(cur, LV_ALIGN_LEFT_MID, cursor_ofs(), 0);
+            }
+        }
+    }
     restyle();
     lv_obj_invalidate(scr);
 }
@@ -3191,11 +3953,16 @@ static void build_desktop(void)
 static void handle_key(int key)
 {
     fh1_win_t *w = top();
+    const int v = s_theme->voice;
     if (key == FH1_KEY_MENU || (!w && key == FH1_KEY_A)) {
+        ui_sound(v, UI_SND_SELECT);
         if (s_menu_fn) s_menu_fn(s_menu_arg);
         return;
     }
     if (!w) return;
+    if (key == FH1_KEY_A) ui_sound(v, UI_SND_SELECT);
+    else if (key == FH1_KEY_B) ui_sound(v, UI_SND_BACK);
+    else if (key == FH1_KEY_UP || key == FH1_KEY_DOWN || key == FH1_KEY_LEFT || key == FH1_KEY_RIGHT) ui_sound(v, UI_SND_MOVE);
     if (slider_key(w, key)) return;
     if (w->views && views_key(w, key)) return;
     if (w->list && list_key(w->list, key)) return;
@@ -3275,6 +4042,7 @@ static void note_slide(int32_t from, int32_t to, lv_anim_completed_cb_t done)
 
 static void note_show(const note_t *n)
 {
+    ui_sound(s_theme->voice, UI_SND_NOTE);
     s_note.cur = *n;
     const int W = U(176);
     lv_obj_t *b = s_note.box = plain(lv_layer_top());
@@ -3520,6 +4288,8 @@ esp_err_t fh1_ui_start(void)
     status_tick(NULL);
     make_fps_overlay();
     lv_timer_create(nudge_tick, 600, NULL);
+    lv_timer_create(look_tick, 125, NULL);
+    lv_timer_create(mote_tick, 50, NULL);
     fh1_event_subscribe(FH1_EV_UI_IDLE_FLOURISH, on_flourish, NULL);
     fh1_event_subscribe(FH1_EV_TRANSFER, on_transfer, NULL);
     fh1_event_subscribe(FH1_EV_SHUTDOWN, on_shutdown, NULL);
