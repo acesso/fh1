@@ -61,8 +61,10 @@ static void window(int x, int y, int w, int h, int state, int grow, int phase, i
     if (look_cursor(LOOK, &P, state != 1, buf, &cw_, &ch_)) blit(buf, cw_, ch_, x + 3 * u + u, y + 11 * u);
     if (state == 1) {
         static uint32_t m[16 * 16]; int mx, my, mf, mw, mh;
-        for (uint32_t t = 0; t < 30000; t += 2700)
-            if (look_mote_at(LOOK, u, w, h, t, &mx, &my, &mf) && look_mote(LOOK, &P, mf, m, &mw, &mh)) blit(m, mw, mh, x + mx, y + my);
+        for (int which = 0; which < look_motes(LOOK); which++)            // where each mote has been, over 30 s
+            for (uint32_t t = 0; t < 30000; t += 2700)
+                if (look_mote_at(LOOK, which, u, w, h, t, &mx, &my, &mf) && look_mote(LOOK, &P, which * 2 + mf, m, &mw, &mh))
+                    blit(m, mw, mh, x + mx, y + my);
     }
     for (int k = 0; k < items; k++) rect(x + 13 * u, y + 12 * u + k * 11 * u, 40 + (k * 37) % 60, 5 * u, k == 0 && state == 1 ? look_focus_text(LOOK, &P) : P.text);
 }

@@ -2,7 +2,7 @@
 // Made here, as 16-bit samples at 22050 Hz, the first time a set is needed (no files); played by whoever registered
 // fh1_ui_set_sound_fn (fh1_apps: its mixer, beside the apps' own sounds). Off unless the "ui"/"sounds" setting is on.
 //
-// Voices: "soft" (Gen 1, Gen 2), gentle pulse-wave blips like a handheld's; "alarm" (Hex), crisp square-wave ticks
+// Voices: "soft" (Poke Gen1, Poke Gen2), gentle pulse-wave blips like a handheld's; "alarm" (Hex), crisp square-wave ticks
 // and a two-tone warning, as an early-warning console sounds; "garden", wooden marimba notes, birdsong for a notice
 // and a rustle of leaves as a window opens; "command" (Command), clicks and sweeps, a warbling alert, a two-ping
 // chime and, as a window builds itself, a clack, a servo's whine and a clack. Only the last two have an opening

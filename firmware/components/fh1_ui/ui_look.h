@@ -49,8 +49,10 @@ int look_cursor(int look, const look_pal_t *p, int hollow, uint32_t *px, int *w,
 // How the item in focus reads, and the others.
 uint32_t look_focus_text(int look, const look_pal_t *p);
 
-// The mote: a small sprite moving round the window in focus (garden: a butterfly, sci-fi: a spark), ARGB8888, at
-// most 16 x 16 pixels; 0 for looks without one. look_mote_at: where it is at t ms on a box w x h pixels (the
-// sprite's top-left from the box's outer top-left) and which picture; 0 while out of sight.
+// Motes: small sprites moving over the window in focus (garden: a butterfly and a bee, sci-fi: a spark), ARGB8888,
+// at most 16 x 16 pixels. look_motes: how many a look has. look_mote: picture `frame` (garden: 0-1 the butterfly,
+// 2-3 the bee; sci-fi 0-1); 0 for none. look_mote_at: where mote `which` is at t ms on a box w x h pixels (the
+// sprite's top-left from the box's outer top-left) and which of its two pictures; 0 while out of sight.
+int look_motes(int look);
 int look_mote(int look, const look_pal_t *p, int frame, uint32_t *px, int *w, int *h);
-int look_mote_at(int look, int u, int w, int h, uint32_t t, int *x, int *y, int *frame);
+int look_mote_at(int look, int which, int u, int w, int h, uint32_t t, int *x, int *y, int *frame);

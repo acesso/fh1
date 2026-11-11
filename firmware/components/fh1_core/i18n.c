@@ -325,8 +325,6 @@ static const tr_t s_pt[] = {
     { "Update from SD...", "Atualizar do SD..." },
     { "Restart now to change the screen mode?", "Reiniciar agora para mudar a tela?" },
     { "Restart the FH1?", "Reiniciar o FH1?" },
-    { "Gen 1 (green)", "Gen 1 (verde)" },
-    { "Gen 2 (colour)", "Gen 2 (cores)" },
     { "Hex (alert)", "Hex (alerta)" },
     { "Garden", "Jardim" },
     { "Command", "Comando" },

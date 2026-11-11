@@ -55,8 +55,8 @@ typedef struct {
 } theme_t;
 
 static const theme_t s_themes[] = {
-    { "gen1", "Gen 1 (green)", 0xe0f8d0, 0x081820, 0x6a9a6a, 0x88c070, 0x78b060, 0x346856, false, LOOK_GEN, 0, 0, UI_VOICE_SOFT },
-    { "gen2", "Gen 2 (colour)", 0xf8f8f8, 0x202020, 0x8a8f9a, 0xa8d0f0, 0x98c0e8, 0xd83838, true, LOOK_GEN, 0, 0, UI_VOICE_SOFT },
+    { "gen1", "Poke Gen1", 0xe0f8d0, 0x081820, 0x6a9a6a, 0x88c070, 0x78b060, 0x346856, false, LOOK_GEN, 0, 0, UI_VOICE_SOFT },
+    { "gen2", "Poke Gen2", 0xf8f8f8, 0x202020, 0x8a8f9a, 0xa8d0f0, 0x98c0e8, 0xd83838, true, LOOK_GEN, 0, 0, UI_VOICE_SOFT },
     // An early-warning console: amber on black, alarm red, warm white text, dim amber for what is not in focus.
     { "hex", "Hex (alert)", 0x000000, 0xffaa00, 0x7a5200, 0x000000, 0x2e1f00, 0xe60908, false, LOOK_HEX, 0xf2eee6, 0x5c3d00,
       UI_VOICE_ALARM },
@@ -100,11 +100,12 @@ struct fh1_win {
     lv_obj_t *strip[4];
     uint32_t *strip_px[4], *corner_px, *mote_px;
     lv_image_dsc_t strip_dsc[4], corner_dsc[4];
-    lv_obj_t *mote, *scan;
+    lv_obj_t *mote, *mote2, *scan;      // the look's motes (Garden: the butterfly and the bee), the build's scan line
     short grow;                     // how far the opening has got (0..256), as the frame was drawn
     signed char fstate;             // the state the frame was drawn in (-1 never)
     bool building;                  // opening or closing (frame_build)
     unsigned char copa;             // the content's opacity during the build
+    bool notice;                    // the notice window (a file arriving): over everything, not in the stack
 };
 
 typedef struct {
@@ -955,11 +956,12 @@ static void title_frame(fh1_win_t *win);
 static void frame_render(fh1_win_t *w, int mask);
 static void mote_set(fh1_win_t *w, bool on);
 
-static void restyle(void)
+static fh1_win_t *s_notice;            // the notice window, while one shows (on top of everything, drawn in focus)
+static void ov_gone(fh1_win_t *w);
+
+static void restyle_one(fh1_win_t *w, bool on)
 {
-    for (int i = 0; i < s_nwins; i++) {
-        fh1_win_t *w = s_wins[i];
-        bool on = (i == s_nwins - 1);
+    {
         if (FRAMED) {
             look_pal_t p;
             look_palette(&p);
@@ -1008,6 +1010,12 @@ static void restyle(void)
             }
         }
     }
+}
+
+static void restyle(void)
+{
+    for (int i = 0; i < s_nwins; i++) restyle_one(s_wins[i], i == s_nwins - 1);
+    if (s_notice) restyle_one(s_notice, true);
 }
 
 static void nudge_tick(lv_timer_t *t)
@@ -1185,7 +1193,7 @@ static void title_band(fh1_win_t *win)
 // closes (frame_build), and in small parts as its decoration runs (look_tick). The box keeps its 2-unit border,
 // unseen, so everything inside a window sits where it does in the other looks.
 
-static int win_state(fh1_win_t *w) { return w->alert ? 2 : w == top() ? 1 : 0; }
+static int win_state(fh1_win_t *w) { return w->alert ? 2 : w == top() || w->notice ? 1 : 0; }
 
 // Moves an object only if it is somewhere else (a style set anew costs a refresh even when nothing changes).
 static void move_to(lv_obj_t *o, int x, int y)
@@ -1244,6 +1252,7 @@ static void frame_order(fh1_win_t *w)
     if (w->mote && !fly) lv_obj_move_foreground(w->mote);
     for (int i = 0; i < 4; i++) lv_obj_move_foreground(w->balls[i]);
     if (w->mote && fly) lv_obj_move_foreground(w->mote);
+    if (w->mote2) lv_obj_move_foreground(w->mote2);
     if (w->frame) lv_obj_move_foreground(w->frame);
     lv_obj_move_foreground(w->title);
     if (w->scan) lv_obj_move_foreground(w->scan);
@@ -1336,8 +1345,9 @@ static void frame_drop(fh1_win_t *w)
     heap_caps_free(w->corner_px);
     w->corner_px = NULL;
     if (w->mote) lv_obj_delete(w->mote);
+    if (w->mote2) lv_obj_delete(w->mote2);
     if (w->scan) lv_obj_delete(w->scan);
-    w->mote = w->scan = NULL;
+    w->mote = w->mote2 = w->scan = NULL;
 }
 
 // The window's contents (body, title, footer) fading in at the end of Command's build.
@@ -1445,15 +1455,16 @@ static void frame_animate(fh1_win_t *w, int from, int to, int ms, lv_anim_comple
     lv_anim_start(&a);
 }
 
-// The mote of the window in focus (a butterfly, a spark): one picture of two, moved by mote_tick.
-static uint32_t *s_mote_px[2];
-static lv_image_dsc_t s_mote[2];
+// The motes of the window in focus (a butterfly and a bee, a spark): two pictures each, moved by mote_tick.
+#define MOTE_PICS 4
+static uint32_t *s_mote_px[MOTE_PICS];
+static lv_image_dsc_t s_mote[MOTE_PICS];
 
 static void make_motes(void)
 {
     look_pal_t p;
     look_palette(&p);
-    for (int k = 0; k < 2; k++) {
+    for (int k = 0; k < MOTE_PICS; k++) {
         lv_image_cache_drop(&s_mote[k]);
         s_mote[k].data = NULL;
         if (!FRAMED) continue;
@@ -1476,10 +1487,16 @@ static void mote_set(fh1_win_t *w, bool on)
         w->mote = lv_image_create(w->box);
         lv_image_set_src(w->mote, &s_mote[0]);
         lv_obj_set_hidden(w->mote, true);           // until mote_tick places it
+        if (look_motes(s_theme->look) > 1 && s_mote[2].data) {
+            w->mote2 = lv_image_create(w->box);
+            lv_image_set_src(w->mote2, &s_mote[2]);
+            lv_obj_set_hidden(w->mote2, true);
+        }
         frame_order(w);
     } else if (!on && w->mote) {
         lv_obj_delete(w->mote);
-        w->mote = NULL;
+        if (w->mote2) lv_obj_delete(w->mote2);
+        w->mote = w->mote2 = NULL;
     }
 }
 
@@ -1604,7 +1621,7 @@ static void close_animated(fh1_win_t *win)
         const int w = lv_obj_get_width(win->box);
         from = w > U(12) ? (lv_obj_get_width(win->ghost) - U(12)) * 256 / (w - U(12)) : 0;
     } else {
-        win->ghost = plain(lv_screen_active());
+        win->ghost = plain(lv_obj_get_parent(win->box));
         lv_obj_add_style(win->ghost, &st_box, 0);
         lv_obj_set_user_data(win->ghost, win);
     }
@@ -1634,7 +1651,7 @@ static void open_animated(fh1_win_t *win)
     // Invisible, not hidden, while the outline grows: LVGL gives no focus to what is inside a hidden object,
     // and the window's first item must be focused (cursor shown, A works) as soon as it is built.
     lv_obj_set_style_opa(win->box, LV_OPA_TRANSP, 0);
-    win->ghost = plain(lv_screen_active());
+    win->ghost = plain(lv_obj_get_parent(win->box));
     lv_obj_add_style(win->ghost, &st_box, 0);
     lv_obj_set_user_data(win->ghost, win);
     lv_anim_t a;
@@ -1649,6 +1666,8 @@ static void open_animated(fh1_win_t *win)
     open_anim(win->ghost, 0);
     lv_anim_start(&a);
 }
+
+static fh1_win_t *win_build(lv_obj_t *parent, const char *title, int x, int y, int w, int h);
 
 fh1_win_t *fh1_win_create(const char *title, int w, int h)
 {
@@ -1672,8 +1691,18 @@ fh1_win_t *fh1_win_create(const char *title, int w, int h)
     if (y + h > bottom) h = bottom - y;
     s_cascade = (s_cascade + 1) % 8;
 
+    fh1_win_t *win = win_build(lv_screen_active(), title, x, y, w, h);
+    s_wins[s_nwins++] = win;
+    restyle();
+    open_animated(win);
+    return win;
+}
+
+// A window's parts, in parent at (x, y), w x h pixels: the box, its inner line, the corners, the title, the body.
+static fh1_win_t *win_build(lv_obj_t *parent, const char *title, int x, int y, int w, int h)
+{
     fh1_win_t *win = calloc(1, sizeof(*win));
-    win->box = plain(lv_screen_active());
+    win->box = plain(parent);
     lv_obj_add_style(win->box, &st_box, 0);
     // The corner balls and the title sit on the border line, half outside the box: let them draw there,
     // and grow the box's drawing area so those parts are redrawn too.
@@ -1720,11 +1749,17 @@ fh1_win_t *fh1_win_create(const char *title, int w, int h)
 
     win->group = lv_group_create();
     lv_group_set_wrap(win->group, true);
-
-    s_wins[s_nwins++] = win;
-    restyle();
-    open_animated(win);
     return win;
+}
+
+// A window's height changed before it opens (the notice, sized to what it holds).
+static void win_set_height(fh1_win_t *win, int h)
+{
+    lv_obj_set_height(win->box, h);
+    win->ch = h - U(4);
+    lv_obj_set_height(win->inset, win->ch - U(2));
+    lv_obj_set_height(win->body, win->ch - win->body_y - U(3));
+    for (int i = 0; i < 4 && !FRAMED; i++) corner_place(win->balls[i], i, -U(2), -U(2), win->cw + U(4), h, 1);
 }
 
 // After a theme change: the body moves under the new title, the corners change, the title is drawn again.
@@ -1743,8 +1778,9 @@ static void win_relayout(fh1_win_t *w)
     }
     if (FRAMED) {
         if (w->mote) {
-            lv_obj_delete(w->mote);     // restyle gives it the new look's mote
-            w->mote = NULL;
+            lv_obj_delete(w->mote);     // restyle gives it the new look's motes
+            if (w->mote2) lv_obj_delete(w->mote2);
+            w->mote = w->mote2 = NULL;
         }
         for (int i = 0; i < 4; i++) {
             lv_anim_delete(w->balls[i], shake_anim);
@@ -1809,6 +1845,8 @@ static void win_destroy(void *p)
 {
     lv_anim_delete(p, stripe_anim);
     fh1_win_t *win = p;
+    if (win == s_notice) s_notice = NULL;
+    if (win->notice) ov_gone(win);
     if (win->ghost) lv_obj_delete(win->ghost);      // its animations go with it
     free(win->list);
     free(win->views);
@@ -2835,10 +2873,16 @@ static void shake_done(lv_anim_t *a) { lv_image_set_rotation(a->var, 0); }
 // or the window is still opening.
 static void stripe_anim(void *var, int32_t v) {}      // (no animation object any more; kept for lv_anim_delete)
 
+static void look_tick_one(fh1_win_t *w);
 static void look_tick(lv_timer_t *t)
 {
-    fh1_win_t *w = top();
-    if (!w || s_paused || w->ghost || w->building) return;
+    look_tick_one(top());
+    look_tick_one(s_notice);                         // the notice's run too, over a program's picture as well
+}
+
+static void look_tick_one(fh1_win_t *w)
+{
+    if (!w || (s_paused && !w->notice) || w->ghost || w->building) return;
     if (HEX) {
         w->phase = (w->phase + 7) & 7;               // the stripes move right: '/' bands drift with the reading
         title_frame(w);
@@ -2857,16 +2901,27 @@ static void look_tick(lv_timer_t *t)
 }
 
 // The mote of the window in focus moves 20 times a second (only it: a small picture, a small redraw).
+static void mote_tick_one(fh1_win_t *w);
 static void mote_tick(lv_timer_t *t)
 {
-    fh1_win_t *w = top();
-    if (!w || !w->mote || s_paused || w->building) return;
-    int x, y, f;
-    const bool seen = look_mote_at(s_theme->look, s_u, w->cw + U(4), w->ch + U(4), tick_ms(), &x, &y, &f);
-    if (lv_obj_is_hidden(w->mote) == seen) lv_obj_set_hidden(w->mote, !seen);
-    if (!seen) return;
-    if (lv_image_get_src(w->mote) != &s_mote[f]) lv_image_set_src(w->mote, &s_mote[f]);
-    move_to(w->mote, x - U(2), y - U(2));
+    mote_tick_one(top());
+    mote_tick_one(s_notice);
+}
+
+static void mote_tick_one(fh1_win_t *w)
+{
+    if (!w || !w->mote || (s_paused && !w->notice) || w->building) return;
+    for (int which = 0; which < 2; which++) {
+        lv_obj_t *o = which ? w->mote2 : w->mote;
+        if (!o) continue;
+        int x, y, f;
+        const bool seen = look_mote_at(s_theme->look, which, s_u, w->cw + U(4), w->ch + U(4), tick_ms(), &x, &y, &f);
+        if (lv_obj_is_hidden(o) == seen) lv_obj_set_hidden(o, !seen);
+        if (!seen) continue;
+        const lv_image_dsc_t *pic = &s_mote[which * 2 + f];
+        if (lv_image_get_src(o) != pic) lv_image_set_src(o, pic);
+        move_to(o, x - U(2), y - U(2));
+    }
 }
 
 static void on_flourish(fh1_event_id_t id, const void *data, size_t len, void *user)
@@ -2932,66 +2987,34 @@ static int file_type(const char *name)
 }
 
 static struct {
-    lv_obj_t *ghost, *box, *row, *icon, *title, *name, *meter;
+    fh1_win_t *win;                 // the notice window showing it (NULL once it closes)
+    lv_obj_t *row, *icon, *name, *meter;
     lv_timer_t *timer;
     int icon_id;
     uint32_t last_ms;               // the last report
     uint32_t close_at;              // 0: stays open
-    bool closing;
 } s_ov = { .icon_id = -1 };
 
-static void ov_ghost_anim(void *var, int32_t v)
+// The notice window is gone (win_destroy): a program waiting for the screen back gets it.
+static void ov_gone(fh1_win_t *w)
 {
-    const int w = lv_obj_get_width(s_ov.box), h = lv_obj_get_height(s_ov.box);
-    lv_obj_set_size(var, U(12) + (w - U(12)) * v / 256, U(12) + (h - U(12)) * v / 256);
+    if (s_ov.win == w) {
+        if (s_ov.timer) lv_timer_delete(s_ov.timer);
+        memset(&s_ov, 0, sizeof(s_ov));
+        s_ov.icon_id = -1;
+    }
+    if (!s_notice && !s_paused) fh1_app_request_yield(false);     // no program waiting for it any more
 }
 
-static void ov_opened(lv_anim_t *a)
-{
-    lv_obj_set_hidden(s_ov.ghost, true);
-    lv_obj_set_hidden(s_ov.box, false);
-}
-
-static void ov_destroy(void *arg)
-{
-    if (!s_paused) fh1_app_request_yield(false);     // no program waiting for it any more
-    if (s_ov.timer) lv_timer_delete(s_ov.timer);
-    if (s_ov.ghost) lv_obj_delete(s_ov.ghost);
-    if (s_ov.box) lv_obj_delete(s_ov.box);
-    memset(&s_ov, 0, sizeof(s_ov));
-    s_ov.icon_id = -1;
-}
-
-static void ov_closed(lv_anim_t *a) { lv_async_call(ov_destroy, NULL); }
-
-static void ov_animate(int32_t from, int32_t to, lv_anim_completed_cb_t done)
-{
-    lv_anim_delete(s_ov.ghost, ov_ghost_anim);
-    lv_anim_t a;
-    lv_anim_init(&a);
-    lv_anim_set_var(&a, s_ov.ghost);
-    lv_anim_set_exec_cb(&a, ov_ghost_anim);
-    lv_anim_set_values(&a, from, to);
-    lv_anim_set_duration(&a, 250);
-    lv_anim_set_path_cb(&a, to > from ? lv_anim_path_ease_out : lv_anim_path_ease_in);
-    lv_anim_set_completed_cb(&a, done);
-    ov_ghost_anim(s_ov.ghost, from);
-    lv_anim_start(&a);
-}
-
+// Closes as the theme's windows do (the opening in reverse); win_destroy deletes it at the end.
 static void ov_close(void)
 {
-    if (!s_ov.box || s_ov.closing) return;
-    s_ov.closing = true;
-    // Still opening: shrink from where the outline got to.
-    int from = 256;
-    if (lv_anim_get(s_ov.ghost, ov_ghost_anim)) {
-        const int w = lv_obj_get_width(s_ov.box);
-        from = (lv_obj_get_width(s_ov.ghost) - U(12)) * 256 / (w - U(12));
-    }
-    lv_obj_set_hidden(s_ov.box, true);
-    lv_obj_set_hidden(s_ov.ghost, false);
-    ov_animate(from, 0, ov_closed);
+    fh1_win_t *w = s_ov.win;
+    if (!w) return;
+    if (s_ov.timer) lv_timer_delete(s_ov.timer);
+    memset(&s_ov, 0, sizeof(s_ov));                 // a new transfer meanwhile gets a window of its own
+    s_ov.icon_id = -1;
+    close_animated(w);
 }
 
 static void ov_tick(lv_timer_t *t)
@@ -3001,72 +3024,48 @@ static void ov_tick(lv_timer_t *t)
     if ((s_ov.close_at && (int32_t)(now - s_ov.close_at) >= 0) || now - s_ov.last_ms > 15000) ov_close();
 }
 
+// A notice window in the middle of the screen, over everything (a program's picture too): the theme's frame,
+// opening, decorations and mote, as any window in focus. Its body: the file's icon and name, a progress bar.
 static void ov_open(void)
 {
     const int W = U(176);
-    s_ov.box = plain(lv_layer_top());
-    lv_obj_add_style(s_ov.box, &st_box, 0);
-    lv_obj_set_width(s_ov.box, W);
-    lv_obj_set_height(s_ov.box, LV_SIZE_CONTENT);
-    lv_obj_set_style_pad_all(s_ov.box, U(6), 0);
-    lv_obj_set_style_pad_row(s_ov.box, U(4), 0);
-    lv_obj_set_flex_flow(s_ov.box, LV_FLEX_FLOW_COLUMN);
-    lv_obj_t *top_row = s_ov.row = plain(s_ov.box);
+    fh1_win_t *w = win_build(lv_layer_top(), "", (s_w - W) / 2, s_h / 3, W, U(64));
+    w->notice = true;
+    s_notice = s_ov.win = w;
+    lv_obj_set_scrollable(w->body, false);
+    lv_obj_set_style_pad_row(w->body, U(4), 0);
+    lv_obj_t *top_row = s_ov.row = plain(w->body);
     lv_obj_set_size(top_row, LV_PCT(100), LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(top_row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(top_row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(top_row, U(6), 0);
-    lv_obj_t *col = plain(top_row);                // child 0; the icon goes before it
-    lv_obj_set_height(col, LV_SIZE_CONTENT);
-    lv_obj_set_flex_grow(col, 1);
-    lv_obj_set_flex_flow(col, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_row(col, U(2), 0);
-    s_ov.title = lv_label_create(col);
-    lv_obj_add_style(s_ov.title, &st_text, 0);
-    s_ov.name = line_label(col);
-    lv_obj_set_width(s_ov.name, LV_PCT(100));
-    lv_obj_set_style_text_color(s_ov.name, lv_color_hex(s_theme->dim), 0);
-    s_ov.meter = fh1_ui_meter(s_ov.box, NULL);
-    lv_obj_center(s_ov.box);
-    lv_obj_set_hidden(s_ov.box, true);
-    s_ov.ghost = plain(lv_layer_top());
-    lv_obj_add_style(s_ov.ghost, &st_box, 0);
-    lv_obj_center(s_ov.ghost);
+    s_ov.name = line_label(top_row);                // the icon goes before it
+    lv_obj_set_flex_grow(s_ov.name, 1);
+    lv_obj_set_style_text_color(s_ov.name, lv_color_hex(text_rgb()), 0);
+    s_ov.meter = fh1_ui_meter(w->body, NULL);
     s_ov.timer = lv_timer_create(ov_tick, 200, NULL);
 }
 
-// Dressed like a window, once its size is known: the inner line and a ball on each corner.
-static void ov_dress(void)
+// Sized to what it holds, in the middle of the screen, then opened as the theme opens windows.
+static void ov_show(void)
 {
-    const int w = lv_obj_get_width(s_ov.box), h = lv_obj_get_height(s_ov.box);
-    const int edge = -U(8);                         // the box's edge, in its content's coordinates
-    lv_obj_t *inset = plain(s_ov.box);
-    lv_obj_add_style(inset, &st_inset, 0);
-    lv_obj_set_ignore_layout(inset, true);
-    lv_obj_set_pos(inset, edge + U(3), edge + U(3));
-    lv_obj_set_size(inset, w - U(6), h - U(6));
-    lv_obj_move_to_index(inset, 0);
-    lv_obj_set_overflow_visible(s_ov.box, true);
-    lv_obj_add_event_cb(s_ov.box, box_ext_draw, LV_EVENT_REFR_EXT_DRAW_SIZE, NULL);
-    lv_obj_refresh_ext_draw_size(s_ov.box);
-    for (int i = 0; i < 4; i++) {
-        lv_obj_t *b = lv_image_create(s_ov.box);
-        lv_obj_set_ignore_layout(b, true);
-        corner_place(b, i, edge, edge, w, h, 1);
-    }
+    fh1_win_t *w = s_ov.win;
+    lv_obj_update_layout(w->box);
+    const int need = lv_obj_get_y(s_ov.meter) + lv_obj_get_height(s_ov.meter) + U(2);
+    const int h = w->body_y + need + U(3) + U(4);
+    win_set_height(w, h);
+    lv_obj_set_pos(w->box, (s_w - lv_obj_get_width(w->box)) / 2, (s_h - h) / 2);
+    restyle();
+    open_animated(w);
 }
 
 static void on_transfer(fh1_event_id_t id, const void *data, size_t len, void *user)
 {
     if (len != sizeof(fh1_transfer_t)) return;
     const fh1_transfer_t *t = data;
-    // A program owns the screen: ask it to lend it (fh1_ui_lend_screen) so the overlay shows over its picture.
+    // A program owns the screen: ask it to lend it (fh1_ui_lend_screen) so the notice shows over its picture.
     if (s_paused) fh1_app_request_yield(true);
-    if (s_ov.closing) {               // a new transfer while the last one's box goes: start afresh
-        lv_anim_delete(s_ov.ghost, ov_ghost_anim);
-        ov_destroy(NULL);
-    }
-    bool fresh = !s_ov.box;
+    bool fresh = !s_ov.win;
     if (fresh) ov_open();
     // Firmware being installed has its own look; an uploaded file is shown as what its extension says.
     const bool fw = t->kind == FH1_XFER_FIRMWARE;
@@ -3078,9 +3077,14 @@ static void on_transfer(fh1_event_id_t id, const void *data, size_t len, void *u
         s_ov.icon = fh1_ui_icon(s_ov.row, icon, true, true);
         lv_obj_move_to_index(s_ov.icon, 0);
     }
-    lv_label_set_text(s_ov.title, t->state == FH1_XFER_FAILED ? (fw ? T("Update failed") : T("Transfer failed"))
-                                  : t->state == FH1_XFER_DONE ? (fw ? T("Firmware written") : ft >= 0 ? T(s_ftypes[ft].received) : T("File received"))
-                                  : fw ? T("Updating firmware") : ft >= 0 ? T(s_ftypes[ft].receiving) : T("Receiving"));
+    const char *title = t->state == FH1_XFER_FAILED ? (fw ? T("Update failed") : T("Transfer failed"))
+                        : t->state == FH1_XFER_DONE ? (fw ? T("Firmware written") : ft >= 0 ? T(s_ftypes[ft].received) : T("File received"))
+                        : fw ? T("Updating firmware") : ft >= 0 ? T(s_ftypes[ft].receiving) : T("Receiving");
+    if (strcmp(lv_label_get_text(s_ov.win->title), title) != 0) {
+        lv_label_set_text(s_ov.win->title, title);
+        title_layout(s_ov.win);
+    }
+    s_ov.win->alert = t->state == FH1_XFER_FAILED;   // a failure reads as an alert (Hex red, Garden roses...)
     const char *name = t->name[0] ? t->name : T("Over the network");
     if (strcmp(lv_label_get_text(s_ov.name), name) != 0) lv_label_set_text(s_ov.name, name);
     char pct[24];
@@ -3097,11 +3101,8 @@ static void on_transfer(fh1_event_id_t id, const void *data, size_t len, void *u
     fh1_ui_meter_set(s_ov.meter, t->state == FH1_XFER_FAILED ? 100 : t->pct, pct, colour);
     s_ov.last_ms = tick_ms();
     s_ov.close_at = t->state == FH1_XFER_RUNNING ? 0 : s_ov.last_ms + (t->state == FH1_XFER_DONE ? 1500 : 3000);
-    if (fresh) {
-        lv_obj_update_layout(s_ov.box);
-        ov_dress();
-        ov_animate(0, 256, ov_opened);
-    }
+    if (fresh) ov_show();
+    else restyle();
 }
 
 // ── Dialogs ──
@@ -3408,7 +3409,7 @@ static void make_pattern(void)
         W *= s_u;
         H *= s_u;
     } else {
-        // Gen 1: a dot every 4 pixels; Gen 2: a small diamond lattice.
+        // Poke Gen1: a dot every 4 pixels; Poke Gen2: a small diamond lattice.
         for (int y = 0; y < 8; y++) {
             for (int x = 0; x < 8; x++) {
                 bool dot = s_theme->lattice ? (((x + y) % 8 == 0) || ((x - y + 8) % 8 == 0)) : (x % 4 == 0 && y % 4 == 0);
@@ -3487,6 +3488,7 @@ static void apply_theme(void)
     lv_obj_set_style_bg_image_src(scr, &s_pattern_dsc, 0);
     lv_obj_report_style_change(NULL);
     for (int i = 0; i < s_nwins; i++) win_relayout(s_wins[i]);
+    if (s_notice) win_relayout(s_notice);
     // The cursors may have changed size: give each item's cursor its picture again.
     for (int i = 0; i < s_nwins; i++) {
         uint32_t n = lv_group_get_obj_count(s_wins[i]->group);
@@ -4161,7 +4163,7 @@ static void lend_start(void)
     s_lend = LEND_ON;
 }
 
-static bool lend_over(void) { return !s_ov.box || fh1_app_quit_requested(); }
+static bool lend_over(void) { return !s_notice || fh1_app_quit_requested(); }
 
 static void lend_end(void)
 {
@@ -4193,7 +4195,7 @@ static void shutdown_step(lv_timer_t *t)
         }
         return;
     }
-    if (s_ov.box && now - s_shut_t0 < 6000) return;           // an overlay finishing ("Restarting...")
+    if (s_notice && now - s_shut_t0 < 6000) return;           // an overlay finishing ("Restarting...")
     if (now - s_shut_last < 450) return;                      // the last window's animation
     ESP_LOGI(TAG, "restarting");
     esp_restart();

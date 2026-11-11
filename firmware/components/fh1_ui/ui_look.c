@@ -507,20 +507,32 @@ static const char *const s_fly[2][5] = {
     { "oo.k.oo", "oyykyyo", "oywkwyo", ".oykyo.", "..o.o.." },
     { ".o...o.", ".yo.oy.", "..yky..", "...k...", "......." },
 };
+// A bee: a striped body, its wings up then down (a buzz).
+static const char *const s_bee[2][5] = {
+    { ".ww.ww.", "..w.w..", "okykyko", ".okyko.", "......." },
+    { ".......", ".......", "okykyko", "wokykow", ".w...w." },
+};
 static const char *const s_spark[5] = { "..a..", ".aca.", "acWca", ".aca.", "..a.." };
+
+int look_motes(int look) { return look == LOOK_GARDEN ? 2 : look == LOOK_SCIFI ? 1 : 0; }
 
 int look_mote(int look, const look_pal_t *p, int frame, uint32_t *px, int *w, int *h)
 {
     const int u = p->u;
     if (look == LOOK_GARDEN) {
         memset(px, 0, (size_t)7 * u * 5 * u * 4);
-        static const uint32_t cols[4] = { 0x6b4a10, 0xffd84a, 0xfff6c0, 0x3b2a1a };
-        art(px, 7, 5, u, 0, 0, s_fly[frame & 1], 5, false, "oywk", cols);
+        if (frame < 2) {
+            static const uint32_t cols[4] = { 0x6b4a10, 0xffd84a, 0xfff6c0, 0x3b2a1a };
+            art(px, 7, 5, u, 0, 0, s_fly[frame & 1], 5, false, "oywk", cols);
+        } else {
+            static const uint32_t cols[4] = { 0x2a1c10, 0xffc828, 0xe6f2ff, 0x1c140c };
+            art(px, 7, 5, u, 0, 0, s_bee[frame & 1], 5, false, "oywk", cols);
+        }
         *w = 7 * u;
         *h = 5 * u;
         return 1;
     }
-    if (look == LOOK_SCIFI) {
+    if (look == LOOK_SCIFI && frame < 2) {
         memset(px, 0, (size_t)5 * u * 5 * u * 4);
         const uint32_t c = frame ? mix(p->ink, 0xffffff, 60) : p->ink;
         for (int y = 0; y < 5; y++)
@@ -536,51 +548,171 @@ int look_mote(int look, const look_pal_t *p, int frame, uint32_t *px, int *w, in
     return 0;
 }
 
-// Where the mote is at t (ms) on a window w x h pixels: the sprite's top-left from the box's outer top-left, and
-// which picture; returns 0 while it is out of sight. Garden: a butterfly flits clockwise from flower to flower,
-// arcing outside the frame, and rests on each a while, opening and closing its wings. Sci-fi: a spark runs along
-// the line of light and slips under the corner brackets.
-int look_mote_at(int look, int u, int w, int h, uint32_t t, int *x, int *y, int *frame)
+// The motes' wanderings are a loop of stops (or runs) chosen by a hash: the same on every window of a size, never
+// the same twice in a row, and a function of the time alone (nothing to keep between frames).
+static uint32_t mote_hash(uint32_t a)
 {
-    if (look == LOOK_GARDEN) {
-        // the flowers' centres: 2 units outside each corner
-        const int x0 = -2 * u, y0 = -2 * u, x1 = w + 2 * u - 1, y1 = h + 2 * u - 1;
-        const int len[4] = { x1 - x0, y1 - y0, x1 - x0, y1 - y0 };
-        const int px_[5] = { x0, x1, x1, x0, x0 }, py_[5] = { y0, y0, y1, y1, y0 };
-        const uint32_t rest = 1600, speed = 30;             // ms on a flower; units a second
-        uint32_t legs[4], total = 0;
-        for (int k = 0; k < 4; k++) total += (legs[k] = rest + (uint32_t)len[k] * 1000 / (speed * (uint32_t)u));
+    a ^= a >> 16;
+    a *= 0x7feb352du;
+    a ^= a >> 15;
+    a *= 0x846ca68bu;
+    return a ^ (a >> 16);
+}
+
+static int isqrt(int v)
+{
+    int r = 0;
+    while ((r + 1) * (r + 1) <= v) r++;
+    return r;
+}
+
+// A corner's flower (its centre, 2 units outside the corner): 0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right.
+static void flower_at(int k, int u, int w, int h, int *x, int *y)
+{
+    *x = k & 1 ? w + 2 * u - 1 : -2 * u;
+    *y = k & 2 ? h + 2 * u - 1 : -2 * u;
+}
+
+#define FLY_STOPS 40
+#define BEE_STOPS 12
+
+// The butterfly's stop i: anywhere over the window and a little past its edges, or now and then a flower; how long
+// it rests there (a blink, a while, or long on a flower).
+static void fly_stop(int i, int u, int w, int h, int *x, int *y, uint32_t *rest)
+{
+    const uint32_t r = mote_hash((uint32_t)i * 2654435761u + 0x51edu);
+    if ((r >> 24) % 5 == 0) {                                   // one stop in five
+        flower_at((r >> 8) & 3, u, w, h, x, y);
+        *rest = 1800 + (r >> 12) % 2600;
+    } else {
+        *x = -2 * u + (int)((r >> 4) % (uint32_t)(w + 4 * u));
+        *y = -2 * u + (int)((r >> 14) % (uint32_t)(h + 4 * u));
+        *rest = ((r >> 28) & 3) == 0 ? 150 : 400 + (r >> 20) % 2600;
+    }
+}
+
+// The bee's stop i: a flower, never the one it just left; long stays.
+static int bee_corner(int i)
+{
+    int k = 0;
+    for (int j = 1; j <= i; j++) k = (k + 1 + (int)(mote_hash((uint32_t)j * 40503u + 7u) % 3)) & 3;
+    return k;
+}
+
+// How long a leg of a wandering takes: a flight at speed (units a second) over the distance between two points.
+static uint32_t flight_ms(int x0, int y0, int x1, int y1, int u, int speed)
+{
+    const int d = isqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
+    const uint32_t ms = (uint32_t)d * 1000u / (uint32_t)(speed * u);
+    return ms < 250 ? 250 : ms;
+}
+
+// Where the mote is at t (ms) on a window w x h pixels: the sprite's top-left from the box's outer top-left, and
+// which picture (look_mote's frame); returns 0 while it is out of sight. Garden: the butterfly (which 0) wanders
+// over the whole window, resting at random a blink, a while or long, on a flower now and then, flying in fluttering
+// arcs; the bee (which 1) darts in zig-zags from flower to flower, stays long, and wobbles after 3 to 5 s there.
+// Sci-fi: the spark appears at a random point of the line of light, runs along it either way a while, slips
+// under the corner brackets, and goes out until the next run.
+int look_mote_at(int look, int which, int u, int w, int h, uint32_t t, int *x, int *y, int *frame)
+{
+    if (look == LOOK_GARDEN && which == 0) {
+        int sx[FLY_STOPS], sy[FLY_STOPS];
+        uint32_t rest[FLY_STOPS], fly[FLY_STOPS], total = 0;
+        for (int i = 0; i < FLY_STOPS; i++) fly_stop(i, u, w, h, &sx[i], &sy[i], &rest[i]);
+        for (int i = 0; i < FLY_STOPS; i++) {
+            const int j = (i + 1) % FLY_STOPS;
+            fly[i] = flight_ms(sx[i], sy[i], sx[j], sy[j], u, 28);
+            total += rest[i] + fly[i];
+        }
         uint32_t m = t % total;
-        int k = 0;
-        while (m >= legs[k]) m -= legs[k++];
-        int cx, cy;
-        if (m < rest) {                                     // resting on corner k's flower
-            cx = px_[k];
-            cy = py_[k];
-            *frame = (m / 500) & 1;
-        } else {
-            const int f = (int)((m - rest) * 256 / (legs[k] - rest));
-            cx = px_[k] + (px_[k + 1] - px_[k]) * f / 256;
-            cy = py_[k] + (py_[k + 1] - py_[k]) * f / 256;
-            // an arc outwards with a flutter in it: up to 5 units out, a 1-unit bob every 300 ms
+        int i = 0;
+        while (m >= rest[i] + fly[i]) {
+            m -= rest[i] + fly[i];
+            i++;
+        }
+        int cx = sx[i], cy = sy[i];
+        if (m < rest[i]) *frame = (m / 550) & 1;                 // resting: its wings open and close slowly
+        else {
+            const int j = (i + 1) % FLY_STOPS, f = (int)((m - rest[i]) * 256 / fly[i]);
+            const uint32_t r = mote_hash((uint32_t)i + 991u);
+            // an arc to one side or the other (6 to 20 units at its middle) with a flutter in it
             static const int8_t arc[17] = { 0, 18, 34, 48, 60, 70, 77, 82, 84, 82, 77, 70, 60, 48, 34, 18, 0 };
-            const int out = arc[f * 16 / 256] * 5 * u / 84 + (((m / 150) & 1) ? u : 0);
-            if (k == 0) cy -= out;
-            else if (k == 1) cx += out;
-            else if (k == 2) cy += out;
-            else cx -= out;
+            const int amp = (6 + (int)(r % 15)) * u * ((r >> 8) & 1 ? 1 : -1), side = arc[f * 16 / 256] * amp / 84;
+            const int dx = sx[j] - sx[i], dy = sy[j] - sy[i], d = isqrt(dx * dx + dy * dy) + 1;
+            cx += dx * f / 256 - dy * side / d;
+            cy += dy * f / 256 + dx * side / d + (((m / 150) & 1) ? u : 0);
             *frame = (m / 90) & 1;
         }
         *x = cx - 3 * u;
         *y = cy - 3 * u;
         return 1;
     }
-    if (look == LOOK_SCIFI) {
+    if (look == LOOK_GARDEN && which == 1) {
+        int bx[BEE_STOPS], by[BEE_STOPS];
+        uint32_t stay[BEE_STOPS], calm[BEE_STOPS], fly[BEE_STOPS], total = 0;
+        for (int i = 0; i < BEE_STOPS; i++) {
+            const uint32_t r = mote_hash((uint32_t)i * 2246822519u + 0xbeeu);
+            flower_at(bee_corner(i), u, w, h, &bx[i], &by[i]);
+            bx[i] += ((int)(r % 5) - 2) * u;                    // somewhere on the flower
+            by[i] += ((int)((r >> 4) % 3) - 1) * u;
+            stay[i] = 4000 + (r >> 8) % 4000;
+            calm[i] = 3000 + (r >> 16) % 2000;                  // still for 3 to 5 s, then it wobbles
+            if (calm[i] > stay[i]) calm[i] = stay[i];
+        }
+        for (int i = 0; i < BEE_STOPS; i++) {
+            const int j = (i + 1) % BEE_STOPS;
+            fly[i] = flight_ms(bx[i], by[i], bx[j], by[j], u, 70);
+            total += stay[i] + fly[i];
+        }
+        uint32_t m = t % total;
+        int i = 0;
+        while (m >= stay[i] + fly[i]) {
+            m -= stay[i] + fly[i];
+            i++;
+        }
+        int cx = bx[i], cy = by[i];
+        *frame = (m / 45) & 1;                                  // it buzzes all the time
+        if (m < stay[i]) {
+            if (m >= calm[i]) cx += ((m / 110) & 1) ? u : -u;    // a wobble on the flower
+            else cy += ((m / 400) & 1) ? 0 : -(u + 1) / 2;     // a slight hover
+        } else {
+            const int j = (i + 1) % BEE_STOPS, f = (int)((m - stay[i]) * 256 / fly[i]);
+            const int dx = bx[j] - bx[i], dy = by[j] - by[i], d = isqrt(dx * dx + dy * dy) + 1;
+            // a zig-zag across its line: a triangle wave, 3 units each way, every 240 ms
+            const int ph = (int)((m - stay[i]) % 240), tri = ph < 120 ? ph - 60 : 180 - ph;
+            const int side = tri * 3 * u / 60;
+            cx += dx * f / 256 - dy * side / d;
+            cy += dy * f / 256 + dx * side / d;
+        }
+        *x = cx - 3 * u;
+        *y = cy - 2 * u;
+        return 1;
+    }
+    if (look == LOOK_SCIFI && which == 0) {
         // the line of light: 3 units in from the outer edge (the strip's row 3)
         const int x0 = 3 * u, y0 = 3 * u, x1 = w - 3 * u - 1, y1 = h - 3 * u - 1;
         const int P = 2 * (x1 - x0) + 2 * (y1 - y0);
         if (P <= 0) return 0;
-        int d = (int)(t * 70u * (uint32_t)u / 1000u) % P, cx, cy;
+        // runs: a random start on the line, a random way and length, then out of sight a moment
+        enum { RUNS = 16 };
+        uint32_t run[RUNS], gap[RUNS], total = 0;
+        for (int i = 0; i < RUNS; i++) {
+            const uint32_t r = mote_hash((uint32_t)i * 3266489917u + 0x5a5au);
+            const int len = P / 5 + (int)((r >> 10) % (uint32_t)(P / 3 + 1));
+            run[i] = (uint32_t)len * 1000u / (70u * (uint32_t)u);
+            gap[i] = 250 + (r >> 22) % 1100;
+            total += run[i] + gap[i];
+        }
+        uint32_t m = t % total;
+        int i = 0;
+        while (m >= run[i] + gap[i]) {
+            m -= run[i] + gap[i];
+            i++;
+        }
+        if (m >= run[i]) return 0;
+        const uint32_t r = mote_hash((uint32_t)i * 3266489917u + 0x5a5au);
+        const int start = (int)(r % (uint32_t)P), way = (r >> 8) & 1 ? 1 : -1;
+        int d = ((start + way * (int)(m * 70u * (uint32_t)u / 1000u)) % P + P) % P, cx, cy;
         if (d < x1 - x0) { cx = x0 + d; cy = y0; }
         else if ((d -= x1 - x0) < y1 - y0) { cx = x1; cy = y0 + d; }
         else if ((d -= y1 - y0) < x1 - x0) { cx = x1 - d; cy = y1; }
