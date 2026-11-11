@@ -1,10 +1,9 @@
-# Builds the firmware for every board, the packages, the browser emulator and the site; publishes the site
-# to GitHub Pages from main. Other branches build everything (and keep the artifacts) without publishing.
-# A vX.Y.Z tag also creates its GitHub release, with each board's firmware and the CHANGELOG.md entry.
+# A release: a vX.Y.Z tag (on main) builds the firmware for every board, the packages, the browser emulator
+# and the site, creates the GitHub release (each board's firmware, the packages, the CHANGELOG.md entry) and
+# publishes the site to GitHub Pages. Run by hand on a branch, it builds everything without releasing.
 name: Site
 on:
   push:
-    branches: [main, "feature/**"]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -82,8 +81,8 @@ jobs:
 
   deploy:
     name: Publish
-    if: github.ref == 'refs/heads/main'
-    needs: site
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [site, release]
     runs-on: ubuntu-latest
     permissions:
       pages: write
