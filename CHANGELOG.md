@@ -2,6 +2,20 @@
 
 Releases of the FH1 firmware and its apps, newest first. Each is a tag (`vX.Y.Z`) on `main`.
 
+## 0.3.4 (2026-11-11)
+
+The simulator stays up: its JIT no longer runs a browser out of executable memory.
+
+### Simulator
+
+- **Fixed:** after a few loads the simulator could stop at the boot screen with the console full of
+  "[jit] compilation failed: out of memory". Every hot block was a WebAssembly module of its own, nearly ten
+  thousand in a minute and a half, more than a browser lets a page hold. The JIT now compiles at most 2,000 live
+  modules, and at the first out-of-memory error stops for good with one line in the console, the blocks already
+  compiled still running. Measured on the FH1 firmware, the cap also boots twice as fast as compiling everything.
+- **Restart** and **your own firmware** start a fresh worker, so compiled code is freed with the old one.
+- **Twice the real size:** the FH1 is drawn at 2 times its 80 mm (as wide as the window allows).
+
 ## 0.3.3 (2026-11-11)
 
 Táticas da Ilha does less than half the work for the same picture, and the simulator shows the FH1 larger.
