@@ -117,6 +117,22 @@ stag), once, and lies still, its colour draining to a dim grey in under a second
 - **Heroes as equipped:** on the title the roster walks in place and turns, in its armour and with its weapons;
   on the party screen the chosen card's hero does, the others stand.
 - **The shop** is on the party screen (Loja, beside Pronto); a battle's end goes back to the party.
+- **Turning the map:** Select (or R1) spins the battlefield a quarter round the cursor, L1 the other way;
+  "girar" shows in the corner while choosing. The cursor stays where it is on screen and the D-pad keeps moving
+  it as on screen.
+- **Water** ripples, a wave rolling across the sea; in the fire realm the lava does.
+- **Bosses arrive:** in a boss battle with minions, the boss is off the field until they are all down. Then the
+  ground rumbles ("Algo se aproxima..."), its shadow grows on its cell (or the nearest free one), and it comes: the
+  Alpha drops from the sky and lands with a shake, the ground cracking round it (looks only); the King Slime lands
+  and bounces once; an Elemental descends slowly in a swirl of its element and lands in a flash. Its name shows,
+  and the battle goes on. Its card says "vindo" meanwhile.
+- **Spells grow with their caster:** tier 1 up to level 4, tier 2 up to 9, tier 3 from 10. Fogo: bigger bursts,
+  then flames rising and the air waving with heat, then a shake. Onda: more splash and drops, then the screen
+  waving. Rocha: a rock drops onto the target and shatters, then more round it with the ground cracking and
+  shaking. Trovão: the bolt, then a negative flash, then a shake. Cura: more sparkles.
+- **Creatures stand out from their ground:** each realm tints its creatures with its element apart from its
+  scenery: fire charcoal to flame gold over red rock, water navy to ice, earth umber to sandstone over grass and
+  dirt, air ochre to pale gold.
 - **Menus:** the chosen line waves, a letter at a time, once a second (its note on the right stays still). In a
   hero's menu the west face button (Square, X on an Xbox pad, Y on the FH1) goes straight to Esperar.
 - **Button icons** in the hints are player 1's controller's (SDK 0.8's `fh1_px_key`), and change with it.
@@ -133,12 +149,36 @@ goes back to each class's level 0, and the old weapons and armour in the bag are
 
 ## Development commands
 
-`dev_command` in `isotest.c`, from the FH1's console (`op dev "..."`) or a PC host script. Outside a battle:
-`go REALM FASE BATTLE` (straight to its loading screen; realms 0 Fogo, 1 Água, 2 Terra, 3 Ar; fases and battles
-from 0), `won REALM FASE N`, `level HERO N`, `coins N`, `give GOODS N`, `screen title|party|realms|path|shop`. In a
-battle: `place`, `act`, `counter`, `target`, `gear`, `ranged`, `cam`, `xp`, `hp`, `win`, `lose`, `log`. Anywhere:
-`nosave`, `info`. Host scripts: `host/realms.script` (the new screens and a battle per realm),
-`host/effects.script` (elemental weapons, falling over), `host/elemental.script` (an Elemental's aura and blast),
-`host/resist.script` (a fire bite on plain and fire plate, the shop after the fire fase, a hero's attributes),
-`host/v08.script` (heroes in their gear, the controller styles' icons (host commands `pad fh1|xbox|nintendo|ps`),
-Loja, the magic list, Esperar, the elemental arrows, a caster, another user taking player 1 over (`user NAME`)).
+`dev_command` in `isotest.c`, from the FH1's console (`op dev "..."`) or a PC host script.
+
+- **Anywhere:** `nosave` (the saved game stays as it was until the game closes), `info` (the frame time on
+  screen), `go REALM FASE BATTLE` (straight to its loading screen; realms 0 Fogo, 1 Água, 2 Terra, 3 Ar; fases and
+  battles from 0), `test REALM` (the test field in a realm's colours); a battle under way is left.
+- **Outside a battle:** `won REALM FASE N`, `level HERO N`, `coins N`, `give GOODS N`,
+  `screen title|party|realms|path|shop`.
+- **In a battle:** `place`, `act`, `counter`, `target`, `gear`, `ranged`, `cam`, `xp`, `hp`, `win`, `lose`, `log`;
+  `turn 1|-1` (as Select does), `view 0..3` (at once), `turnstyle 0|1` (spinning, narrowing); `obj C R TILE FX`,
+  `height C R H FX`, `top C R TILE FX` (the scenery changing: TILE a tile's number, -1 none; FX 0 at once, 1
+  breaking, 2 dropping, 3 rising, 4 fading, 5 teleporting), `float C R BASE BOB`, `crack C R POWER`,
+  `dropon C R TILE` (looks only); `cast EL TIER C R` (a spell's looks at a cell; EL 0 healing, 1 fire, 2 water,
+  3 earth, 4 air), `tier N` (every spell at a tier; 0: by level), `screen KIND MS STRENGTH` (0 negative, 1 wave,
+  2 shake); `kill UNIT` (-1: every creature but the bosses; a waiting boss then comes), `boss` (a waiting boss
+  called in now); `relayer` (the layer built again from scratch), `checklayer` (the layer against a fresh build:
+  "check: layer ok"), `bench` (what turns, the ripple and scenery changes cost, to the log).
+
+**The test field** (`battle_test`, "Campo de Testes"): 14 × 14, heights 0 to 6 (a stair up to a tower), a channel
+of water, a yard, rocks, plants and stumps, a still floating slab and two groups of bobbing ones; three heroes,
+two of the realm's creatures and its Alpha waiting off the field.
+
+**The suite:** `host/suite.sh [--device] [GROUP...]` runs the scripts in `host/tests/` (views, water, scenery,
+float, effects, spells, overlays, boss, colors, stress) and the older ones (regress), in sets (quick, the default;
+engine, game, all), and fails on writes outside the frame, commands not taken, layers that differ from a full
+build, checks that never reported, and crashes. Screenshots and a contact sheet per group: `host/out/suite/GROUP/`.
+`--device` runs them on the FH1 (`FH1_CODE`).
+
+**Older host scripts:** `host/realms.script` (the screens and a battle per realm), `host/effects.script`
+(elemental weapons, falling over), `host/elemental.script` (an Elemental's aura and blast), `host/resist.script`
+(a fire bite on plain and fire plate, the shop after the fire fase, a hero's attributes), `host/v08.script`
+(heroes in their gear, the controller styles' icons (host commands `pad fh1|xbox|nintendo|ps`), Loja, the magic
+list, Esperar, the elemental arrows, a caster, another user taking player 1 over (`user NAME`)). Any script runs on
+the FH1 through `host/device.py`.

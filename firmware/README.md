@@ -309,70 +309,11 @@ only now and then (settings, installs, game saves on exit, updates).
 
 ## Writing an app
 
-An app is a small ESP-IDF project that includes only [`fh1_sdk.h`](components/fh1_sdk/include/fh1_sdk.h). [`apps/packages/hello`](apps/packages/hello) is the template.
-
-```sh
-cd apps/packages/hello
-idf.py set-target esp32s3        # once
-idf.py elf                       # builds build/hello.app.elf only
-../../../tools/fpk.py pack .     # writes org.fh1.hello-0.2.0.fpk
-../../../tools/fpk.py upload org.fh1.hello-0.2.0.fpk --code <code>
-```
-
-`upload` stores the package on the SD card (`--to int` for internal storage); the console's upload has the same choice. Then install it from the console's Packages list or from the Installer window. Packages copied to `/sd/packages/` on a computer show up there too.
-
-**SDK 0.2** adds the players' controllers (`fh1_pad`, `fh1_pad_info`: buttons, sticks, triggers, gyro and
-accelerometer; `fh1_pad_motion` to stream motion, `fh1_pad_hold_keys` so player 1's controller plays instead
-of driving the menus, both undone when the app unloads) and a canvas to draw on (`fh1_canvas*`: fill,
-rectangles, lines, circles, text, in window units). [`apps/packages/duel`](apps/packages/duel) ("Duelo") uses
-them (and SDK 0.3's triangles and text width): a sword duel for two players, best of three rounds. The
-controllers' motion are the blades (turned on its side: the height; a swing strikes); a shoulder button guards
-(pressed just before a blow: a parry that stuns), the right face button dodges back. Without motion the D-pad
-aims and the bottom button strikes; the FH1 plays when player 2 has no controller. A how-to screen per
-controller comes first; the fighters are 16-bit fighting-game sprites (black outline, four tones and a shine,
-a three-quarter stance; [`fighter.c`](apps/packages/duel/main/fighter.c)) under a night sky with a cherry tree.
-
-Packages build with ESP-IDF's default `-Og`; an app that draws in loops should set
-`CONFIG_COMPILER_OPTIMIZATION_PERF=y` in its `sdkconfig.defaults` (Duelo's sprites draw twice as fast).
-
-**SDK 0.4** adds users, without asking anything of apps: the system shows who plays when an app starts, and
-`fh1_app_data_dir()` is player 1's user's folder, so saves are per user already. For apps that want more:
-`fh1_user` (who plays as a player), `fh1_user_face` (their animated face, 16 or 32), `fh1_notify` (a
-notification with player 1's face), `fh1_setting_get` / `fh1_setting_set` (short texts by key) and
-`fh1_state_save` / `fh1_state_load` (whole saved states, checked when loaded), all kept in that folder. Hello
-0.2.0 greets player 1 with their face, counts visits in a setting and keeps its count as a state.
-
-**SDK 0.5** gives an app the whole screen, for games: `fh1_screen_open(period_ms, frame, closed, user)` calls
-`frame(px, w, h, dt_ms, user)` on a task of its own, with a back buffer to draw into; it returns
-`FH1_FRAME_SHOW`, `FH1_FRAME_SAME` or `FH1_FRAME_END`. `fh1_app_dir()` is the installed folder (the package's
-`assets/`), and `fh1_px_text` writes in the interface's font. [`apps/packages/isotest`](apps/packages/isotest)
-uses them: the isometric engine and its art pack, built from `../assets/packs/` by `tools/fh1art.py`
-(`fh1art.py build art.json` before packing; see `docs/game-engines.md`).
-
-**SDK 0.6** passes development commands from the console to the running app (`fh1_dev_command`;
-`tools/fh1dev.py op dev "TEXT"`), to reach a scene without playing to it. **SDK 0.7** adds asset packages shared
-by apps (`fh1_asset_dir`, an app's `"uses"`) and sound effects mixed by the firmware (`fh1_sfx_play` / `_stop` /
-`_stop_all` / `_playing`; see `docs/sound-and-shared-assets.md`).
-
-**SDK 0.8** shows player 1's controller in pictures: `fh1_pad_style()` (the FH1's coloured caps, an Xbox pad's
-letters in their colours, a Nintendo pad's letters, a PlayStation pad's shapes) and `fh1_px_key` (a key's icon
-in that style into a full-screen buffer, as the windows' footers draw it). The footers' chips change with the
-controller on their own. An app's data folder is now player 1's user's at every call: when another user takes
-player 1's controller over mid-game, saves and settings go to that user's folder (Táticas da Ilha loads their
-progress when it sees `fh1_user(0, ...)` change).
-
-**Rules for apps:**
-- Use only the SDK functions and the C library subset listed at the top of `fh1_sdk.h`. Anything else fails to load with "can't find symbol".
-- Never assume hardware. Check `fh1_caps()`, or call the API anyway: when a device is missing, calls return `FH1_UNAVAILABLE` instead of failing.
-- The app stays loaded while it has windows or timers. `fh1_app_exit()` closes them and unloads it.
-- Save data under `fh1_app_data_dir()`. Uninstalling deletes that folder.
-
-**Reading a crash or a profile inside an app:** the console logs where the app's code went when it starts
-(`run: starting org.fh1.isotest 0.8.2 (...), text at 0x3c2b7b84, linked at 0x3394`). The CPU runs that code at the
-same offset from `0x42000000` as the address shown has from `0x3c000000`, so a program counter `pc` in the app is
-`pc - 0x422b7b84 + 0x3394` in its ELF. The packaged `app.elf` has no symbols: build once with
-`idf.py -DELF_LOADER_KEEP_DEBUG_ELF=ON elf` in the app's folder for `build/<name>.app.elf.debug` (same code, with
-symbols and lines), then `xtensa-esp32s3-elf-addr2line -f -e build/<name>.app.elf.debug <address>`.
+An app is a small ESP-IDF project that includes only [`fh1_sdk.h`](components/fh1_sdk/include/fh1_sdk.h), packed
+into a package (`.fpk`) and installed on the device; [`apps/packages/hello`](apps/packages/hello) is the template.
+Everything about writing apps and games (the build loop, the API by SDK version, the example apps, the isometric
+engine, testing, debugging, rules, known issues, limits and how to change the SDK) is in the SDK guide,
+[`docs/sdk.md`](docs/sdk.md).
 
 ## Layout
 

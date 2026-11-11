@@ -76,8 +76,8 @@ it can change without flashing firmware, then moved into the firmware once its A
 - **Isometric map:** cells with a height; 2:1 diamonds (32 x 16 top face for 32 x 32 tiles), a height step in
   pixels per map; ground, decoration and object layers. The cell under the cursor is found from the screen,
   heights included.
-- **Static scenery drawn once:** the map is drawn into a PSRAM layer, again only when tiles change; camera moves
-  copy from it. Each frame redraws only what changed: a sprite's old and new rectangles are restored from the
+- **Static scenery drawn once:** the map is drawn into a PSRAM layer, again only when tiles change, the view
+  turns or an animated tile's frame changes (only that tile's box); camera moves copy from it. Each frame redraws only what changed: a sprite's old and new rectangles are restored from the
   layer, sprites are drawn in depth order, then the tile parts in front of them are drawn again.
 - **Sprites:** RGB565 with 1-bit transparency, trimmed to their pixels, an anchor at the feet; animations of a
   few frames at their own rate (4–8 frames a second), so a mostly static scene costs little CPU.
@@ -217,4 +217,57 @@ it can change without flashing firmware, then moved into the firmware once its A
   facing (`"files"`), some frames of a tag (`"pick"`), hues turned (`"recolor"`: the fire slimes from the purple
   ones, the crown kept), whole-number upscaling. New art: Scrabling's boar, badger and stag, and the slime pack
   (`assets/packs/free-slimes`: slimes and king slimes in four colours).
+- **0.9:** four views and animated scenery.
+  - **Views:** `iso_turn` turns the map a quarter round the cursor (Select or R1 one way, L1 the other; "girar"
+    in the corner while choosing), the cursor's cell kept where it was on screen; the layer is rebuilt once, half
+    way. It spins (480 ms): screen offsets from the cursor on the ground turn by `[[cos a, -2 sin a],
+    [sin a / 2, cos a]]` (the isometric projection of the plane turned by a), so each screen pixel reads the
+    cached layer where it comes from (two additions a pixel); units stand upright, carried with the ground under
+    them; marks, the cursor and the scenery over units wait for the end. Heights lean a little half way, which
+    reads as perspective. The other style (`ISO_TURN_NARROW`) narrows the picture to a line and widens it. The engine maps cells to
+    the view's cells for drawing, depth order and the scenery over units; cells, facings and paths stay in map
+    coordinates, and `iso_map_dir` turns a D-pad press into a map facing, so Up stays up. Units face
+    `(facing + view) % 4` on screen; objects mirror on the odd views; blocks keep their light from one side.
+  - **Scenery animations:** `iso_tile_anim` gives a tile frames, timed together, scattered or as a wave rolling
+    across the map. The layer keeps the frame each animated cell shows; a frame change draws that cell's box
+    again (the sky, then every column reaching into it, back to front), only for cells on screen. The water
+    ripples: `fh1art.py`'s `"tile_anims"` moves a wave through the tile's brightness levels (every frame a step
+    of the wave).
+  - **Grading the images:** `iso_grade` recolours the scenery's images in place (`fart_recolor`, from a kept
+    copy of their pixels) instead of the built layer, so redraws, the new views and the scenery drawn over units
+    all have the realm's colours (the scenery over units used to show the ungraded art); lava ripples too.
+    `iso_free` puts the shared art back.
+  - **Memory:** the copies share 16 KB blocks and the engine's small tables ask for a little more than 4 KB, so
+    all of it is in PSRAM (ESP-IDF serves blocks of up to 4 KB from internal RAM); a battle leaves ~27 KB of
+    internal RAM free on the Guition.
+  - **Changing the scenery:** `iso_set_obj`, `iso_set_height`, `iso_set_top` with a transition (`ISO_FX_BREAK`,
+    `_DROP`, `_RISE`, `_NONE`). The cell takes its new state at once; while the transition plays, the layer shows
+    what stays put (a column's lower blocks, a cell without the object coming) and the moving part is drawn in
+    depth order with the units: a column rising or sinking whole, clipped by a V at its base (a block's lower
+    edges) so it comes out of and goes into the ground; an object rising out of its cell's top; things falling from
+    64 pixels up, landing with a bounce and dust the colour of the ground. What breaks is cut into pieces of 8 to
+    16 pixels by drawing the image clipped to each piece, flying out from its middle and falling (each piece's
+    place is a function of time: no state), dimmed at the end. When it ends, the layer is drawn again round the
+    column. `on_change` plays the sounds (a crack, a rumble, a thud on landing).
+  - **More transitions:** `ISO_FX_FADE` (an ordered 4 × 4 dither, `fart_draw_dither`) and `ISO_FX_TELEPORT` (the
+    image unpacked, `fart_unpack`, and drawn as blocks of colour from 8 pixels down to 1, dithered in, with sparks
+    rising; going, the reverse). What fades or teleports is a list of parts (a column's blocks and its object) the
+    change draws in depth order while the layer shows what stays.
+  - **Floating and bobbing:** a cell's column starts at `base` (nothing under it) and may bob with a group
+    (`bob`, ±3 pixels over 1.8 s, each group in its own phase). Bobbing columns are left out of the layer and drawn
+    each frame in depth order (carried round during a spin like units); units standing on them bob with them.
+  - **Looks only:** `iso_crack` (the top face's pieces fly while the tile stays) and `iso_drop_on` (an image falls
+    onto a cell, after units on it, and shatters), each with a delay, telling `on_change` when they hit.
+  - **A layer check:** `iso_check_layer` builds the layer afresh into a spare buffer and counts the pixels that
+    differ under the camera; every test runs it after its changes.
+  - **The whole screen** (`fx.c`): `fx_screen` starts a negative flash (fully inverted, then easing back), a wave
+    (each row slid by a sine of its height) or a shake (an offset the game adds to the camera while drawing), at a
+    strength 1–3; `fx_screen_apply` draws the first two over the frame, before the game's panels.
+  - **The water's loop:** 6 frames of 170 ms; the still tile is not one of them, so the loop never rests on a
+    flat frame.
+  - **Measured on the Guition:** a frame 6–8 ms; spinning 10–12 ms; the layer rebuilt in 11 ms; all 52 water cells
+    redrawn at once in 13–14 ms; four scenery changes running 7 ms (the `bench` command). On the 14 × 14 test field:
+    a frame 7 ms, spinning 12–14 ms, four changes 9 ms, the layer rebuilt in 18–19 ms, 68 water cells in 20–21 ms.
+  - **Tests:** the test field (`test REALM`) and `host/suite.sh`, groups of end-to-end scripts on the PC or the FH1
+    (`docs/sdk.md`, "Testing"; `docs/taticas-da-ilha.md`, "Development commands").
 

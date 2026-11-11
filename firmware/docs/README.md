@@ -2,6 +2,7 @@
 
 | File | What |
 |---|---|
+| [`sdk.md`](sdk.md) | Writing apps and games: how the SDK fits together, the build loop, the API by area, the isometric engine, testing, debugging, rules, known issues and limits, changing the SDK |
 | [`users.md`](users.md) | Users: identity, avatars, friends. The design and formats |
 | [`sound-and-shared-assets.md`](sound-and-shared-assets.md) | Sound effects and a shared asset pool: the sound pack measured, what the FH1 should get, the plan |
 | [`themes.md`](themes.md) | Themes: the palettes, looks and voices, how a framed look is drawn and animated, what motion costs, and how to add a theme |

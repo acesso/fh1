@@ -32,7 +32,7 @@ Future ideas and pending work; each leaves this list when it lands.
 
 - **Asset import toolkit (SDK):** offline tools that fit a sprite sheet or sound from any source to the FH1. They check a sprite set has the frames an app needs (isometric or plain 2D), check audio and downsample or convert it, using ffmpeg or ImageMagick when installed. They build on `firmware/tools/fh1art.py` and `firmware/tools/fh1sfx.py`.
 - **2D → isometric converter:** a best-effort tool that turns plain 2D sprites into isometric ones.
-- **Contributor guide:** for people and their AI tools. It covers building an app for the FH1, what the SDK and firmware provide, what to do when an app needs something they don't (an SDK or firmware change), and how to propose changes as pull requests.
+- **Game engine in the SDK:** the isometric engine (`firmware/apps/packages/isotest/main`: maps, units, four views, scenery animations, art packs, effects) as a firmware module offered through the SDK, so games share one copy.
 - **Theme and sound packages:** themes and voices as installable packages (the palette, the look's pictures as
   art, the sounds as a bank) listed in the Temas app beside the built-in ones, with a live preview; footer chips
   and status icons drawn by the look too.
@@ -41,7 +41,14 @@ Future ideas and pending work; each leaves this list when it lands.
   - faster in the browser;
   - the micro-SD card and Wi-Fi.
 - **FH1 board firmware:** the ES8311 codec setup, the micro-SD slot, the battery level, the IMU.
-- **Táticas da Ilha:** difficulty that adapts to the player.
+- **Táticas da Ilha:**
+  - difficulty that adapts to the player;
+  - the shadow villain: a humanoid figure (the banado base body, dark, its eyes lit), never seen until the
+    battle with him, as the game's last boss;
+  - bosses with skills of their own and sizes beyond twice (a boss's own entrance and attacks, drawn for it);
+  - spells with art of their own at each tier.
+- **Isometric engine:** ground under a floating slab (a cell with a column and a slab over it), and a shadow
+  on it.
 
 ## Layout
 
@@ -57,6 +64,7 @@ Future ideas and pending work; each leaves this list when it lands.
 | `hardware/modules/` | Module notes: dimensions and pinouts read off the sellers' drawings |
 | `hardware/open-questions.md` | Decisions, and the questions still open |
 | `firmware/PLAN.md` | Firmware design: boards, devices, interface, packages, emulators, music, bridge, users |
+| `firmware/docs/sdk.md` | The SDK guide: writing apps and games for the FH1, the isometric engine, testing, limits |
 | `firmware/` | The firmware (ESP-IDF v6.1): build, flash and app notes in `firmware/README.md` |
 | `bridge/` | The Bluetooth bridge's firmware (ESP32 + Bluepad32) |
 | `simulator/` | The web simulator and the site: the FH1 firmware on esp32sim in the browser |
