@@ -44,9 +44,11 @@
   .tog.on { border-color: var(--y); }
 
   /* ── the FH1, to scale (fh1-device.css), its antenna folded along the top ── */
-  .stage { --dw: min(440px, calc(100vw - 32px)); }
+  /* 1.5 to 2 times real size (80 mm wide; CSS mm are 96 dpi millimetres), as large as the window's height allows
+     for the whole device and its folded antenna, never wider than the window */
+  .stage { --dw: min(160mm, max(120mm, calc((100vh - 170px) / 1.72)), calc(100vw - 32px)); }
   .dev { --fold: -90deg; margin-top: calc(var(--dw) / 80 * 17); touch-action: none; user-select: none; -webkit-user-select: none; }
-  .dev .act canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+  .dev .act canvas { display: block; width: 100%; height: 100%; }
   .loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
              color: #9fe7b0; font-size: calc(var(--mm) * 1.9); text-align: center; padding: 0 8%; }
   .loading .meter { width: 70%; height: calc(var(--mm) * 1.4); border: 2px solid #9fe7b0; border-radius: 2px; }
@@ -249,18 +251,38 @@
   }
 
   // ── output: screen, sound, lights, console ──
+  // The screen, sharp at any size: the 320 x 240 frame goes to `raw`, is blown up by a whole number with nearest-
+  // neighbour into `up`, then scaled smoothly to the canvas's own device pixels. Every emulated pixel comes out the
+  // same size, which plain pixelated scaling by 1.36 cannot do.
   const lcd = $('lcd'), ctx = lcd.getContext('2d'); let img = null, firstFrame = false;
+  const raw = document.createElement('canvas'), rctx = raw.getContext('2d');
+  const up = document.createElement('canvas'), uctx = up.getContext('2d');
+  function fitLcd() {
+    const r = lcd.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    const W = Math.max(1, Math.round(r.width * dpr)), H = Math.max(1, Math.round(r.height * dpr));
+    if (lcd.width !== W || lcd.height !== H) { lcd.width = W; lcd.height = H; }
+    if (raw.width) {
+      const k = Math.max(1, Math.ceil(W / raw.width));
+      if (up.width !== raw.width * k) { up.width = raw.width * k; up.height = raw.height * k; }
+    }
+  }
+  function paintLcd() {
+    uctx.imageSmoothingEnabled = false; uctx.drawImage(raw, 0, 0, up.width, up.height);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(up, 0, 0, lcd.width, lcd.height);
+  }
+  addEventListener('resize', () => { fitLcd(); if (raw.width) paintLcd(); });
   const stats = window.fh1sim = { frames: 0, audio: 0 };   // for tests and the curious
   function onBin(buf) {
     const t = new Uint8Array(buf)[0];
     if (t === 1) stats.frames++; else if (t === 2) stats.audio++;
     if (t === 1) {
       const dv = new DataView(buf), w = dv.getUint16(1, true), h = dv.getUint16(3, true);
-      if (lcd.width !== w || lcd.height !== h) { lcd.width = w; lcd.height = h; img = null; }
-      if (!img) img = ctx.createImageData(w, h);
+      if (raw.width !== w || raw.height !== h) { raw.width = w; raw.height = h; img = null; fitLcd(); }
+      if (!img) img = rctx.createImageData(w, h);
       const d = img.data;
       for (let i = 0, j = 5; i < w * h; i++, j += 2) { const p = dv.getUint16(j, true); d[i*4] = (p >> 11) * 255 / 31; d[i*4+1] = ((p >> 5) & 63) * 255 / 63; d[i*4+2] = (p & 31) * 255 / 31; d[i*4+3] = 255; }
-      ctx.putImageData(img, 0, 0);
+      rctx.putImageData(img, 0, 0);
+      paintLcd();
       if (!firstFrame) { firstFrame = true; loading(null); }
     } else if (t === 2) playAudio(buf);
   }
