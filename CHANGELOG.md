@@ -2,6 +2,30 @@
 
 Releases of the FH1 firmware and its apps, newest first. Each is a tag (`vX.Y.Z`) on `main`.
 
+## 0.4.0 (2026-11-11)
+
+Themes: two new looks with animated frames, a Temas app to switch them live, system sounds in each theme's voice.
+
+### Interface
+
+- **Temas** (Apps): lists the themes, the one in use marked and under the cursor; A uses a theme at once, with no
+  restart (the console's `!theme` too). System sounds are switched on and off there as well.
+- **Hex:** an early-warning console in amber on black: chamfered corners, a honeycomb desktop, the title on a band
+  of warning stripes that run in the window in focus, red messages and questions, a hexagon cursor.
+- **Garden:** wooden frames with a vine and leaves, a flower on each corner, a sign for the title, a lawn. A window
+  fades in while the vine grows round it and its flowers open; the flowers sway and a butterfly flits between them.
+- **Command:** steel plates, corner brackets with status lights, a lit tab, a grid. A window builds itself
+  (brackets fly out, plates close, the glass lights up behind a scan line) and takes itself apart when closed; a
+  spark runs along its line of light.
+- **System sounds** (off at first): moving, choosing, going back, a message, a notice and a window opening, in the
+  theme's voice: soft blips (Gen), square-wave ticks and a two-tone warning (Hex), marimba and birdsong (Garden),
+  clicks, sweeps and a servo (Command).
+
+### For developers
+
+- `firmware/docs/themes.md`: how themes are drawn and animated, what motion costs, and how to add one.
+  `firmware/tools/lookpreview.c` renders a look on a computer.
+
 ## 0.3.4 (2026-11-11)
 
 The simulator stays up: its JIT no longer runs a browser out of executable memory.

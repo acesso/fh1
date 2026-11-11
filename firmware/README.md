@@ -6,7 +6,7 @@ It runs on the **Guition ESP32-4848S040** dev board; the FH1 hardware is not bui
 
 ## What it has
 
-- **Interface:** retro windows driven by buttons, Gen 1 / Gen 2 themes, menus side by side (APPS, USERS, SYSTEM), Portuguese and English.
+- **Interface:** retro windows driven by buttons, five themes (Gen 1, Gen 2, Hex, Garden, Command) switched live in the Temas app, with animated frames and system sounds, menus side by side (APPS, USERS, SYSTEM), Portuguese and English.
 - **Devices:** a registry with probing, enable/disable saved, capabilities and events; Devices windows by kind.
 - **Storage:** internal LittleFS (`/int`); the SD card as a hot-plug device with mount, eject, format.
 - **Apps:** GameBoy Color, NES and Master System emulators at full speed, a music player, and packaged apps (`.fpk`) loaded into PSRAM.
@@ -52,7 +52,7 @@ stay as they are.
    ```
    !wifi <ssid> <password>
    ```
-   Other serial commands: `!bl <percent>`, `!mode <native|fh1>` (screen mode, restarts), `!theme <gen1|gen2>` (restarts).
+   Other serial commands: `!bl <percent>`, `!mode <native|fh1>` (screen mode, restarts), `!theme <gen1|gen2|hex|garden|scifi>` (at once), `!sounds <on|off>` (system sounds).
    Without credentials the device opens an access point, `FH1-setup` (password `fh1-setup`), at 192.168.4.1.
 2. Open `http://fh1.local/`. It asks for the 6-digit code, which is printed in the boot log and shown in the System window.
 
@@ -230,6 +230,31 @@ Values keep to one line (a name, then its value) and slide sideways, slowly, whe
 the focused item's text. A file or firmware arriving shows a progress overlay in the middle of the screen, with the icon of what
 it is: a game shows its app's console with a cartridge sliding in, a package a parcel, firmware a chip.
 Apps register the file types they open (`fh1_ui_register_file_type`).
+
+Five themes, chosen in the Temas app (Apps) or in System > Devices > the screen ("Theme"), applied at once,
+with no restart. How they are drawn, and how to add one: [`docs/themes.md`](docs/themes.md).
+- **Gen 1** (green) and **Gen 2** (colour): the rounded boxes above, on a dotted or latticed desktop.
+- **Hex**: an early-warning console. Amber on black, with a honeycomb desktop. Boxes are square, cut at 45 degrees
+  at the corners. The title sits on a black plate leaning with a band of warning stripes. The window in focus is
+  amber, the ones behind it dim amber. Messages and questions are red: stripes, border and corners, with a white
+  title. The item in focus reads amber, the others warm white, and the cursor is a small hexagon (hollow in a
+  window out of focus). The stripes of the window in focus run.
+- **Garden**: cream paper framed in wooden planks with grain, knots and a vine with leaves hanging over the edges;
+  a flower on each corner (pink, white, lilac, apricot; buds out of focus, red roses on a message), a sign for the
+  title, a lawn with daisies for the desktop. A window fades in while the vine grows round it and the flowers
+  open; in the window in focus the flowers sway and a butterfly flits from flower to flower. The cursor is a
+  ladybird; the item in focus reads green.
+- **Command**: a console of cyan light on near-black glass in steel plates with vents and rivets, a corner
+  bracket with a status light on each corner, the title on a lit tab with three status lights, a grid desktop.
+  A window builds itself: the brackets fly out from its middle, the plates close from the corners, the glass
+  lights up behind a scan line, then the contents appear (closing runs backwards). In the window in focus the
+  lights blink and cycle and a spark runs along the line of light. Messages are red; the cursor is a chevron.
+
+**System sounds** ("System sounds" beside "Theme", off at first): a short sound for moving, choosing, going back, a
+message or question, a notice and a window opening, in the theme's voice: soft pulse-wave blips with Gen, crisp square-wave ticks
+and a two-tone warning with Hex, wooden marimba notes and birdsong with Garden (leaves rustle as a window opens),
+clicks, sweeps and chimes with Command (a clack, a servo's whine and a clack as a window builds). The UI makes them in memory (`components/fh1_ui/ui_sound.c`) and plays them
+through the apps' sound mixer, under the sound volume.
 
 ## Start and restart
 
