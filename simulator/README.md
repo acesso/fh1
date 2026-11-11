@@ -17,12 +17,12 @@ Not modelled yet: the micro-SD slot, the radio, the IMU, Wi-Fi.
 | File | What |
 |---|---|
 | `esp32sim.pin` | The upstream esp32sim repository and commit the site is built from |
-| `esp32sim.patch` | Our changes to it: the `fh1` board model; board keys (`key`) and indicator lights (`lights`) in the board interface; the page messages `press`, `adc` and `lights`; `press NAME` for board keys in scripts; fast delays (the ROM's `ets_delay_us` passes its time without running its loop: `--fast-delays`, `esp32sim_set_fast_delays`, which `play.html` turns on); the workbench's FH1 display panel |
+| `esp32sim.patch` | Our changes to it: the `fh1` board model; board keys (`key`) and indicator lights (`lights`) in the board interface; the page messages `press`, `adc` and `lights`; `press NAME` for board keys in scripts; fast delays (the ROM's `ets_delay_us` passes its time without running its loop: `--fast-delays`, `esp32sim_set_fast_delays`, which `play.html` turns on); a JIT that compiles at most 2,000 live modules and stops for good at the first out-of-memory error, with its counts in the worker's speed messages; the workbench's FH1 display panel |
 | `build-flash.sh` | The 16 MB flash image: firmware build + apps partition with packages installed |
 | `build-site.sh` | Assembles the site: landing page, emulator page, mask ROM, flash image, `build.json` |
 | `site/index.html` | The landing page (Portuguese and English, dark, light and auto themes), with the 3D view of the V1 build (`hardware/layout/concept-render.html`, published as `hardware-3d.html` with its own copy of three.js; without WebGL it shows the static render) |
 | `site/fh1-device.css` | The FH1's front face to scale, from the layout's millimetres (80 × 120 mm board): the landing page's toy and the simulator's device |
-| `site/play.html` | The simulator: the FH1 drawn as the device, its screen, buttons with their lights, stick and sound; 🛠 opens the details (status, speed, restart, your own firmware, the UART0 console) |
+| `site/play.html` | The simulator: the FH1 at twice its real size, its screen, buttons with their lights, stick and sound; 🛠 opens the details (status, speed, restart with a fresh worker, your own firmware, the UART0 console) |
 
 ## Building it
 

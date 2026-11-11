@@ -493,3 +493,56 @@ index 238f6edd..40cafc2e 100644
    // Not timing: the fluidbox benchmark's scripted IMU handling (guest-time driven, exact).
    ['esp32sim_set_imu_motion', [mode(1)]],
  ]);
+diff --git a/web/wasm/jit.mjs b/web/wasm/jit.mjs
+index 1cd117e0..a4c1f10a 100644
+--- a/web/wasm/jit.mjs
++++ b/web/wasm/jit.mjs
+@@ -1,12 +1,20 @@
+ // Install hot guest blocks in Rust's exported function table. All steady-state
+ // execution stays in WASM; these imports only compile and retire cached code.
++//
++// Every block is its own module, and a browser gives a process a fixed budget of executable memory (shared by the
++// tab's workers, and freed only when the garbage collector gets to released modules). So the host stops compiling
++// at MAX_MODULES live modules, and for good at the first out-of-memory error: the blocks already compiled keep
++// running, the rest are interpreted, and the console gets one line instead of one per block.
++const MAX_MODULES = 2000;   // measured on the FH1 firmware: past this, compiling costs more than it saves
+ export function createJitHost(exports) {
+   const free = [], live = new Map();
+-  const stats = { compiled: 0, failed: 0, released: 0, compileMs: 0, bytes: 0, liveBytes: 0, peakBytes: 0, peakModules: 0 };
++  const stats = { compiled: 0, failed: 0, released: 0, compileMs: 0, bytes: 0, liveBytes: 0, peakBytes: 0, peakModules: 0, off: '' };
++  let warned = 0;
+   return {
+     stats,
+     imports: {
+       host_jit_compile(ptr, len) {
++        if (stats.off || live.size >= MAX_MODULES) return 0;
+         const start = performance.now();
+         try {
+           const w = exports();
+@@ -22,7 +30,12 @@ export function createJitHost(exports) {
+         } catch (error) {
+           stats.failed++;
+           // Compilation failure is safe to interpret: no guest instruction has run.
+-          console.warn('[jit] compilation failed; interpreting block:', error);
++          if (/memory/i.test(String(error && error.message || error))) {
++            stats.off = 'out of executable memory';
++            console.warn(`[jit] off: out of executable memory after ${live.size} modules; interpreting from here`);
++          } else if (warned++ < 5) {
++            console.warn('[jit] compilation failed; interpreting block:', error);
++          }
+           return 0;
+         } finally { stats.compileMs += performance.now() - start; }
+       },
+diff --git a/web/wasm/worker.js b/web/wasm/worker.js
+index 242f037e..84a3638f 100644
+--- a/web/wasm/worker.js
++++ b/web/wasm/worker.js
+@@ -67,7 +67,7 @@ function loop() {
+     const insns = wasm.esp32sim_insns(emu);
+     // Emulated seconds per wall second over the window. Unlike `behind`, a resync does not reset it.
+     const speed = Math.max(0, cur - lastStat.cycles) / CPU_HZ / ((wall - lastStat.wall) / 1000);
+-    postMessage({ pace: { behind: Math.max(0, -aheadMs / 1000), resyncs, speed, mips: Math.max(0, (insns - lastStat.insns)) / (wall - lastStat.wall) / 1000 } });
++    postMessage({ pace: { behind: Math.max(0, -aheadMs / 1000), resyncs, speed, mips: Math.max(0, (insns - lastStat.insns)) / (wall - lastStat.wall) / 1000, jit: blockJit.stats } });
+     lastStat = { wall, insns, cycles: cur };
+   }
+   // Only yield immediately when this turn left catch-up work unfinished. Once we reach

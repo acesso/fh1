@@ -44,9 +44,8 @@
   .tog.on { border-color: var(--y); }
 
   /* ── the FH1, to scale (fh1-device.css), its antenna folded along the top ── */
-  /* 1.5 to 2 times real size (80 mm wide; CSS mm are 96 dpi millimetres), as large as the window's height allows
-     for the whole device and its folded antenna, never wider than the window */
-  .stage { --dw: min(160mm, max(120mm, calc((100vh - 170px) / 1.72)), calc(100vw - 32px)); }
+  /* Twice the real size (the board is 80 mm wide; CSS mm are 96 dpi millimetres), never wider than the window */
+  .stage { --dw: min(160mm, calc(100vw - 32px)); }
   .dev { --fold: -90deg; margin-top: calc(var(--dw) / 80 * 17); touch-action: none; user-select: none; -webkit-user-select: none; }
   .dev .act canvas { display: block; width: 100%; height: 100%; }
   .loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
@@ -200,7 +199,7 @@
       if (m.started !== undefined) { started = m.started; $('pwr').classList.toggle('on', started);
         if (started) { setState('ligado', 'running'); centreStick(); } else setState('falhou ao ligar: ' + (m.error || ''), 'boot failed: ' + (m.error || '')); }
       if (m.stopped !== undefined) { started = false; $('pwr').classList.remove('on'); setState('parado', 'stopped'); }
-      if (m.pace) { const s = m.pace.speed; if (s != null) { $('speed').textContent = Math.round(s * 100) + '% ' + T('do tempo real', 'of real time') + ` · ${(m.pace.mips || 0).toFixed(1)} Minsn/s`; $('speed').classList.toggle('slow', s < 0.95); } }
+      if (m.pace) { window.fh1sim.jit = m.pace.jit; const s = m.pace.speed; if (s != null) { $('speed').textContent = Math.round(s * 100) + '% ' + T('do tempo real', 'of real time') + ` · ${(m.pace.mips || 0).toFixed(1)} Minsn/s`; $('speed').classList.toggle('slow', s < 0.95); } }
     };
   }
 
@@ -222,13 +221,22 @@
     return out.buffer;
   }
 
-  let rom = null, flash = null, flashName = 'fh1.bin';
+  let rom = null, flash = null, flashName = 'fh1.bin', wasmBytes = null;
+  // A restart ends the worker: its compiled code is executable memory the browser frees only with it, and a fresh
+  // worker starts the JIT with the whole budget (wasm/jit.mjs).
+  function retire() {
+    if (worker) worker.terminate();
+    worker = null; ready = null; started = false; waiters.clear();
+  }
   async function boot() {
     started = false; $('pwr').classList.remove('on');
     if (!worker) {
       spawn();
-      loading(0, 'CARREGANDO O EMULADOR…', 'LOADING THE EMULATOR…'); setState('carregando o emulador…', 'loading the emulator…');
-      const wasm = await fetchBytes('wasm/esp32sim.wasm', (f) => loading(f * 0.3));
+      if (!wasmBytes) {
+        loading(0, 'CARREGANDO O EMULADOR…', 'LOADING THE EMULATOR…'); setState('carregando o emulador…', 'loading the emulator…');
+        wasmBytes = await fetchBytes('wasm/esp32sim.wasm', (f) => loading(f * 0.3));
+      }
+      const wasm = wasmBytes.slice(0);
       ready = ask('ready', { op: 'init', wasm, frameAck: true }, [wasm]);
     }
     await ready;
@@ -373,11 +381,11 @@
   addEventListener('blur', () => { for (const n of [...held.keys()]) press(n, false); dirHeld.clear(); stick(0, 0); });
 
   // ── restart and your own firmware ──
-  $('restart').onclick = () => { firstFrame = false; loading(0.97, 'LIGANDO…', 'POWERING ON…'); boot(); };
+  $('restart').onclick = () => { retire(); firstFrame = false; loading(0.97, 'LIGANDO…', 'POWERING ON…'); boot(); };
   $('file').onchange = async (e) => {
     const f = e.target.files[0]; if (!f) return;
     flash = await f.arrayBuffer(); flashName = f.name; $('fwname').textContent = f.name;
-    firstFrame = false; loading(0.97, 'LIGANDO…', 'POWERING ON…'); boot();
+    retire(); firstFrame = false; loading(0.97, 'LIGANDO…', 'POWERING ON…'); boot();
   };
 
   boot().catch((e) => { setState('erro: ' + e.message, 'error: ' + e.message); console.error(e); });
