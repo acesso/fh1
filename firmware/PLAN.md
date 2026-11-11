@@ -160,7 +160,7 @@ A desktop with cascading windows, operated by buttons.
 | X, Y | App-defined |
 
 - **Look.** A bitmap pixel font (unscii-8, public domain, with Latin-1 accents), a small palette per theme.
-  Themes: **Gen 1** (four greens) and **Gen 2** (white boxes, blue desktop), switched in Devices > Video.
+  Themes: **Poke Gen1** (four greens) and **Poke Gen2** (white boxes, blue desktop), switched in Devices > Video.
 - **LVGL underneath.** Our window and widget objects are built on LVGL objects, with LVGL's default theme
   replaced by ours. Each window gets an LVGL keypad group, so the D-pad moves focus inside the focused window only.
 - **Widgets:**
@@ -316,8 +316,7 @@ saves and save states, and a 20-second speed test.
   per frame and replayed there (~1 ms per frame). Drawing drops to half rate when it falls 20 ms behind, and
   Peanut-GB's frame skip saves the rendering of undrawn frames. Original Game Boy games are coloured as a
   Game Boy Color colours them (tables from SameBoy's boot ROM, `tools/gbc_palettes.py`).
-- **NES:** 1:1, 240 × 224 on the dev board's 240 × 240 screen (8 columns cut off each side), 256 × 240 on the
-  FH1. Playing Metroid: 50.0 frames/s, 10.1 ms of the 20 ms per frame. The output gets a 2.5x makeup gain.
+- **NES:** 1:1, 256 × 240 on the FH1 and on the dev board (its native screen is 320 × 320). Playing Metroid: 50.0 frames/s, 10.1 ms of the 20 ms per frame. The output gets a 2.5x makeup gain.
 - **Master System:** patched to free its lookup tables (~576 KB of PSRAM) at shutdown, to keep the cartridge
   RAM in PSRAM, and to skip sound emulation without a sound device.
 - **Licence:** the two GPL v2 emulators are the parts to replace if the firmware is ever distributed under
@@ -351,13 +350,15 @@ any while it runs:
   (`CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY`) and its pools are sized for small use. It is off unless adding a bridge.
 
 **Speed settings.** CPU 240 MHz; caches at their maximum (32 KB instruction, 64 KB data, 64-byte lines);
-octal PSRAM at 80 MHz (120 MHz is experimental for octal PSRAM and fails when the chip's temperature drifts);
+octal PSRAM at 80 MHz (120 MHz, with the flash at 120 MHz too, is an opt-in for the Guition dev unit:
+`sdkconfig.defaults.psram120`; experimental, its timing set once at power-on since the temperature retuning supports
+GD and XMC flash only, and the Guition's is Boya);
 code runs from PSRAM, faster than the quad flash; `-O2`.
 
 ## Display path
 
 The dev board's RGB panel has no memory of its own: it must be fed every line, about 38 times a second. The
-screen is kept at its logical size (240 × 240 or 320 × 240) in PSRAM, and the panel driver's bounce-buffer
+screen is kept at its logical size (320 × 320 or 320 × 240, both at 1.5 times) in PSRAM, and the panel driver's bounce-buffer
 refill scales each band of lines on the fly. With the stress test (`op stress`): no missed lines under UI,
 PSRAM, Wi-Fi or emulator load. Continuous flash writes still cause hiccups (the flash chip holds the shared
 bus), so flash writes stay out of busy moments. Wi-Fi modem power save is off.

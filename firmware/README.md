@@ -6,7 +6,7 @@ It runs on the **Guition ESP32-4848S040** dev board; the FH1 hardware is not bui
 
 ## What it has
 
-- **Interface:** retro windows driven by buttons, five themes (Gen 1, Gen 2, Hex, Garden, Command) switched live in the Temas app, with animated frames and system sounds, menus side by side (APPS, USERS, SYSTEM), Portuguese and English.
+- **Interface:** retro windows driven by buttons, five themes (Poke Gen1, Poke Gen2, Hex, Garden, Command) switched live in the Temas app, with animated frames and system sounds, menus side by side (APPS, USERS, SYSTEM), Portuguese and English.
 - **Devices:** a registry with probing, enable/disable saved, capabilities and events; Devices windows by kind.
 - **Storage:** internal LittleFS (`/int`); the SD card as a hot-plug device with mount, eject, format.
 - **Apps:** GameBoy Color, NES and Master System emulators at full speed, a music player, and packaged apps (`.fpk`) loaded into PSRAM.
@@ -36,7 +36,9 @@ idf.py -B build-fh1 -D SDKCONFIG=build-fh1/sdkconfig -D SDKCONFIG_DEFAULTS="sdkc
 The FH1 board does not yet set up the ES8311's registers or read the micro-SD card, the battery or the IMU.
 
 `tools/build-board.sh guition|fh1 OUT_DIR` does either build and writes one image to flash at 0x0,
-`fh1-firmware-<board>.bin`, plus its parts. Each release builds both in CI
+`fh1-firmware-<board>.bin`, plus its parts. A third argument, `psram120`, builds the Guition with PSRAM and flash at
+120 MHz (`sdkconfig.defaults.psram120`): about 20-30% faster on memory-bound work, experimental (its timing is set
+once at power-on, so a large temperature change can make it fail), for the dev unit only; releases stay at 80 MHz. Each release builds both in CI
 (`.github/workflows/pages.yml`) and carries both images on GitHub. To write a release image:
 
 ```sh
@@ -67,7 +69,8 @@ To update a board that is set up, keep its settings:
    ```
    !wifi <ssid> <password>
    ```
-   Other serial commands: `!bl <percent>`, `!mode <native|fh1>` (screen mode, restarts), `!theme <gen1|gen2|hex|garden|scifi>` (at once), `!sounds <on|off>` (system sounds).
+   Other serial commands: `!bl <percent>`, `!mode <native|fh1>` (screen mode, restarts: native is 320 × 320 filling the Guition's panel, fh1 the FH1's
+   320 × 240, both at 1.5 times), `!theme <gen1|gen2|hex|garden|scifi>` (at once), `!sounds <on|off>` (system sounds).
    Without credentials the device opens an access point, `FH1-setup` (password `fh1-setup`), at 192.168.4.1.
 2. Open `http://fh1.local/`. It asks for the 6-digit code, which is printed in the boot log and shown in the System window.
 
@@ -246,9 +249,9 @@ the focused item's text. A file or firmware arriving shows a progress overlay in
 it is: a game shows its app's console with a cartridge sliding in, a package a parcel, firmware a chip.
 Apps register the file types they open (`fh1_ui_register_file_type`).
 
-Five themes, chosen in the Temas app (in Apps, and in System before About) or in System > Devices > the screen
+Five themes, chosen in the Temas app (in System, before About) or in System > Devices > the screen
 ("Theme"), applied at once, with no restart. How they are drawn, and how to add one: [`docs/themes.md`](docs/themes.md).
-- **Gen 1** (green) and **Gen 2** (colour): the rounded boxes above, on a dotted or latticed desktop.
+- **Poke Gen1** (green) and **Poke Gen2** (colour): the rounded boxes above, on a dotted or latticed desktop.
 - **Hex**: an early-warning console. Amber on black, with a honeycomb desktop. Boxes are square, cut at 45 degrees
   at the corners. The title sits on a black plate leaning with a band of warning stripes. The window in focus is
   amber, the ones behind it dim amber. Messages and questions are red: stripes, border and corners, with a white
@@ -257,13 +260,20 @@ Five themes, chosen in the Temas app (in Apps, and in System before About) or in
 - **Garden**: cream paper framed in wooden planks with grain, knots and a vine with leaves hanging over the edges;
   a flower on each corner (pink, white, lilac, apricot; buds out of focus, red roses on a message), a sign for the
   title, a lawn with daisies for the desktop. A window fades in while the vine grows round it and the flowers
-  open; in the window in focus the flowers sway and a butterfly flits from flower to flower. The cursor is a
-  ladybird; the item in focus reads green.
+  open; in the window in focus the flowers sway, a butterfly wanders over the whole window in fluttering arcs,
+  resting here and there a moment or a while (on a flower now and then), and a bee darts in zig-zags from flower to
+  flower, staying long and wobbling after a few seconds there. The cursor is a ladybird; the item in focus reads
+  green.
 - **Command**: a console of cyan light on near-black glass in steel plates with vents and rivets, a corner
   bracket with a status light on each corner, the title on a lit tab with three status lights, a grid desktop.
   A window builds itself: the brackets fly out from its middle, the plates close from the corners, the glass
   lights up behind a scan line, then the contents appear (closing runs backwards). In the window in focus the
-  lights blink and cycle and a spark runs along the line of light. Messages are red; the cursor is a chevron.
+  lights blink and cycle, and a spark appears at a random point of the line of light, runs along it either way a
+  while and goes out until the next. Messages are red; the cursor is a chevron.
+
+A file or a firmware arriving shows in a **notice window** in the middle of the screen, over everything (a game's
+picture too): the theme's own window, with its frame, opening, decorations and motes, the file's icon and name and
+a progress bar.
 
 **System sounds** ("System sounds" beside "Theme", off at first): a short sound for moving, choosing, going back, a
 message or question, a notice and a window opening, in the theme's voice: soft pulse-wave blips with Gen, crisp square-wave ticks

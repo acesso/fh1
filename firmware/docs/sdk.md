@@ -12,7 +12,7 @@ AI tools.
 your app (C)  ──includes──▶  fh1_sdk.h
      │ idf.py elf (elf_loader's project_elf)
      ▼
-build/<name>.app.elf  ──tools/fpk.py pack──▶  <id>-<version>.fpk  (manifest.json, app.elf, assets/, SHA256SUMS)
+build/<name>.app.elf  ──tools/fpk.py pack──▶  <id>_<version>.fpk  (manifest.json, app.elf, assets/, SHA256SUMS)
      │ upload (console or SD card), then install
      ▼
 /int/apps/<id>/  ──launch──▶  elf_loader loads app.elf into PSRAM, resolves its symbols against the
@@ -38,7 +38,7 @@ build/<name>.app.elf  ──tools/fpk.py pack──▶  <id>-<version>.fpk  (man
 |---|---|
 | [`apps/packages/hello`](../apps/packages/hello) | The template: windows, buttons, a saved state, a setting, sound, users |
 | [`apps/packages/duel`](../apps/packages/duel) | Duelo: a two-player game on the canvas, gamepads with motion |
-| [`apps/packages/isotest`](../apps/packages/isotest) | Táticas da Ilha: a full-screen tactics game, the isometric engine, art and sound packs, a PC host |
+| [`apps/packages/taticas-da-ilha`](../apps/packages/taticas-da-ilha) | Táticas da Ilha: a full-screen tactics game, the isometric engine, art and sound packs, a PC host |
 | `tools/pkgbuild.sh` | Builds a package from scratch (art pack, ELF, symbol check, `.fpk`) |
 | `tools/fpk.py` | Packs, checks, lists and uploads packages |
 | `tools/elfcheck.py` | Checks that every symbol an app needs is exported |
@@ -53,10 +53,10 @@ Once per shell, ESP-IDF's environment (v6.1): `. ~/esp/esp-idf-v6.1/export.sh`. 
 
 ```sh
 tools/pkgbuild.sh apps/packages/NAME                     # art pack, ELF, symbol check, NAME's .fpk
-python3 tools/fpk.py upload apps/packages/NAME/<id>-<version>.fpk --code <code> --to int
-FH1_CODE=<code> python3 tools/fh1dev.py op install /int/packages/<id>-<version>.fpk
+python3 tools/fpk.py upload apps/packages/NAME/<id>_<version>.fpk --code <code> --to int
+FH1_CODE=<code> python3 tools/fh1dev.py op install /int/packages/<id>_<version>.fpk
 FH1_CODE=<code> python3 tools/fh1dev.py op start "" <id>
-FH1_CODE=<code> python3 tools/fh1dev.py op delete_pkg /int/packages/<id>-<version>.fpk   # the upload, once installed
+FH1_CODE=<code> python3 tools/fh1dev.py op delete_pkg /int/packages/<id>_<version>.fpk   # the upload, once installed
 ```
 
 The 6-digit console code is in the boot log and the System window. `FH1_HOST` names the device (default
@@ -70,21 +70,22 @@ Without `pkgbuild.sh`, by hand (it skips the art pack, the symbol check and the 
 cd apps/packages/hello
 idf.py set-target esp32s3        # once
 idf.py elf                       # builds build/hello.app.elf only
-../../../tools/fpk.py pack .     # writes org.fh1.hello-0.2.0.fpk
+../../../tools/fpk.py pack .     # writes hello_0.2.0.fpk
 ```
 
 **`manifest.json`:**
 
 | Field | What |
 |---|---|
-| `id` | Reverse-DNS, lowercase: `org.fh1.hello` |
+| `id` | Short, lowercase (letters, digits, `.` `_` `-`): `taticas-da-ilha`. The install folder (`/int/apps/<id>`), the data folders and the package file (`<id>_<version>.fpk`) are named by it |
+| `publisher` | Who makes it, reverse-DNS: `org.fh1`. The installer refuses a package whose id is installed from another publisher |
 | `name` | Up to 31 characters, shown in the APPS menu |
 | `version` | Up to 15 characters |
 | `sdk` | The SDK `major.minor` it was built for |
 | `entry` | `app.elf` |
 | `needs` | Capabilities it cannot run without (`DISPLAY`, `AUDIO_OUT`, `IMU`...): greyed out until present |
 | `wants` | Capabilities it uses when present |
-| `uses` | Asset packages it needs (`org.fh1.assets.rpg-sfx`): it does not start without them |
+| `uses` | Asset packages it needs, by id (`rpg-sfx`): it does not start without them |
 | `kind` | `"assets"` for an asset package (no `app.elf`, only `assets/`) |
 
 **A new app:** copy `apps/packages/hello`, change the project name in `CMakeLists.txt` and `main/CMakeLists.txt`,
@@ -103,7 +104,7 @@ and write `manifest.json`. An app that draws in loops sets `CONFIG_COMPILER_OPTI
   controller. A how-to screen per controller comes first. The fighters are 16-bit fighting-game sprites (black
   outline, four tones and a shine, a three-quarter stance; [`fighter.c`](../apps/packages/duel/main/fighter.c)),
   drawn from shapes into a mask by row spans and drawn again only when their pose changes.
-- **Táticas da Ilha** ([`apps/packages/isotest`](../apps/packages/isotest), SDK 0.8): a full-screen tactics game on
+- **Táticas da Ilha** ([`apps/packages/taticas-da-ilha`](../apps/packages/taticas-da-ilha), SDK 0.8): a full-screen tactics game on
   the isometric engine (below), with art and sound packs, per-user progress (it loads the new player's when
   `fh1_user(0, ...)` changes), the controller's button icons in its hints, development commands, a PC host and an
   end-to-end test suite ([`taticas-da-ilha.md`](taticas-da-ilha.md)).
@@ -135,7 +136,7 @@ The C library an app may use is listed at the top of `fh1_sdk.h`: memory, string
   `frame(px, w, h, dt_ms, user)` on a task of its own (core 1, an 8 KB stack), at most every `period_ms`. You
   draw into `px`, a back buffer in PSRAM (RGB565, w × h, row by row) that keeps what was drawn, and return
   `FH1_FRAME_SHOW`, `FH1_FRAME_SAME` (nothing changed) or `FH1_FRAME_END`. `w × h` is the board's logical
-  screen: 320 × 240 on the FH1, and on the Guition in `fh1` mode; 240 × 240 in its native mode. Draw for the size
+  screen: 320 × 240 on the FH1, and on the Guition in `fh1` mode; 320 × 320 in its native mode. Draw for the size
   you are given. `frame()` may read keys and gamepads, play sound and save; it must not touch windows or
   canvases.
 
@@ -156,7 +157,7 @@ in memory watches `fh1_user(0, ...)` and loads theirs. Uninstalling deletes the 
 
 ## Games: the isometric engine
 
-The engine lives in the Táticas da Ilha package, [`apps/packages/isotest/main`](../apps/packages/isotest/main),
+The engine lives in the Táticas da Ilha package, [`apps/packages/taticas-da-ilha/main`](../apps/packages/taticas-da-ilha/main),
 in plain C with no FH1 dependencies beyond the frame buffer. Another game reuses it by copying its files into its
 own package. Its design is in [`game-engines.md`](game-engines.md); the game built on it is described in
 [`taticas-da-ilha.md`](taticas-da-ilha.md).
@@ -233,7 +234,7 @@ docstring. The packs' sources are in the repository's `assets/packs/<pack>/`, as
 
 ## Testing
 
-- **On the PC first.** Táticas da Ilha's [`host/`](../apps/packages/isotest/host) builds the game for the PC:
+- **On the PC first.** Táticas da Ilha's [`host/`](../apps/packages/taticas-da-ilha/host) builds the game for the PC:
   `host.c` stubs the SDK (the FH1's 8 × 8 font, keys, saves, sounds to a WAV), a script drives it (keys, waits,
   the game's development commands) and writes BMP screenshots. The frame buffer has guard zones: a frame that
   writes outside it stops the run. `make -C host`, then `host/host host/tests/views.script host/out/views`.

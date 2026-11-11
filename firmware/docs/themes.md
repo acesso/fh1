@@ -5,12 +5,12 @@ sounds). Five themes are built in:
 
 | Theme (id) | Look | Voice |
 |---|---|---|
-| Gen 1 (`gen1`), Gen 2 (`gen2`) | Gen: rounded boxes, corner balls, the title in a pill | soft |
+| Poke Gen1 (`gen1`), Poke Gen2 (`gen2`) | Gen: rounded boxes, corner balls, the title in a pill | soft |
 | Hex (`hex`) | Hex: chamfered boxes, a band of running warning stripes, a honeycomb | alarm |
-| Garden (`garden`) | Garden: wooden frames, a vine, corner flowers, a butterfly, a lawn | garden |
-| Command (`scifi`) | Command: steel plates, corner brackets, a lit tab, a running spark, a grid | command |
+| Garden (`garden`) | Garden: wooden frames, a vine, corner flowers, a butterfly and a bee, a lawn | garden |
+| Command (`scifi`) | Command: steel plates, corner brackets, a lit tab, a spark running from random points, a grid | command |
 
-They are chosen in the Temas app (in Apps, and in System before About), in System > Devices > the screen, or with
+They are chosen in the Temas app (in System, before About), in System > Devices > the screen, or with
 `!theme <id>` on the console. A change applies at once: no restart.
 
 ## Where things are
@@ -51,7 +51,7 @@ The look draws over it, as ARGB8888 pictures in PSRAM, one per part:
 | Title plate | `look_title_box`, `look_title`, `look_title_ink` | anywhere along the top; the title's text is placed on it |
 | Desktop tile | `look_desk` | RGB565, at most `LOOK_DESK_MAX` pixels a side |
 | Cursor | `look_cursor` | at most 16 x 16 pixels; solid in the window in focus, `hollow` in the others |
-| Mote | `look_mote`, `look_mote_at` | at most 16 x 16 pixels, two pictures; where it is at a given time |
+| Motes | `look_motes`, `look_mote`, `look_mote_at` | how many (Garden 2, Command 1); at most 16 x 16 pixels, two pictures each; where each is at a given time |
 
 Each part is drawn for a **state**: 0 out of focus, 1 in focus, 2 an alert. A **grow** value (0 to 256) says how
 far the opening has got, and a **phase** counts the idle decoration's steps. Everything is drawn in units:
@@ -85,15 +85,17 @@ Each kind of motion has its own cost, so each is limited:
 - **The idle decoration** (`look_tick`, every 125 ms, only the window in focus): only small parts are drawn
   again. Garden draws its corners every 500 ms (the flowers sway). Command draws its corners every 750 ms (the
   lights blink) and its tab every 375 ms (the lights cycle). Never draw a whole strip on a tick.
-- **The mote** (`mote_tick`, 20 times a second, only the window in focus) is moved, never drawn again, and only
-  when its place changes (`move_to`).
+- **The motes** (`mote_tick`, 20 times a second, only the window in focus and the notice window) are moved, never
+  drawn again, and only when their place changes (`move_to`). Their wandering is a function of the time alone: a
+  loop of stops or runs chosen by a hash (the butterfly's 40 stops anywhere over the window, the bee's 12 flowers,
+  the spark's 16 runs), so nothing is kept between frames and every window of a size moves the same way.
 - **Objects are raised once.** `lv_obj_move_foreground` makes the whole window redraw. Raise only when a
   part is created (`frame_order`), never on a tick.
 
 To measure, run the same key script on each theme in the native simulator and compare the instruction counts
 it prints at the end (`insns=` for each core). A 24-second run, menu open, measured on both cores:
 
-| Theme | Gen 1 | Hex | Garden | Command |
+| Theme | Poke Gen1 | Hex | Garden | Command |
 |---|---|---|---|---|
 | Instructions | 276 M | 275 M | 311 M | 318 M |
 
@@ -119,4 +121,4 @@ short (moves under 20 ms, choices under 150 ms) and quieter than games (amplitud
    - the Temas app, switching to the theme and away from it (the widgets must follow);
    - the opening, by stopping the run at times 100 ms apart;
    - the sounds, by recording `--wav` with `!sounds on` and checking each key press makes one.
-6. Check Gen 1 still matches its reference screenshot pixel for pixel, and measure the cost (above).
+6. Check Poke Gen1 still matches its reference screenshot pixel for pixel, and measure the cost (above).

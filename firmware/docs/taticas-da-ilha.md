@@ -1,8 +1,8 @@
 # Táticas da Ilha: realms, progression and rules
 
-The game in `apps/packages/isotest` (the FH1 game engine's test package). Every text in the game is in
+The game in `apps/packages/taticas-da-ilha` (id `taticas-da-ilha`, package `taticas-da-ilha_<version>.fpk`; it began as the FH1 game engine's test package). Every text in the game is in
 Portuguese; this page uses the game's own words for its places and things. The numbers live in
-`apps/packages/isotest/main/data.c`.
+`apps/packages/taticas-da-ilha/main/data.c`.
 
 ## The story
 
@@ -149,7 +149,7 @@ goes back to each class's level 0, and the old weapons and armour in the bag are
 
 ## Development commands
 
-`dev_command` in `isotest.c`, from the FH1's console (`op dev "..."`) or a PC host script.
+`dev_command` in `taticas.c`, from the FH1's console (`op dev "..."`) or a PC host script.
 
 - **Anywhere:** `nosave` (the saved game stays as it was until the game closes), `info` (the frame time on
   screen), `go REALM FASE BATTLE` (straight to its loading screen; realms 0 Fogo, 1 Água, 2 Terra, 3 Ar; fases and

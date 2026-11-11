@@ -32,7 +32,7 @@ Future ideas and pending work; each leaves this list when it lands.
 
 - **Asset import toolkit (SDK):** offline tools that fit a sprite sheet or sound from any source to the FH1. They check a sprite set has the frames an app needs (isometric or plain 2D), check audio and downsample or convert it, using ffmpeg or ImageMagick when installed. They build on `firmware/tools/fh1art.py` and `firmware/tools/fh1sfx.py`.
 - **2D → isometric converter:** a best-effort tool that turns plain 2D sprites into isometric ones.
-- **Game engine in the SDK:** the isometric engine (`firmware/apps/packages/isotest/main`: maps, units, four views, scenery animations, art packs, effects) as a firmware module offered through the SDK, so games share one copy.
+- **Game engine in the SDK:** the isometric engine (`firmware/apps/packages/taticas-da-ilha/main`: maps, units, four views, scenery animations, art packs, effects) as a firmware module offered through the SDK, so games share one copy.
 - **Theme and sound packages:** themes and voices as installable packages (the palette, the look's pictures as
   art, the sounds as a bank) listed in the Temas app beside the built-in ones, with a live preview; footer chips
   and status icons drawn by the look too.

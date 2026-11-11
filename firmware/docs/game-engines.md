@@ -1,7 +1,7 @@
 # Game engines for installable games
 
 The goal is an engine that several FH1 games can share. It must fit the FH1's hardware (ESP32-S3, 8 MB PSRAM,
-~70 KB of free internal RAM, 320 x 240 or 240 x 240 screen, buttons and gamepads, `fh1_audio`) and its
+~70 KB of free internal RAM, 320 x 240 or 320 x 320 screen, buttons and gamepads, `fh1_audio`) and its
 software: ESP-IDF v6.1 (no Arduino), apps as `.fpk` packages loaded into PSRAM by `elf_loader`, and the SDK as
 the only API.
 
@@ -131,7 +131,7 @@ it can change without flashing firmware, then moved into the firmware once its A
 - **`tools/fh1art.py`:** `info` (an Aseprite file's layers and tags), `build` (a recipe into a `.fart` pack and a
   preview sheet), `show`. It reads Aseprite files directly (layers in groups, tags, linked cels), skips empty
   frames, scales down, trims and anchors.
-- **`apps/packages/isotest`** (Iso test), a small tactics battle with placeholder rules: the engine (`fart.c`:
+- **`apps/packages/taticas-da-ilha`** (at first "Iso test"), a small tactics battle with placeholder rules: the engine (`fart.c`:
   packs and drawing, with dimmed and white-flash tints; `iso.c`: the map, the static layer, units with walking
   paths and one-shot animations, depth, occlusion, camera, cursor, tinted cells, the cells a unit can reach
   within a range and a climb limit; `ui.c`: translucent in-game windows, menus, bars, banners) on a 14 x 14
@@ -150,7 +150,7 @@ it can change without flashing firmware, then moved into the firmware once its A
   table). The pack is 260 KB (115 tiles, 4 characters, 250 images); the package's ELF is 9.6 KB.
 - **Táticas da Ilha** (the same package, 0.3): the engine as a small game, every text in Portuguese
   (`main/game.h`; `data.c` the catalogue, classes, enemies, levels and the save; `screens.c` title, party,
-  battle choice, summary, shop; `battle.c` the battle; `isotest.c` the loop).
+  battle choice, summary, shop; `battle.c` the battle; `taticas.c` the loop).
   - Title: Começar, Sair. Progress is saved (`fh1_state_save("progresso")`): the roster, the bag, the coins.
   - Party: a card per hero (sprite, name, class, level and XP, PV, PM; "equipe" when chosen), up to three in
     the team. A on a card opens its menu, cascading: Pôr na / Tirar da equipe, Nome (a letter keyboard with

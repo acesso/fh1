@@ -62,7 +62,7 @@ idf.py build                        # -O2 for the whole firmware; a full rebuild
 - **Crash analysis:** `idf.py -p /dev/ttyUSB0 coredump-info` (core dumps go to flash).
 - **Dev console:** `http://<ip>/` (WebSocket `/ws`). Drive it from the PC with
   `FH1_HOST=<ip> FH1_CODE=<code> firmware/tools/fh1dev.py` (keys, screenshots, stats, console ops; see its
-  header). Screenshots (`/shot.bmp?code=`) are of the logical screen (240 x 240 in native mode).
+  header). Screenshots (`/shot.bmp?code=`) are of the logical screen (320 x 320 in native mode, 320 x 240 in fh1 mode).
 - **Serial commands** (via a terminal or `tools/keys.py`, type `!`): `!wifi <ssid> <pass>`, `!bl <pct>`,
   `!mode native|fh1`, `!theme gen1|gen2`.
 

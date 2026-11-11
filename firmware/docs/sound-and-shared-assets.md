@@ -57,9 +57,9 @@ Games for the engine share most of their assets (tiles, characters, icons, sound
 installed once and used by every game that needs them.
 
 - **Asset packages:** an `.fpk` with `"kind": "assets"` and no `app.elf`, installed to `/int/assets/<id>/`.
-  For example `org.fh1.assets.iso-world` (tiles, the banado characters, the critters, the bag icons, the
-  swords) and `org.fh1.assets.rpg-sfx` (this sound pack).
-- **Apps name what they use** in their manifest: `"assets": [{"id": "org.fh1.assets.rpg-sfx", "version": "1"}]`.
+  For example `iso-world` (tiles, the banado characters, the critters, the bag icons, the
+  swords) and `rpg-sfx` (this sound pack).
+- **Apps name what they use** in their manifest: `"assets": [{"id": "rpg-sfx", "version": "1"}]`.
   The launcher greys out an app whose assets are missing ("needs assets ..."), as it does for `needs`. The
   installer will not remove an asset package that an installed app uses.
 - **SDK 0.7:** `fh1_asset_dir(id)` returns the folder of an installed asset package (or NULL), and games load
@@ -106,14 +106,14 @@ Events, mapped by name in the game's recipe:
 2. **`tools/fh1sfx.py`:** the rules, the `.fsfx` bank, preview WAVs of everything it makes.
 3. **Asset packages:** the `.fpk` kind, the installer, the launcher's check, `fh1_asset_dir` (SDK 0.7).
 4. **The mixer and `fh1_sfx_*`** in the firmware (SDK 0.7). Dev commands to play any sound on the FH1.
-5. **Táticas da Ilha:** its art moved into `org.fh1.assets.iso-world`, its sounds from
-   `org.fh1.assets.rpg-sfx`. The PC host writes the mixed sound of a script to a WAV, to listen to a scene
+5. **Táticas da Ilha:** its art moved into `iso-world`, its sounds from
+   `rpg-sfx`. The PC host writes the mixed sound of a script to a WAV, to listen to a scene
    without the FH1.
 
 ## Decided and built (2026-11-08)
 
 - **Format:** mono, 44.1 kHz, 16-bit PCM (the user's choice: the best quality), trimmed and levelled as above:
-  `assets/pools/org.fh1.assets.rpg-sfx/` (`sfx.json`, built by `tools/fh1sfx.py`): 48 sounds, 53.4 s, 4.7 MB.
+  `assets/pools/rpg-sfx/` (`sfx.json`, built by `tools/fh1sfx.py`): 48 sounds, 53.4 s, 4.7 MB.
 - **Where:** asset packages with `"where": "sd"` are installed to `/sd/assets/<id>/` (internal storage when there
   is no card). Packages may be up to 64 MB over the dev console's upload.
 - **Loading per state:** the menus' sounds when the game starts (about 0.3 MB); a battle's sounds before it,
