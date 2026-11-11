@@ -2,6 +2,22 @@
 
 Releases of the FH1 firmware and its apps, newest first. Each is a tag (`vX.Y.Z`) on `main`.
 
+## 0.3.1 (2026-11-11)
+
+Less work for the same picture: on the FH1 board, and three times faster in the simulator's idle menus.
+
+### FH1 board
+
+- **The screen gets only what changed:** while the UI owns it, each 20-line band carries just the rectangle
+  drawn since the last frame (a blinking cursor costs its own pixels, not 320 × 240 thirty times a second);
+  full frames while a full-screen program draws directly (`fh1_board_direct`, switched by `fh1_ui_pause`).
+  `fh1_board_changed` reports rows drawn directly, as the POST screen does.
+- **Status bar:** each icon, the battery and the clock's colon are restyled only when they change.
+- **Boot:** no 8 MB PSRAM memory test.
+
+On the simulator's idle launcher the firmware runs 62% fewer instructions (167 M against 437 M over boot and
+9 s idle) and sends ten thousand pixels where it sent about 27 million.
+
 ## 0.3.0 (2026-11-11)
 
 The simulator as a showcase: the FH1 drawn to scale, played through its own buttons.
