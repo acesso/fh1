@@ -26,6 +26,23 @@ It borrows its building style from an ESP32-S3 Wi-Fi bridge built earlier: modul
 
 The parts for **two devices** are bought; placement is drawn and wiring routed; nothing is soldered yet. The firmware runs on a Guition ESP32-4848S040 dev board (`firmware/README.md`), with Bluetooth controllers through an ESP32 bridge (`bridge/`). Releases and what each added: `CHANGELOG.md`.
 
+## Ideas
+
+Future ideas and pending work; each leaves this list when it lands.
+
+- **Asset import toolkit (SDK):** offline tools that fit a sprite sheet or sound from any source to the FH1. They check a sprite set has the frames an app needs (isometric or plain 2D), check audio and downsample or convert it, using ffmpeg or ImageMagick when installed. They build on `firmware/tools/fh1art.py` and `firmware/tools/fh1sfx.py`.
+- **2D → isometric converter:** a best-effort tool that turns plain 2D sprites into isometric ones.
+- **Contributor guide:** for people and their AI tools. It covers building an app for the FH1, what the SDK and firmware provide, what to do when an app needs something they don't (an SDK or firmware change), and how to propose changes as pull requests.
+- **Releases:** each release carries the firmware for every board (`fh1`, `guition`) as its own download.
+- **Simulator:**
+  - faster in the browser;
+  - the FH1's buttons and thumbstick on the page, with their LEDs;
+  - sound through Web Audio;
+  - the micro-SD card and Wi-Fi;
+  - loading your own firmware from the page.
+- **FH1 board firmware:** the ES8311 codec setup, the micro-SD slot, the battery level, the IMU.
+- **Táticas da Ilha:** difficulty that adapts to the player.
+
 ## Layout
 
 | Path | What |
