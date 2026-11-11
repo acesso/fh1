@@ -2,6 +2,20 @@
 
 Releases of the FH1 firmware and its apps, newest first. Each is a tag (`vX.Y.Z`) on `main`.
 
+## 0.5.1 (2026-11-11)
+
+The simulator's keys follow the buttons on screen, and 0.5.0's site and downloads go out.
+
+### Simulator
+
+- **Keys:** I J K L are the face buttons, laid out as on screen: I is X (top), J is Y (left), L is A (right), K is
+  B (bottom). Suggested in issue #1.
+
+### Releases
+
+- **Fixed:** 0.5.0's build stopped when a package mirror failed to answer, so its release and site were not
+  published; the build now retries the download. This release carries 0.5.0's changes.
+
 ## 0.5.0 (2026-11-11)
 
 Táticas da Ilha 0.9: a map that spins and changes, bosses that arrive, grander spells; an SDK guide and an
@@ -23,11 +37,6 @@ end-to-end test suite for games.
 ### Interface
 
 - **Temas** is also in the System menu, before About.
-
-### Simulator
-
-- **Keys:** I J K L are the face buttons, laid out as on screen: I is X (top), J is Y (left), L is A (right), K is
-  B (bottom). Suggested in issue #1.
 
 ### For developers
 
