@@ -437,10 +437,10 @@ index 0f6845aa..62d0b99c 100644
          _ => None,
      }
 diff --git a/wasm/src/s3.rs b/wasm/src/s3.rs
-index d8ef487c..d7a3865e 100644
+index d8ef487c..a197ad63 100644
 --- a/wasm/src/s3.rs
 +++ b/wasm/src/s3.rs
-@@ -153,6 +153,17 @@ pub unsafe extern "C" fn esp32sim_set_control_prices(e: *mut Emu, on: u32) -> u3
+@@ -153,6 +153,34 @@ pub unsafe extern "C" fn esp32sim_set_control_prices(e: *mut Emu, on: u32) -> u3
      0
  }
  
@@ -453,6 +453,23 @@ index d8ef487c..d7a3865e 100644
 +    let e = unsafe { &mut *e };
 +    let Some(m) = e.m.s3_mut() else { return 1 };
 +    if m.set_fast_delays(on != 0) { 0 } else { 1 }
++}
++
++/// FH1: the JIT's module budget (live modules, 1..=100000) and hotness threshold (runs before a block compiles,
++/// 1..=65536; default 2000 and 32). A block that turns hot while the budget is full compiles once there is room.
++/// 0 on success, 1 on a value out of range.
++/// # Safety
++/// `e` must be a live exclusively borrowed emulator.
++#[no_mangle]
++pub unsafe extern "C" fn esp32sim_set_jit_limits(_e: *mut Emu, max_live: u32, hot: u32) -> u32 {
++    if !(1..=100_000).contains(&max_live) || !(1..=65_536).contains(&hot) { return 1; }
++    // Native builds of this crate (tests) have no browser JIT.
++    #[cfg(target_arch = "wasm32")]
++    {
++        xtensa_lx7::jit::JIT_MAX_LIVE.store(max_live, std::sync::atomic::Ordering::Relaxed);
++        xtensa_lx7::jit::JIT_HOT.store(hot, std::sync::atomic::Ordering::Relaxed);
++    }
++    0
 +}
 +
  /// Scheduling quantum of the exact-clock scheduler (default 256 on wasm32, 64 native). Other values interleave two
@@ -481,31 +498,34 @@ index 6d839fea..3071c9df 100644
      if (m.t === 'board' && m.name === 'waveshare-amoled18-v2') { document.querySelector('h1').textContent = 'ESP32‑S3 emulator, Waveshare ESP32‑S3‑Touch‑AMOLED‑1.8 V2'; $('#lcdstat').textContent = 'CO5300 368×448 over QSPI, click or drag to touch'; const lcd = $('#lcd'); const quarter = lcdRotation === 90 || lcdRotation === 270; lcd.style.width = (quarter ? 448 : 368) + 'px'; lcd.style.height = (quarter ? 368 : 448) + 'px'; $('#lcdpanel').style.display = ''; syncTitle(); }
      if (m.t === 'board') {
 diff --git a/web/wasm/experiments.mjs b/web/wasm/experiments.mjs
-index 238f6edd..40cafc2e 100644
+index 238f6edd..5c0cdc48 100644
 --- a/web/wasm/experiments.mjs
 +++ b/web/wasm/experiments.mjs
-@@ -17,6 +17,8 @@ const setters = new Map([
+@@ -17,6 +17,10 @@ const setters = new Map([
    ['esp32sim_set_control_prices', [mode(1)]],
    ['esp32sim_set_icache_fill', [price]],
    ['esp32sim_set_quantum', [quantum]],
++  // Not timing: the JIT's module budget and hotness threshold (FH1).
++  ['esp32sim_set_jit_limits', [n => positive(n) && n <= 100000, n => positive(n) && n <= 65536]],
 +  // Not timing either: the ROM's ets_delay_us passes its time without running its loop (Machine::set_fast_delays).
 +  ['esp32sim_set_fast_delays', [mode(1)]],
    // Not timing: the fluidbox benchmark's scripted IMU handling (guest-time driven, exact).
    ['esp32sim_set_imu_motion', [mode(1)]],
  ]);
 diff --git a/web/wasm/jit.mjs b/web/wasm/jit.mjs
-index 1cd117e0..a4c1f10a 100644
+index 1cd117e0..670ae74c 100644
 --- a/web/wasm/jit.mjs
 +++ b/web/wasm/jit.mjs
-@@ -1,12 +1,20 @@
+@@ -1,12 +1,21 @@
  // Install hot guest blocks in Rust's exported function table. All steady-state
  // execution stays in WASM; these imports only compile and retire cached code.
 +//
 +// Every block is its own module, and a browser gives a process a fixed budget of executable memory (shared by the
-+// tab's workers, and freed only when the garbage collector gets to released modules). So the host stops compiling
-+// at MAX_MODULES live modules, and for good at the first out-of-memory error: the blocks already compiled keep
-+// running, the rest are interpreted, and the console gets one line instead of one per block.
-+const MAX_MODULES = 2000;   // measured on the FH1 firmware: past this, compiling costs more than it saves
++// tab's workers, and freed only when the garbage collector gets to released modules). The Rust JIT keeps the live
++// modules within its budget (esp32sim_set_jit_limits, 2000 by default: measured on the FH1 firmware, past that
++// compiling costs more than it saves). The host stops compiling for good at the first out-of-memory error: the
++// blocks already compiled keep running, the rest are interpreted, and the console gets one line instead of one per
++// block.
  export function createJitHost(exports) {
    const free = [], live = new Map();
 -  const stats = { compiled: 0, failed: 0, released: 0, compileMs: 0, bytes: 0, liveBytes: 0, peakBytes: 0, peakModules: 0 };
@@ -515,11 +535,11 @@ index 1cd117e0..a4c1f10a 100644
      stats,
      imports: {
        host_jit_compile(ptr, len) {
-+        if (stats.off || live.size >= MAX_MODULES) return 0;
++        if (stats.off) return 0;
          const start = performance.now();
          try {
            const w = exports();
-@@ -22,7 +30,12 @@ export function createJitHost(exports) {
+@@ -22,7 +31,12 @@ export function createJitHost(exports) {
          } catch (error) {
            stats.failed++;
            // Compilation failure is safe to interpret: no guest instruction has run.
@@ -546,3 +566,102 @@ index 242f037e..84a3638f 100644
      lastStat = { wall, insns, cycles: cur };
    }
    // Only yield immediately when this turn left catch-up work unfinished. Once we reach
+diff --git a/xtensa-lx7/src/jit/wasm.rs b/xtensa-lx7/src/jit/wasm.rs
+index d81d1f57..05e344db 100644
+--- a/xtensa-lx7/src/jit/wasm.rs
++++ b/xtensa-lx7/src/jit/wasm.rs
+@@ -113,6 +113,31 @@ pub static CENSUS: [std::sync::atomic::AtomicU64; 8] = [const { std::sync::atomi
+ #[inline(always)]
+ fn census(i: usize, n: u64) { if cfg!(feature = "wasm-cpu-profile") { CENSUS[i].fetch_add(n, std::sync::atomic::Ordering::Relaxed); } }
+ const HOT: u32 = 32;
++/// FH1: the module budget and the hotness threshold, set at run time (`esp32sim_set_jit_limits`). A browser gives
++/// a tab a fixed budget of executable memory, and past a few thousand live modules compiling costs more than it
++/// saves. A block that turns hot while the budget is full stays uncompiled but not refused: it compiles as soon as a
++/// release (a cache turnover) makes room, instead of being interpreted for good.
++pub static JIT_MAX_LIVE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(2000);
++pub static JIT_HOT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(HOT);
++static JIT_LIVE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
++#[inline(always)]
++fn jit_full() -> bool {
++    use std::sync::atomic::Ordering::Relaxed;
++    JIT_LIVE.load(Relaxed) >= JIT_MAX_LIVE.load(Relaxed)
++}
++/// Install a module, counting it against the budget; 0 when the host refuses it.
++unsafe fn jit_install(bytes: &[u8]) -> u32 {
++    // SAFETY: the caller's contract for host_jit_compile.
++    let slot = unsafe { host_jit_compile(bytes.as_ptr(), bytes.len()) };
++    if slot != 0 { JIT_LIVE.fetch_add(1, std::sync::atomic::Ordering::Relaxed); }
++    slot
++}
++unsafe fn jit_uninstall(slot: u32) {
++    // SAFETY: the caller's contract for host_jit_release.
++    unsafe { host_jit_release(slot) };
++    use std::sync::atomic::Ordering::Relaxed;
++    JIT_LIVE.store(JIT_LIVE.load(Relaxed).saturating_sub(1), Relaxed);   // one worker thread: no race
++}
+ /// EX138: emit control-flow prices into code generated from now on.
+ pub static PRICED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+ /// Emit the inline data-cache probe into code generated from now on (a `cache-inline` build that
+@@ -248,7 +273,7 @@ impl Block {
+         if slot != NONE && slot != 0 {
+             // SAFETY: reset/drop happen only when no compiled block is executing.
+             unsafe {
+-                host_jit_release(slot);
++                jit_uninstall(slot);
+             }
+         }
+         self.drop_region(id, covered);
+@@ -261,7 +286,7 @@ impl Block {
+             }
+             // SAFETY: as above; a region is dropped from Rust between compiled calls.
+             unsafe {
+-                host_jit_release(r.slot);
++                jit_uninstall(r.slot);
+             }
+         }
+     }
+@@ -412,13 +437,15 @@ pub fn ready(cc: &CodeCache, code: u32, lend: u32) -> bool {
+ fn prepare(b: &Block, slot_out: &Cell<u32>, lend: u32) -> bool {
+     let hits = b.hits.get() + 1;
+     b.hits.set(hits);
+-    if hits < HOT { return false; }
++    if hits < JIT_HOT.load(std::sync::atomic::Ordering::Relaxed) { return false; }
++    // Budget full: stay hot and uncompiled (slot NONE), and try again on the next run.
++    if jit_full() { b.hits.set(hits - 1); return false; }
+     // LEND persists after its loop: a loop-body block keeps seeing the same value.
+     if b.instructions.iter().zip(&b.pcs).any(|(i, pc)| pc.wrapping_add(i.insn.len as u32) == lend) { b.lend_hint.set(lend); }
+     let bytes = generate(b);
+     // SAFETY: The host synchronously copies these bytes, installs a module using the
+     // shared memory/table, and returns a correctly typed function slot or zero.
+-    let slot = unsafe { host_jit_compile(bytes.as_ptr(), bytes.len()) };
++    let slot = unsafe { jit_install(&bytes) };
+     slot_out.set(slot);
+     b.bytes.set(if slot == 0 { 0 } else { bytes.len() });
+     slot != 0
+@@ -879,12 +906,12 @@ unsafe fn run_inner<B: Bus>(
+                 #[cfg(feature = "wasm-jit-tests")]
+                 REGION_STATS[10].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                 found
+-            } else if entry == 0 && b.region_tries.get() < REGION_TRIES {
++            } else if entry == 0 && b.region_tries.get() < REGION_TRIES && !jit_full() {
+                 b.region_tries.set(b.region_tries.get() + 1);
+                 let mut formed = emitter::region::form(cpu, bus, b.pc, &b.instructions, b.fast).and_then(|f| {
+                     let (bytes, sites) = emitter::region::generate(&f.chunks, &f.pages, &f.loops, &f.leaves, b.fast, None);
+                     // SAFETY: as for ready(): the host copies and installs the module.
+-                    let slot = unsafe { host_jit_compile(bytes.as_ptr(), bytes.len()) };
++                    let slot = unsafe { jit_install(&bytes) };
+                     (slot != 0).then(|| Region {
+                         lens: f.chunks.iter().map(|c| c.instructions.len() as u32).collect(),
+                         short: vec![0; f.chunks.len()], tunes: 0,
+@@ -1053,9 +1080,9 @@ fn note_short(cc: &CodeCache, code: u32, slot: u32, target: u32) {
+     let (bytes, sites) = emitter::region::generate(&r.chunks, &r.pages, &r.loops, &r.leaves, rb.fast, Some(&hot));
+     let copies = emitter::region::copy_indices(&r.chunks, &hot).iter().map(|c| c.unwrap_or(0)).collect();
+     // SAFETY: as for ready(): the host copies and installs the module; the old one is not running.
+-    let slot = unsafe { host_jit_compile(bytes.as_ptr(), bytes.len()) };
++    let slot = unsafe { jit_install(&bytes) };
+     if slot == 0 { return; }
+-    unsafe { host_jit_release(r.slot) };
++    unsafe { jit_uninstall(r.slot) };
+     (r.slot, r.bytes, r.sites, r.copies) = (slot, bytes.len(), sites, copies);
+     own_resumes(r, owner, &cc.covered.borrow());
+     #[cfg(feature = "wasm-jit-profile")]
