@@ -44,14 +44,17 @@ jobs:
         shell: bash
         run: |
           git config --global --add safe.directory '*'
-          # A mirror's hiccup failed a release (apt's exit 100): retry the download, and the whole step twice.
-          for try in 1 2 3; do
-            apt-get -o Acquire::Retries=3 update -qq && \
-              apt-get -o Acquire::Retries=3 install -y -qq python3-pil python3-numpy >/dev/null && break
-            [ $try = 3 ] && exit 100
-            sleep 20
-          done
           . "$IDF_PATH/export.sh"
+          # Pillow and numpy for the art and sound tools: Ubuntu's packages (over IPv4: apt failed here, exit 100,
+          # while every other download worked), else from PyPI into ESP-IDF's Python, which the tools then use.
+          apt="apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=3"
+          if $apt update -qq && $apt install -y -qq python3-pil python3-numpy >/dev/null; then
+            echo "Pillow and numpy: Ubuntu's packages"
+          else
+            echo "apt failed: Pillow and numpy from PyPI into ESP-IDF's Python"
+            python -m pip install -q pillow numpy
+            export FH1_PYTHON=python
+          fi
           firmware/tools/build-packages.sh "$PWD/out"
       - uses: actions/upload-artifact@v4
         with:

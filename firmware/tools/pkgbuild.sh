@@ -8,7 +8,8 @@ dir=$(cd "$1" && pwd)
 tools=$(cd "$(dirname "$0")" && pwd)
 cd "$dir"
 # fh1art.py needs Pillow: the system Python has it, the ESP-IDF one may not.
-if [ -f art.json ]; then /usr/bin/python3 "$tools/fh1art.py" build art.json; fi
+# FH1_PYTHON: another Python with Pillow (CI, when the system's packages cannot be installed).
+if [ -f art.json ]; then "${FH1_PYTHON:-/usr/bin/python3}" "$tools/fh1art.py" build art.json; fi
 [ -f build/esp-idf/main/CMakeFiles/__idf_main.dir/build.make ] || idf.py reconfigure
 find build/esp-idf/main -name "*.obj" -delete; rm -f build/esp-idf/main/libmain.a
 idf.py elf
