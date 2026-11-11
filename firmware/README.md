@@ -43,8 +43,23 @@ The FH1 board does not yet set up the ES8311's registers or read the micro-SD ca
 python -m esptool --chip esp32s3 -p /dev/ttyUSB0 -b 460800 write-flash 0x0 fh1-firmware-guition.bin
 ```
 
-That image holds the bootloader, the partition table, the OTA data and the app; settings (NVS) and installed apps
-stay as they are.
+That image holds the bootloader, the partition table, the OTA data and the app, and it **erases the settings**
+(NVS at 0x9000: the Wi-Fi network, users, theme, the console code); installed apps stay. Use it for a first install.
+To update a board that is set up, keep its settings:
+
+- **Over Wi-Fi** (the web page's Firmware section): writes the other app slot and leaves NVS alone.
+- **Over USB, from a build** (`fh1.bin` and `ota_data_initial.bin` in OUT_DIR): write the app and reset the OTA data,
+  so the board starts from the slot just written:
+  ```sh
+  python -m esptool --chip esp32s3 -p /dev/ttyUSB0 -b 460800 write-flash 0xf000 ota_data_initial.bin 0x20000 fh1.bin
+  ```
+- **Over USB, with the release image:** back up NVS first and write it back after. The backup holds the Wi-Fi
+  password: keep it out of the repo.
+  ```sh
+  python -m esptool --chip esp32s3 -p /dev/ttyUSB0 read-flash 0x9000 0x6000 nvs-backup.bin
+  python -m esptool --chip esp32s3 -p /dev/ttyUSB0 -b 460800 write-flash 0x0 fh1-firmware-guition.bin
+  python -m esptool --chip esp32s3 -p /dev/ttyUSB0 write-flash 0x9000 nvs-backup.bin
+  ```
 
 ## First start
 
