@@ -2,6 +2,26 @@
 
 Releases of the FH1 firmware and its apps, newest first. Each is a tag (`vX.Y.Z`) on `main`.
 
+## 0.3.2 (2026-11-11)
+
+The simulator loads on GitHub Pages again, and games and boot cost less.
+
+### Simulator
+
+- **Fixed:** the simulator stopped at "source array is too long" on GitHub Pages: the host compresses the
+  downloads, and the page sized its buffer from the compressed length.
+- **Faster boot:** ESP-IDF's busy-waits at boot (clock and radio calibration, the second core's start) pass their
+  time without running their loops (esp32sim's new fast delays).
+
+### SDK
+
+- **Frames send only what changed:** an app's frame copies and reports only the rows that differ from the last one,
+  compared a word at a time, so a still game screen costs nothing on the FH1's display.
+- **Text:** `fh1_px_text` draws glyphs that lie wholly on screen without testing each pixel.
+
+On the simulator's Táticas da Ilha title screen the firmware runs 24% fewer instructions (891 M against 1,169 M over
+boot and 13 s of the game) and sends a tenth of the pixels.
+
 ## 0.3.1 (2026-11-11)
 
 Less work for the same picture: on the FH1 board, and three times faster in the simulator's idle menus.
