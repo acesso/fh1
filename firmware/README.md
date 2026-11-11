@@ -327,6 +327,13 @@ progress when it sees `fh1_user(0, ...)` change).
 - The app stays loaded while it has windows or timers. `fh1_app_exit()` closes them and unloads it.
 - Save data under `fh1_app_data_dir()`. Uninstalling deletes that folder.
 
+**Reading a crash or a profile inside an app:** the console logs where the app's code went when it starts
+(`run: starting org.fh1.isotest 0.8.2 (...), text at 0x3c2b7b84, linked at 0x3394`). The CPU runs that code at the
+same offset from `0x42000000` as the address shown has from `0x3c000000`, so a program counter `pc` in the app is
+`pc - 0x422b7b84 + 0x3394` in its ELF. The packaged `app.elf` has no symbols: build once with
+`idf.py -DELF_LOADER_KEEP_DEBUG_ELF=ON elf` in the app's folder for `build/<name>.app.elf.debug` (same code, with
+symbols and lines), then `xtensa-esp32s3-elf-addr2line -f -e build/<name>.app.elf.debug <address>`.
+
 ## Layout
 
 | Path | What |

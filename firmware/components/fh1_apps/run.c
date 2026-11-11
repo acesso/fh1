@@ -837,7 +837,10 @@ esp_err_t run_start(const fh1_manifest_t *m, char *err, size_t n)
     fh1_mkdirs(s_app.data_dir);
     s_app.loaded = true;
     s_app.exit_requested = false;
-    ESP_LOGI(TAG, "starting %s %s (%u bytes)", m->id, m->version, (unsigned)st.st_size);
+    // Where its code went: an app address minus `text` plus `linked` is its address in the app's ELF (to read a
+    // backtrace through an app, or profile one).
+    ESP_LOGI(TAG, "starting %s %s (%u bytes), text at %#x, linked at %#x", m->id, m->version, (unsigned)st.st_size,
+             (unsigned)s_app.elf.sec[ELF_SEC_TEXT].addr, (unsigned)s_app.elf.sec[ELF_SEC_TEXT].v_addr);
     char *argv[] = { s_app.m.id, s_app.data_dir };
     r = esp_elf_request(&s_app.elf, 0, 2, argv);
     ESP_LOGI(TAG, "%s: app_main returned %d, %u window(s)", m->id, r, (unsigned)fh1_win_count_owned(&s_app));
