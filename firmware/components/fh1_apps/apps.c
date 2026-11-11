@@ -184,6 +184,7 @@ static const builtin_t s_builtins[] = {
     { "sys.devices", "Devices", open_devices, FH1_ICON_MENU_DEVICES },
     { "sys.io", "Inputs and outputs", io_open, FH1_ICON_MENU_IO },
     { "sys.bridges", "Bridges", bridges_open, FH1_ICON_MENU_BRIDGE },
+    { "sys.themes", "Themes", themes_open, FH1_ICON_MENU_THEMES },        // an app, and in SYSTEM too
     { "sys.about", "About", open_about, FH1_ICON_MENU_ABOUT },
 };
 #define NBUILTIN (sizeof(s_builtins) / sizeof(s_builtins[0]))
@@ -1307,6 +1308,9 @@ static void console_json(cJSON *root)
         cJSON_AddItemToArray(b, o);
     }
     for (size_t i = 0; i < NBUILTIN; i++) {
+        bool listed = false;                                       // Temas is in both menus: list it once
+        for (size_t j = 0; j < NUSER; j++) listed |= strcmp(s_user_builtins[j].id, s_builtins[i].id) == 0;
+        if (listed) continue;
         cJSON *o = cJSON_CreateObject();
         cJSON_AddStringToObject(o, "id", s_builtins[i].id);
         cJSON_AddStringToObject(o, "name", s_builtins[i].name);

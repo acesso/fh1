@@ -231,8 +231,8 @@ the focused item's text. A file or firmware arriving shows a progress overlay in
 it is: a game shows its app's console with a cartridge sliding in, a package a parcel, firmware a chip.
 Apps register the file types they open (`fh1_ui_register_file_type`).
 
-Five themes, chosen in the Temas app (Apps) or in System > Devices > the screen ("Theme"), applied at once,
-with no restart. How they are drawn, and how to add one: [`docs/themes.md`](docs/themes.md).
+Five themes, chosen in the Temas app (in Apps, and in System before About) or in System > Devices > the screen
+("Theme"), applied at once, with no restart. How they are drawn, and how to add one: [`docs/themes.md`](docs/themes.md).
 - **Gen 1** (green) and **Gen 2** (colour): the rounded boxes above, on a dotted or latticed desktop.
 - **Hex**: an early-warning console. Amber on black, with a honeycomb desktop. Boxes are square, cut at 45 degrees
   at the corners. The title sits on a black plate leaning with a band of warning stripes. The window in focus is

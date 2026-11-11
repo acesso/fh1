@@ -10,8 +10,8 @@ sounds). Five themes are built in:
 | Garden (`garden`) | Garden: wooden frames, a vine, corner flowers, a butterfly, a lawn | garden |
 | Command (`scifi`) | Command: steel plates, corner brackets, a lit tab, a running spark, a grid | command |
 
-They are chosen in the Temas app (Apps), in System > Devices > the screen, or with `!theme <id>` on the console.
-A change applies at once: no restart.
+They are chosen in the Temas app (in Apps, and in System before About), in System > Devices > the screen, or with
+`!theme <id>` on the console. A change applies at once: no restart.
 
 ## Where things are
 
