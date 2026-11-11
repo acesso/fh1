@@ -1,5 +1,5 @@
 diff --git a/cli/src/lib.rs b/cli/src/lib.rs
-index 8717a42f..bc32a193 100644
+index 8717a42f..81c96a95 100644
 --- a/cli/src/lib.rs
 +++ b/cli/src/lib.rs
 @@ -22,7 +22,7 @@ fn help(chip: &str, code: i32) -> ! {
@@ -11,7 +11,32 @@ index 8717a42f..bc32a193 100644
      eprintln!("                        C6: waveshare-c6-lcd147, none; P4: waveshare-p4-lcd35, none; classic: ttgo-tdisplay, ulanzi-tc001, esp32dev, none)");
      eprintln!("  --flash-mb N, --psram-mb N   memory sizes (S3 default 8 / 2, C3, C6 and classic 4 / 0, P4 16 / 0)");
      eprintln!("  --max-seconds S       stop after S emulated seconds (always give one: the run returns)");
-@@ -442,7 +442,7 @@ fn setup_s3(o: &Opts) -> esp32s3::Machine {
+@@ -35,6 +35,7 @@ fn help(chip: &str, code: i32) -> ! {
+     eprintln!("  --elf F               symbols for logs, traces and profiles (repeatable)");
+     eprintln!("  --trace-fn PREFIX, --break PC, --watch ADDR, --peek ADDR,N, --profile, --vcd F, --debug AREAS, --no-jit");
+     eprintln!("                        debugging; --no-jit is the oracle when a result looks wrong");
++    eprintln!("  --fast-delays         the ROM's ets_delay_us passes its time without running its loop (faster boots)");
+     eprintln!("  --adc PIN, --adc-raw PIN=N   last ADC sample at exit / a 12-bit count into that pad");
+     eprintln!("  --sd IMG, --sd-rw IMG (P4) a card in the SD socket, copy-on-write / write-through;");
+     eprintln!("                        --sd-prg-us N, --sd-serial HEX for its programming time and serial");
+@@ -122,7 +123,7 @@ pub struct Opts {
+     pub trace: bool, pub trace_from: u64, pub breaks: Vec<u32>, pub watch: Option<u32>, pub peeks: Vec<(u32, usize)>, pub pwm_pins: Vec<u8>, pub adc_pins: Vec<u8>, pub adc_raw: Vec<(u8, u16)>, pub disasms: Vec<(u32, usize)>,
+     pub profile: bool, pub profile_blocks: bool, pub coverage: Option<Option<String>>, pub irq_latency: bool, pub vcd: Option<String>,
+     pub regstat: Option<String>, pub regtrace: Option<String>, pub regtrace_max: u64, pub regtrace_from_pc: Option<u32>,
+-    pub stubs: Vec<String>, pub trace_fns: Vec<String>, pub stop_exc: u64, pub log_periph: bool, pub no_jit: bool, pub debug: Vec<String>,
++    pub stubs: Vec<String>, pub trace_fns: Vec<String>, pub stop_exc: u64, pub log_periph: bool, pub no_jit: bool, pub fast_delays: bool, pub debug: Vec<String>,
+     /// `--cooja`: run as a Cooja-NG external mote over NDJSON on stdin/stdout (ESP32-C6 only)
+     pub cooja: bool, pub cooja_slice_us: u64, pub cooja_verbose: bool, pub cooja_rx_at_end: bool,
+     /// `--coproc c6:KEY=VALUE,...`: an ESP32-C6 co-processor on the P4's SDIO bus (`cosim`)
+@@ -227,6 +228,7 @@ pub fn parse(args: &[String], default_chip: &str) -> Opts {
+             "--stop-after-exceptions" => o.stop_exc = next().parse().expect("count"),
+             "--log-periph" => o.log_periph = true,
+             "--no-jit" => o.no_jit = true,
++            "--fast-delays" => o.fast_delays = true,
+             "--debug" => o.debug.push(next()),
+             "--cooja" => o.cooja = true,
+             "--coproc" => o.coproc = Some(next()),
+@@ -442,7 +444,7 @@ fn setup_s3(o: &Opts) -> esp32s3::Machine {
          if invalid { usage_error(message); }
      }
      let mut m = esp32s3::machine(o.mac.unwrap_or([0x44, 0x1b, 0xf6, 0x75, 0xdc, 0xe0]));
@@ -20,6 +45,14 @@ index 8717a42f..bc32a193 100644
      if o.measured_te {
          assert_eq!(m.bus.board.name(), "waveshare-amoled18-v2", "--measured-te requires the AMOLED V2 board");
          m.bus.board = Box::new(esp32s3::board::WaveshareAmoled18V2::with_measured_te());
+@@ -817,6 +819,7 @@ fn prepare<S: Soc>(m: &mut Machine<S>, o: &Opts) -> String {
+         m.stubs.insert(addr, val);
+     }
+     if o.no_jit { for c in &mut m.cores { c.set_jit(false); } }
++    if o.fast_delays && !m.set_fast_delays(true) { eprintln!("[emu] --fast-delays: no ets_delay_us in the ROM ELF, or a timing model is on"); }
+     match boot.as_str() {
+         "app" => match m.boot_app(0x10000) { Ok(entry) => eprintln!("[emu] app boot: entry {:#010x} {}", entry, m.sym(entry)), Err(e) => { eprintln!("[emu] {}", e); std::process::exit(2) } },
+         "rom" => { m.boot_rom(); eprintln!("[emu] ROM boot from reset vector {:#010x}", m.cores[0].pc()); }
 diff --git a/esp-soc/src/board.rs b/esp-soc/src/board.rs
 index 28693db0..bb0db7d8 100644
 --- a/esp-soc/src/board.rs
@@ -38,7 +71,7 @@ index 28693db0..bb0db7d8 100644
      fn encoder(&self) -> Option<(u8, u8)> { None }
      /// Lines for the end-of-run report.
 diff --git a/esp-soc/src/machine.rs b/esp-soc/src/machine.rs
-index eccff1c2..dddcdbe1 100644
+index eccff1c2..7b0a57a5 100644
 --- a/esp-soc/src/machine.rs
 +++ b/esp-soc/src/machine.rs
 @@ -14,7 +14,7 @@ mod modeled;
@@ -59,7 +92,26 @@ index eccff1c2..dddcdbe1 100644
  
  pub struct Machine<S: Soc> {
      pub mac: [u8; 6],
-@@ -155,7 +155,7 @@ impl<S: Soc> Machine<S> {
+@@ -68,6 +68,9 @@ pub struct Machine<S: Soc> {
+     /// instead of hashing every pc (a hash lookup per instruction cost ~16% of run time)
+     stub_bloom: u64, probe_bloom: u64,
+     pub stub_hits: u64,
++    /// The mask ROM's `ets_delay_us` (from the ROM ELF's symbols) and, with `set_fast_delays`, the cycles each core
++    /// still owes to a delay it returned from at once: the busy loop is not executed, its time passes all the same.
++    rom_delay_fn: Option<u32>, fast_delays: bool, delay_left: [u64; 4],
+     /// function-entry tracing: pc -> name (`--trace-fn PREFIX`)
+     pub fn_probes: HashMap<u32, String>,
+     pub cores: Vec<S::Core>,
+@@ -146,7 +149,7 @@ const BB_DEFAULT: u64 = match option_env!("ESP32SIM_BB_BUILD") {
+ impl<S: Soc> Machine<S> {
+     pub fn new(mac: [u8; 6], bus: S::Bus) -> Self {
+         Machine {
+-            web_restart: false, button_reset: false, mac, reboots: 0, stubs: HashMap::new(), stub_bloom: 0, probe_bloom: 0, stub_hits: 0, fn_probes: HashMap::new(),
++            web_restart: false, button_reset: false, mac, reboots: 0, stubs: HashMap::new(), stub_bloom: 0, probe_bloom: 0, stub_hits: 0, rom_delay_fn: None, fast_delays: false, delay_left: [0; 4], fn_probes: HashMap::new(),
+             cores: (0..S::CORES).map(|i| S::new_core_with_bus(i, &bus)).collect(), core_held: (0..S::CORES).map(|i| i > 0).collect(), quantum: QUANTUM, run_steps: 0, vq_stats: [0; 4], vq_skip: 0, vq_penalty: 0, vq_max: std::env::var("ESP32SIM_VQ").ok().and_then(|v| v.parse().ok()).unwrap_or(VQ_DEFAULT),
+             bb_max: std::env::var("ESP32SIM_BB").ok().and_then(|v| v.parse().ok()).unwrap_or(BB_DEFAULT).min(4096), bb_stats: [0; 8],
+             bus, symbols: BTreeMap::new(),
+@@ -155,7 +158,7 @@ impl<S: Soc> Machine<S> {
              exceptions: 0, interrupts: 0, irq_hist: vec![[0; 32]; S::CORES],
              script: Script { events: Vec::new(), pos: 0, log: true, knob_next: 0, uart0_seen: Vec::new(), wait_mark: None }, max_cycles: u64::MAX,
              console: Console { all: Vec::new(), usb: Vec::new(), uart0: Vec::new(), mask: 3, prefix: false, capture: false },
@@ -68,7 +120,78 @@ index eccff1c2..dddcdbe1 100644
              rt: Realtime { enabled: false, wall_start: None, last_check: 0, behind: 0.0, resyncs: 0, speed: None, speed_mark: None, log: false, log_last: None, log_insns: (0, 0) },
              debug_rom: false, cost: None, model_accesses: Vec::new(), approximate_jit_timing: None, approximate_jit_frontiers: false, model_ready_at: vec![0; S::CORES], model_stop: None, model_attach_error: None,
          }
-@@ -1051,6 +1051,7 @@ impl<S: Soc> Machine<S> {
+@@ -235,6 +238,7 @@ impl<S: Soc> Machine<S> {
+     // ------------------------------------------------------------------ images
+     pub fn load_rom(&mut self, rom_elf: &[u8]) -> Result<(), String> {
+         let e = elf::parse(rom_elf)?;
++        self.rom_delay_fn = e.by_name.get("ets_delay_us").copied();
+         for s in &e.segments {
+             if s.data.is_empty() { continue; }
+             self.bus.load_bytes(s.vaddr, &s.data)?;
+@@ -323,6 +327,18 @@ impl<S: Soc> Machine<S> {
+     }
+ 
+     /// Address of a symbol loaded from the ELFs.
++    /// Fast delays: `ets_delay_us(n)` returns at once and its core spends n microseconds of cycles without executing
++    /// (ESP-IDF's boot busy-waits: clock and radio calibration, the second core's start). Interrupts wait for the end
++    /// of the delay. Block execution only; single-stepping (observers) runs the loop. False without the ROM's symbol
++    /// or under a timing model.
++    pub fn set_fast_delays(&mut self, on: bool) -> bool {
++        let Some(pc) = self.rom_delay_fn else { return !on };
++        if on && self.has_timing_model() { return false; }
++        self.fast_delays = on;
++        if on { self.stubs.insert(pc, 0); } else { self.stubs.remove(&pc); }
++        true
++    }
++
+     pub fn sym_addr(&self, name: &str) -> Option<u32> { self.symbols.iter().find(|(_, n)| n.as_str() == name).map(|(&a, _)| a) }
+ 
+     pub fn sym(&self, addr: u32) -> String {
+@@ -402,6 +418,12 @@ impl<S: Soc> Machine<S> {
+         // the entry PC exact while retaining callbacks for combined BLOCK/TRAP observers.
+         let budget = if self.probes.contains(Wants::TRAP_PC) { budget.min(1) } else { budget };
+         S::select_core(&mut self.bus, core);
++        if self.delay_left[core] > 0 {
++            let n = self.delay_left[core].min(u64::from(budget.max(1))) as u32;
++            self.delay_left[core] -= u64::from(n);
++            self.cores[core].advance_cycles(n);
++            return (n, None);
++        }
+         let cpu = &mut self.cores[core];
+         let pc = cpu.pc();
+         // stubs and probes are block boundaries, so testing them at block start is exact
+@@ -411,6 +433,12 @@ impl<S: Soc> Machine<S> {
+                 eprintln!("[fn] i={} t={:.4}s c{} {}({}) ret={:#x}", cpu.insn_count(), self.bus.cycles() as f64 / S::CPU_HZ as f64, core, name, args, ret);
+             }
+             if S::function_hook(cpu, &mut self.bus) { return (1, None); }
++            if self.fast_delays && self.rom_delay_fn == Some(pc) {
++                let us = u64::from(cpu.arg(&mut self.bus, 0));
++                cpu.return_from_stub(&mut self.bus, 0);
++                self.delay_left[core] = us * S::CPU_HZ / 1_000_000;
++                return (1, None);
++            }
+             if let Some(&ret) = self.stubs.get(&pc) { cpu.return_from_stub(&mut self.bus, ret); self.stub_hits += 1; return (1, None); }
+         }
+         let (used, trap) = cpu.run(&mut self.bus, budget);
+@@ -485,7 +513,8 @@ impl<S: Soc> Machine<S> {
+         }
+         if self.stub_bloom & pc_bit(pc) != 0 && !cpu.waiting() {
+             if S::function_hook(cpu, &mut self.bus) { return None; }
+-            if let Some(&ret) = self.stubs.get(&pc) { cpu.return_from_stub(&mut self.bus, ret); self.stub_hits += 1; return None; }
++            // single-stepping runs a fast delay's loop: it cannot hand back the cycles
++            if let Some(&ret) = self.stubs.get(&pc).filter(|_| self.rom_delay_fn != Some(pc) || !self.fast_delays) { cpu.return_from_stub(&mut self.bus, ret); self.stub_hits += 1; return None; }
+         }
+         {
+             let cx = Ctx { symbols: &self.symbols, cycles: self.bus.cycles(), cpu_hz: S::CPU_HZ };
+@@ -768,6 +797,7 @@ impl<S: Soc> Machine<S> {
+     /// A reset ends the current round immediately. Charge the work already executed, without
+     /// dispatching another core or running post-round host actions in the resetting machine.
+     fn finish_reset(&mut self, cycles: u64) -> Stop {
++        self.delay_left = [0; 4];
+         self.bus.tick(cycles as u32);
+         self.observe_round();
+         self.drain_console();
+@@ -1051,6 +1081,7 @@ impl<S: Soc> Machine<S> {
              if self.script.log { eprintln!("[script] t={:.3}s {:?}", t as f64 / S::CPU_HZ as f64, a); }
              match a {
                  ScriptAction::Gpio(pin, level) => { self.bus.gpio_set_input(pin, level); *self.bus.irq_dirty() = true; }
@@ -76,7 +199,7 @@ index eccff1c2..dddcdbe1 100644
                  ScriptAction::Serial(text) => self.bus.serial_input(text.as_bytes()),
                  ScriptAction::Uart(n, text) => self.bus.uart_input(n, text.as_bytes()),
                  ScriptAction::Stop => { self.max_cycles = 0; stopped = true; }
-@@ -1143,8 +1144,11 @@ impl<S: Soc> Machine<S> {
+@@ -1143,8 +1174,11 @@ impl<S: Soc> Machine<S> {
              let pin = |s: &str| -> Result<u8, String> { board.named_pin(s).map(Ok).unwrap_or_else(|| s.parse().map_err(|_| format!("line {}: bad pin {}", ln + 1, s))) };
              let c = (t * hz) as u64;
              match cmd {
@@ -313,6 +436,28 @@ index 0f6845aa..62d0b99c 100644
          "waveshare-amoled18-v2" | "amoled18-v2" => Some(Box::new(WaveshareAmoled18V2::new())),
          _ => None,
      }
+diff --git a/wasm/src/s3.rs b/wasm/src/s3.rs
+index d8ef487c..d7a3865e 100644
+--- a/wasm/src/s3.rs
++++ b/wasm/src/s3.rs
+@@ -153,6 +153,17 @@ pub unsafe extern "C" fn esp32sim_set_control_prices(e: *mut Emu, on: u32) -> u3
+     0
+ }
+ 
++/// Fast delays (`Machine::set_fast_delays`): the ROM's `ets_delay_us` passes its time without running its loop.
++/// Call after loading the ROM, before booting. 0 on success, 1 without the ROM symbol or under a timing model.
++/// # Safety
++/// `e` must be a live exclusively borrowed emulator.
++#[no_mangle]
++pub unsafe extern "C" fn esp32sim_set_fast_delays(e: *mut Emu, on: u32) -> u32 {
++    let e = unsafe { &mut *e };
++    let Some(m) = e.m.s3_mut() else { return 1 };
++    if m.set_fast_delays(on != 0) { 0 } else { 1 }
++}
++
+ /// Scheduling quantum of the exact-clock scheduler (default 256 on wasm32, 64 native). Other values interleave two
+ /// busy cores differently: deterministic, but not bit-identical with the default.
+ /// Rejected while either timing model owns scheduling; approximate timing uses its own quantum.
 diff --git a/web/run.html b/web/run.html
 index 6d839fea..3071c9df 100644
 --- a/web/run.html
@@ -335,3 +480,16 @@ index 6d839fea..3071c9df 100644
      if (m.t === 'board' && m.name === 'waveshare-p4-lcd35') { document.querySelector('h1').textContent = 'ESP32‑P4 emulator, Waveshare ESP32‑P4‑WIFI6‑Touch‑LCD‑3.5'; $('#lcdstat').textContent = 'ST7796 320×480 over SPI2 + AXI‑GDMA, FT5x06 touch: click or drag to touch'; const lcd = $('#lcd'); const quarter = lcdRotation === 90 || lcdRotation === 270; lcd.style.width = (quarter ? 480 : 320) + 'px'; lcd.style.height = (quarter ? 320 : 480) + 'px'; $('#lcdpanel').style.display = ''; syncTitle(); }
      if (m.t === 'board' && m.name === 'waveshare-amoled18-v2') { document.querySelector('h1').textContent = 'ESP32‑S3 emulator, Waveshare ESP32‑S3‑Touch‑AMOLED‑1.8 V2'; $('#lcdstat').textContent = 'CO5300 368×448 over QSPI, click or drag to touch'; const lcd = $('#lcd'); const quarter = lcdRotation === 90 || lcdRotation === 270; lcd.style.width = (quarter ? 448 : 368) + 'px'; lcd.style.height = (quarter ? 368 : 448) + 'px'; $('#lcdpanel').style.display = ''; syncTitle(); }
      if (m.t === 'board') {
+diff --git a/web/wasm/experiments.mjs b/web/wasm/experiments.mjs
+index 238f6edd..40cafc2e 100644
+--- a/web/wasm/experiments.mjs
++++ b/web/wasm/experiments.mjs
+@@ -17,6 +17,8 @@ const setters = new Map([
+   ['esp32sim_set_control_prices', [mode(1)]],
+   ['esp32sim_set_icache_fill', [price]],
+   ['esp32sim_set_quantum', [quantum]],
++  // Not timing either: the ROM's ets_delay_us passes its time without running its loop (Machine::set_fast_delays).
++  ['esp32sim_set_fast_delays', [mode(1)]],
+   // Not timing: the fluidbox benchmark's scripted IMU handling (guest-time driven, exact).
+   ['esp32sim_set_imu_motion', [mode(1)]],
+ ]);

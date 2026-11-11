@@ -202,13 +202,21 @@
     };
   }
 
+  // Content-Length is the size on the wire: a host that compresses (GitHub Pages gzips) sends fewer bytes than the
+  // body holds once decoded. So the chunks are kept and joined at the end; the header only moves the progress bar.
   async function fetchBytes(url, onprog) {
     const r = await fetch(url);
     if (!r.ok) throw new Error(url + ': ' + r.status);
-    const total = +r.headers.get('content-length') || 0;
-    if (!r.body || !total) return r.arrayBuffer();
-    const out = new Uint8Array(total); const rd = r.body.getReader(); let at = 0;
-    for (;;) { const { done, value } = await rd.read(); if (done) break; out.set(value, at); at += value.length; onprog(at / total); }
+    const wire = +r.headers.get('content-length') || 0;
+    if (!r.body) return r.arrayBuffer();
+    const parts = [], rd = r.body.getReader(); let got = 0;
+    for (;;) {
+      const { done, value } = await rd.read(); if (done) break;
+      parts.push(value); got += value.length;
+      if (wire) onprog(Math.min(1, got / wire));
+    }
+    const out = new Uint8Array(got); let at = 0;
+    for (const p of parts) { out.set(p, at); at += p.length; }
     return out.buffer;
   }
 
@@ -228,7 +236,9 @@
       flash = await fetchBytes('wasm/fw/fh1.bin', (f) => loading(0.3 + f * 0.65));
     }
     loading(0.97, 'LIGANDO…', 'POWERING ON…'); setState('ligando…', 'powering on…');
-    if (!await ask('created', { op: 'create', board: 'fh1', flash_mb: 16, psram_mb: 8, jit: true, experiments: [] })) { setState('não consegui criar o emulador', 'could not create the emulator'); return; }
+    if (!await ask('created', { op: 'create', board: 'fh1', flash_mb: 16, psram_mb: 8, jit: true,
+                                       // ESP-IDF's boot busy-waits pass their time without running (esp32sim.patch)
+                                       experiments: [['esp32sim_set_fast_delays', 1]] })) { setState('não consegui criar o emulador', 'could not create the emulator'); return; }
     // the worker takes the bytes: hand it copies, so a restart can load them again
     for (const [kind, data] of [[0, rom], [5, flash]]) {
       const copy = data.slice(0);
