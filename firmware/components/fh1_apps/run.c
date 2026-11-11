@@ -473,10 +473,40 @@ static void screen_closed(void *user)
     if (s_app.loaded && s_scr.closed) s_scr.closed(user);
 }
 
+// A frame to the framebuffer: only the rows that differ are copied, and reported to the board, so a panel fed
+// over SPI sends a still picture once and a moving one by its changed rows (all of them: the first frame, and
+// after an overlay drew over the screen).
+// Rows compared a word at a time (newlib's memcmp goes byte by byte); both buffers are word-aligned and a row is
+// an even number of pixels.
+static bool row_differs(const uint16_t *a, const uint16_t *b, int px)
+{
+    const uint32_t *x = (const uint32_t *)a, *y = (const uint32_t *)b;
+    for (int i = 0; i < px / 2; i++) if (x[i] != y[i]) return true;
+    return false;
+}
+
+static void screen_present(bool all)
+{
+    const int w = s_scr.w, row = w * 2;
+    int run = -1;                      // first row of the current run of changed rows
+    for (int y = 0; y < s_scr.h; y++) {
+        uint16_t *d = s_scr.fb + y * w;
+        const uint16_t *b = s_scr.bb + y * w;
+        if (all || row_differs(d, b, w)) {
+            memcpy(d, b, row);
+            if (run < 0) run = y;
+        } else if (run >= 0) {
+            fh1_board_changed(run, y - 1);
+            run = -1;
+        }
+    }
+    if (run >= 0) fh1_board_changed(run, s_scr.h - 1);
+}
+
 static void screen_task(void *arg)
 {
-    const size_t bytes = (size_t)s_scr.w * s_scr.h * 2;
     bool show_all = true;              // the first frame, and after an overlay drew over the screen
+    fh1_board_direct(false);           // screen_present reports what changes
     uint32_t last = fh1_millis();
     TickType_t wake = xTaskGetTickCount();
     while (!s_scr.stop) {
@@ -491,7 +521,7 @@ static void screen_task(void *arg)
         const int r = s_scr.frame(s_scr.bb, s_scr.w, s_scr.h, now - last, s_scr.user);
         last = now;
         if (r == FH1_FRAME_END || s_scr.stop) break;
-        if (r == FH1_FRAME_SHOW || show_all) memcpy(s_scr.fb, s_scr.bb, bytes);
+        if (r == FH1_FRAME_SHOW || show_all) screen_present(show_all);
         show_all = false;
         // Block every frame, even when late, so core 1's idle task (and the watchdog) are fed.
         if (xTaskDelayUntil(&wake, pdMS_TO_TICKS(s_scr.period_ms)) == pdFALSE) {
@@ -578,6 +608,22 @@ int fh1_px_text(uint16_t *px, int w, int h, int x, int y, const char *text, uint
         uint32_t cp = *p++;
         if ((cp & 0xE0) == 0xC0 && *p) cp = ((cp & 0x1F) << 6) | (*p++ & 0x3F);
         const uint8_t *g = fh1_font8_glyph(cp);
+        // Wholly on screen (most glyphs): no tests per pixel, empty glyph rows skipped.
+        if (x >= 0 && y >= 0 && x + 8 * scale <= w && y + 8 * scale <= h) {
+            for (int gy = 0; gy < 8; gy++) {
+                const uint8_t bits = g[gy];
+                if (!bits) continue;
+                uint16_t *row = px + (y + gy * scale) * w + x;
+                for (int gx = 0; gx < 8; gx++) {
+                    if (!(bits & (0x80 >> gx))) continue;
+                    uint16_t *q = row + gx * scale;
+                    for (int sy = 0; sy < scale; sy++, q += w)
+                        for (int sx = 0; sx < scale; sx++) q[sx] = c;
+                }
+            }
+            x += 8 * scale;
+            continue;
+        }
         for (int gy = 0; gy < 8; gy++)
             for (int gx = 0; gx < 8; gx++) {
                 if (!(g[gy] & (0x80 >> gx))) continue;
