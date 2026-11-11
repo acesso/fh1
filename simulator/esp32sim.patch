@@ -1,0 +1,214 @@
+diff --git a/cli/src/lib.rs b/cli/src/lib.rs
+index 8717a42f..bc32a193 100644
+--- a/cli/src/lib.rs
++++ b/cli/src/lib.rs
+@@ -22,7 +22,7 @@ fn help(chip: &str, code: i32) -> ! {
+     eprintln!();
+     eprintln!("  --rom F               the chip's mask ROM ELF; default: $ESP32SIM_ROM_DIR, then ~/.espressif/tools/esp-rom-elfs/*/");
+     eprintln!("                        (Espressif's, not in the tarball: tools/fetch-rom-elfs.sh DIR downloads all five)");
+-    eprintln!("  --board NAME          board model (S3: atech14, waveshare-lcd4b, waveshare-amoled18-v2, waveshare-cam, none;");
++    eprintln!("  --board NAME          board model (S3: atech14, waveshare-lcd4b, fh1, waveshare-amoled18-v2, waveshare-cam, none;");
+     eprintln!("                        C6: waveshare-c6-lcd147, none; P4: waveshare-p4-lcd35, none; classic: ttgo-tdisplay, ulanzi-tc001, esp32dev, none)");
+     eprintln!("  --flash-mb N, --psram-mb N   memory sizes (S3 default 8 / 2, C3, C6 and classic 4 / 0, P4 16 / 0)");
+     eprintln!("  --max-seconds S       stop after S emulated seconds (always give one: the run returns)");
+@@ -442,7 +442,7 @@ fn setup_s3(o: &Opts) -> esp32s3::Machine {
+         if invalid { usage_error(message); }
+     }
+     let mut m = esp32s3::machine(o.mac.unwrap_or([0x44, 0x1b, 0xf6, 0x75, 0xdc, 0xe0]));
+-    m.bus.board = esp32s3::board::make_board(&o.board).unwrap_or_else(|| { eprintln!("unknown board '{}' (atech14, waveshare-cam, waveshare-lcd4b, waveshare-amoled18-v2, stopwatch, none)", o.board); std::process::exit(2) });
++    m.bus.board = esp32s3::board::make_board(&o.board).unwrap_or_else(|| { eprintln!("unknown board '{}' (atech14, waveshare-cam, waveshare-lcd4b, fh1, waveshare-amoled18-v2, stopwatch, none)", o.board); std::process::exit(2) });
+     if o.measured_te {
+         assert_eq!(m.bus.board.name(), "waveshare-amoled18-v2", "--measured-te requires the AMOLED V2 board");
+         m.bus.board = Box::new(esp32s3::board::WaveshareAmoled18V2::with_measured_te());
+diff --git a/esp32s3/src/board/fh1.rs b/esp32s3/src/board/fh1.rs
+new file mode 100644
+index 00000000..2e02967c
+--- /dev/null
++++ b/esp32s3/src/board/fh1.rs
+@@ -0,0 +1,130 @@
++//! The FH1 handheld (github.com/acesso/fh1, hardware/wiring.md): an ST7789 240x320 module turned to
++//! landscape on SPI2 (SCK 18, MOSI 39, CS 38, DC 47, RST 48, backlight PWM 40); I2C0 on SDA 3 / SCL 1 with
++//! two MCP23017 expanders (0x20: the face buttons on GPA0-5 and their LEDs on GPB0-3, low = on; 0x21:
++//! the amplifier enable and the radio's lines), an ES8311 codec (0x18) and a PCF8563 clock (0x51); I2S
++//! to the codec on BCK 14, WS 10, DOUT 12; the stick on ADC GPIO2 (X) and GPIO4 (Y); Menu on GPIO0.
++//! Not modelled: the micro-SD slot (SDMMC), the E28 radio (SPI3), the IMU.
++use esp_soc::board::BoardModel;
++use esp_soc::devices::DcsPanel;
++use std::sync::{Arc, Mutex};
++
++pub const PIN_MENU: u8 = 0;
++pub const PIN_LCD_DC: u8 = 47;
++pub const PIN_LCD_RST: u8 = 48;
++pub const PIN_STICK_X: u8 = 2;
++pub const PIN_STICK_Y: u8 = 4;
++pub const LCD_W: usize = 320;
++pub const LCD_H: usize = 240;
++
++/// An MCP23017's registers (IOCON.BANK = 0: A and B interleaved) and the levels outside drives on its
++/// pins (`inputs`: bit set = high; the firmware enables pull-ups, so an unpressed button reads high).
++pub struct Mcp23017State { pub regs: [u8; 0x16], pub inputs: [u8; 2], pub writes: u64 }
++impl Default for Mcp23017State {
++    fn default() -> Self { let mut regs = [0u8; 0x16]; regs[0] = 0xff; regs[1] = 0xff; Mcp23017State { regs, inputs: [0xff; 2], writes: 0 } }
++}
++impl Mcp23017State {
++    /// What the GPIO register reads: the outside level on input pins, the latch on output pins.
++    pub fn gpio(&self, port: usize) -> u8 { let dir = self.regs[port]; (self.inputs[port] & dir) | (self.regs[0x14 + port] & !dir) }
++}
++
++/// The I2C side of an MCP23017: a register pointer that advances after each byte (IOCON.SEQOP = 0).
++pub struct Mcp23017 { state: Arc<Mutex<Mcp23017State>>, ptr: u8, first: bool }
++impl Mcp23017 { pub fn new(state: Arc<Mutex<Mcp23017State>>) -> Self { Mcp23017 { state, ptr: 0, first: true } } }
++impl crate::i2c::I2cDevice for Mcp23017 {
++    fn start(&mut self, read: bool) -> bool { if !read { self.first = true; } true }
++    fn write(&mut self, b: u8) -> bool {
++        if self.first { self.ptr = b % 0x16; self.first = false; return true; }
++        let mut s = self.state.lock().unwrap();
++        // Writing GPIOx writes the output latch OLATx.
++        let r = if self.ptr == 0x12 || self.ptr == 0x13 { self.ptr + 2 } else { self.ptr } as usize;
++        s.regs[r] = b; s.writes += 1;
++        self.ptr = (self.ptr + 1) % 0x16;
++        true
++    }
++    fn read(&mut self) -> u8 {
++        let s = self.state.lock().unwrap();
++        let v = match self.ptr { 0x12 => s.gpio(0), 0x13 => s.gpio(1), p => s.regs[p as usize] };
++        self.ptr = (self.ptr + 1) % 0x16;
++        v
++    }
++}
++
++/// The FH1.
++pub struct Fh1 {
++    pub panel: DcsPanel,
++    pub mcp: [Arc<Mutex<Mcp23017State>>; 2],
++    pub gpio_events: u64,
++}
++impl Default for Fh1 { fn default() -> Self { Self::new() } }
++impl Fh1 {
++    pub fn new() -> Self { Fh1 { panel: DcsPanel::st7789(), mcp: Default::default(), gpio_events: 0 } }
++
++    /// The glass, landscape, as the firmware addresses it: logical (x, y) is the controller's column and page
++    /// counters, mapped through MADCTL exactly as the controller wrote them. The module is IPS: without INVON
++    /// it shows every colour inverted. Blank while the panel is off or asleep.
++    pub fn glass(&self) -> Vec<u16> {
++        let p = &self.panel;
++        let mut out = vec![0u16; LCD_W * LCD_H];
++        if !p.on || p.sleeping { return out; }
++        for y in 0..LCD_H {
++            for x in 0..LCD_W {
++                let (mut col, mut row) = (x, y);
++                if p.madctl & 0x20 != 0 { std::mem::swap(&mut col, &mut row); }
++                if p.madctl & 0x40 != 0 { col = p.cols - 1 - col.min(p.cols - 1); }
++                if p.madctl & 0x80 != 0 { row = p.rows - 1 - row.min(p.rows - 1); }
++                if col < p.cols && row < p.rows {
++                    let px = p.gram[row * p.cols + col];
++                    out[y * LCD_W + x] = if p.inverted { px } else { !px };
++                }
++            }
++        }
++        out
++    }
++
++    /// The face buttons' LEDs (A, B, X, Y): on where MCP #1's GPB0-3 are outputs driven low.
++    pub fn leds(&self) -> [bool; 4] {
++        let s = self.mcp[0].lock().unwrap();
++        let mut on = [false; 4];
++        for (i, l) in on.iter_mut().enumerate() { *l = s.regs[1] & (1 << i) == 0 && s.regs[0x15] & (1 << i) == 0; }
++        on
++    }
++}
++impl BoardModel for Fh1 {
++    fn name(&self) -> &'static str { "fh1" }
++    fn gpio_changes(&mut self, changes: &[(u8, bool)]) {
++        for &(pin, level) in changes {
++            self.gpio_events += 1;
++            match pin {
++                PIN_LCD_DC => self.panel.dc = level,
++                PIN_LCD_RST => if !level { self.panel.reset(); },
++                _ => {}
++            }
++        }
++    }
++    fn gpio_events(&self) -> u64 { self.gpio_events }
++    fn spi_tx(&mut self, host: u8, data: &[u8]) { if host == 2 { for &b in data { self.panel.byte(b); } } }
++    fn i2c_devices(&mut self) -> Vec<(u8, u8, Box<dyn crate::i2c::I2cDevice>)> {
++        use crate::i2c::*;
++        vec![
++            (0, 0x20, Box::new(Mcp23017::new(self.mcp[0].clone()))),
++            (0, 0x21, Box::new(Mcp23017::new(self.mcp[1].clone()))),
++            (0, 0x18, Box::new(Reg8Device::new("es8311", &[(0xfd, 0x83), (0xfe, 0x11)]))),
++            // VL set: the clock reports its time as not set.
++            (0, 0x51, Box::new(Reg8Device::new("pcf8563", &[(0x02, 0x80)]))),
++        ]
++    }
++    fn input_levels(&self) -> Vec<(u8, bool)> { vec![(PIN_MENU, true)] }
++    fn named_pin(&self, name: &str) -> Option<u8> { match name { "menu" | "boot" => Some(PIN_MENU), _ => None } }
++    fn display(&self) -> Option<(u32, u32, Vec<u16>, u64)> { Some((LCD_W as u32, LCD_H as u32, self.glass(), self.panel.pixels_written)) }
++    fn display_version(&self) -> u64 { self.panel.pixels_written }
++    fn display_frames(&self) -> u64 { self.panel.frames }
++    fn gram(&self) -> Option<(Vec<u16>, usize, usize)> { Some((self.panel.gram.clone(), self.panel.cols, self.panel.rows)) }
++    fn report(&self) -> String {
++        let p = &self.panel;
++        let leds = self.leds();
++        let (m1, m2) = (self.mcp[0].lock().unwrap(), self.mcp[1].lock().unwrap());
++        format!("[emu] fh1: {} RAMWR, {} pixels, madctl={:#x} colmod={:#x} inverted={} on={}; MCP #1 {} writes (IODIR {:02x}{:02x}, OLAT {:02x}{:02x}), LEDs A B X Y {:?}; MCP #2 {} writes (OLAT {:02x}{:02x}); gpio events {}",
++                p.frames, p.pixels_written, p.madctl, p.colmod, p.inverted, p.on, m1.writes, m1.regs[1], m1.regs[0], m1.regs[0x15], m1.regs[0x14],
++                leds, m2.writes, m2.regs[0x15], m2.regs[0x14], self.gpio_events)
++    }
++}
+diff --git a/esp32s3/src/board/mod.rs b/esp32s3/src/board/mod.rs
+index 0f6845aa..62d0b99c 100644
+--- a/esp32s3/src/board/mod.rs
++++ b/esp32s3/src/board/mod.rs
+@@ -6,18 +6,21 @@
+ //! - `Atech14` — the Atech 14-port motherboard with the Knob, Light Grid and TFT modules
+ //! - `WaveshareCam` — ESP32-S3-CAM-OV5640
+ //! - `WaveshareLcd4b` — ESP32-S3-Touch-LCD-4B
++//! - `Fh1` — the FH1 handheld (ST7789 320x240, MCP23017 buttons)
+ //! - `WaveshareAmoled18V2` — ESP32-S3-Touch-AMOLED-1.8 V2
+ //! - `StopWatch` — M5Stack StopWatch
+ //! - `NoBoard` — a bare module: nothing on the pins (any ESP32-S3 firmware, console only)
+ pub use esp_soc::board::{Board, BoardEdge, BoardModel, NoBoard, VirtualCycle};
+ 
+ pub mod atech14;
++pub mod fh1;
+ pub mod stopwatch;
+ pub mod waveshare_amoled18;
+ pub mod waveshare_cam;
+ pub mod waveshare_lcd4b;
+ 
+ pub use atech14::*;
++pub use fh1::Fh1;
+ pub use stopwatch::*;
+ pub use waveshare_amoled18::*;
+ pub use waveshare_cam::*;
+@@ -31,6 +34,7 @@ pub fn make_board(name: &str) -> Option<Board> {
+         "stopwatch" | "m5stack-stopwatch" => Some(Box::new(StopWatch::new())),
+         "waveshare-cam" | "waveshare" => Some(Box::new(WaveshareCam::new())),
+         "waveshare-lcd4b" | "lcd4b" => Some(Box::new(WaveshareLcd4b::new())),
++        "fh1" => Some(Box::new(Fh1::new())),
+         "waveshare-amoled18-v2" | "amoled18-v2" => Some(Box::new(WaveshareAmoled18V2::new())),
+         _ => None,
+     }
+diff --git a/web/run.html b/web/run.html
+index 6d839fea..3071c9df 100644
+--- a/web/run.html
++++ b/web/run.html
+@@ -226,7 +226,7 @@ const lcdRaw = document.createElement('canvas');
+ let lcdRotation = 0;
+ // what the panel header says once a frame has arrived, and the rotation that reads upright for a
+ // board's usual firmware (the T-Display is used landscape, MADCTL MV|MX: its top is the glass's right edge)
+-const PANEL_TEXT = { 'waveshare-c6-lcd147': 'ST7789 172×320 over SPI2 + GDMA', 'ttgo-tdisplay': 'ST7789 135×240 over VSPI', 'ulanzi-tc001': '256 WS2812, 32×8, on GPIO 32 via RMT', stopwatch: 'CO5300 468×466 QSPI · CST820 touch' };
++const PANEL_TEXT = { 'waveshare-c6-lcd147': 'ST7789 172×320 over SPI2 + GDMA', 'ttgo-tdisplay': 'ST7789 135×240 over VSPI', 'ulanzi-tc001': '256 WS2812, 32×8, on GPIO 32 via RMT', stopwatch: 'CO5300 468×466 QSPI · CST820 touch', fh1: 'ST7789 320×240 over SPI2 · keys on UART0: wasd, j/k/u/i = A/B/X/Y, Enter = Start, space = Select, m = Menu' };
+ const PANEL_ROTATE = { 'ttgo-tdisplay': 270 };
+ // One LED is one pixel of the 32×8 matrix: the canvas itself is drawn 16× (512×128), since the
+ // workbench shows a canvas at its own size and CSS scaling alone would leave the clock 32×8
+@@ -333,7 +333,7 @@ function handleMessage(data) {
+     if (m.t === 'board') window.dispatchEvent(new CustomEvent('esp32sim-board', { detail: m.name }));
+     if (m.t === 'serial') { if (m.src === terminal.src) terminal.write(m.data); addSerial(m.src, m.data); }
+     else if (m.t === 'emu') addSerial('usb', m.msg + '\n');
+-    else if (m.t === 'board') { boardName = m.name; setLcdRotation(new URLSearchParams(location.search).get('rotate') ?? (window.EmuLink && window.EmuLink.displayRotate) ?? PANEL_ROTATE[m.name] ?? 0); document.body.classList.toggle('bare', m.name !== 'atech14'); $('#line').placeholder = lineHint(m.name); if (m.name === 'atech14') { document.querySelector('h1').textContent = 'ESP32‑S3 emulator — Atech 14‑port board'; } else if (m.name === 'esp32c3') { document.querySelector('h1').textContent = 'ESP32‑C3 emulator — RISC-V, console only'; } else if (m.name === 'esp32c6') { document.querySelector('h1').textContent = 'ESP32‑C6 emulator — RISC-V, console only'; } else if (m.name === 'waveshare-c6-lcd147') { document.querySelector('h1').textContent = 'ESP32‑C6 emulator — Waveshare ESP32‑C6‑LCD‑1.47'; $('#lcdpanel').style.display = ''; $('#lcdstat').textContent = 'ST7789 172×320 over SPI2 + GDMA — nothing drawn yet: this firmware has not written the display'; $('#lcd').style.display = 'none'; $('#lcdextras').style.display = ''; } else if (m.name === 'xiao-esp32c6') { document.querySelector('h1').textContent = 'ESP32‑C6 emulator — Seeed Studio XIAO ESP32‑C6'; $('#xiaocard').style.display = ''; } else if (m.name === 'ttgo-tdisplay') { document.querySelector('h1').textContent = 'ESP32 emulator — LilyGO TTGO T-Display'; $('#lcdpanel').style.display = ''; $('#lcdstat').textContent = 'ST7789 135×240 over VSPI — nothing drawn yet: this firmware has not written the display'; $('#lcd').style.display = 'none'; $('#tdbuttons').style.display = ''; document.querySelector(`.tabs button[data-src="${window.EmuLink && window.EmuLink.terminal ? 'term' : 'uart0'}"]`).click(); } else if (m.name === 'ulanzi-tc001') { document.querySelector('h1').textContent = 'ESP32 emulator — Ulanzi TC001 pixel clock'; $('#lcdpanel').style.display = ''; $('#lcdstat').textContent = '256 WS2812, 32×8, on GPIO 32 via RMT — nothing drawn yet: this firmware has not sent a frame'; $('#lcd').style.display = 'none'; $('#tc001buttons').style.display = ''; document.querySelector(`.tabs button[data-src="${window.EmuLink && window.EmuLink.terminal ? 'term' : 'uart0'}"]`).click(); } else if (/^esp32p4(-rev3)?-c6$/.test(m.name)) { document.querySelector('h1').textContent = 'ESP32‑P4 + ESP32‑C6 — WiFi through ESP‑Hosted over SDIO, two chips in lock‑step'; document.querySelectorAll('.c6tab').forEach(b => b.style.display = ''); document.querySelector('.chiptab[data-src="usb"]').style.display = 'none'; document.querySelector('.chiptab[data-src="all"]').style.display = 'none'; document.querySelector('.chiptab[data-src="uart0"]').textContent = 'ESP32‑P4 (UART0)'; document.querySelector('.c6tab[data-src="uart0+c6"]').click(); } else if (m.name === 'none') { document.querySelector('h1').textContent = ({ esp32: 'ESP32', esp32c3: 'ESP32‑C3', esp32c6: 'ESP32‑C6', esp32p4: 'ESP32‑P4' }[m.chip] || 'ESP32‑S3') + ' emulator — bare module'; document.querySelector(`.tabs button[data-src="${window.EmuLink && window.EmuLink.terminal ? 'term' : 'uart0'}"]`).click(); } if (m.name === 'waveshare-cam') { document.querySelector('h1').textContent = 'ESP32‑S3 emulator — Waveshare ESP32‑S3‑CAM‑OV5640'; $('#campanel').style.display = ''; } if (m.name === 'waveshare-lcd4b') { document.querySelector('h1').textContent = 'ESP32‑S3 emulator — Waveshare ESP32‑S3‑Touch‑LCD‑4B'; $('#lcdpanel').style.display = ''; }  syncTitle(); }
++    else if (m.t === 'board') { boardName = m.name; setLcdRotation(new URLSearchParams(location.search).get('rotate') ?? (window.EmuLink && window.EmuLink.displayRotate) ?? PANEL_ROTATE[m.name] ?? 0); document.body.classList.toggle('bare', m.name !== 'atech14'); $('#line').placeholder = lineHint(m.name); if (m.name === 'atech14') { document.querySelector('h1').textContent = 'ESP32‑S3 emulator — Atech 14‑port board'; } else if (m.name === 'esp32c3') { document.querySelector('h1').textContent = 'ESP32‑C3 emulator — RISC-V, console only'; } else if (m.name === 'esp32c6') { document.querySelector('h1').textContent = 'ESP32‑C6 emulator — RISC-V, console only'; } else if (m.name === 'waveshare-c6-lcd147') { document.querySelector('h1').textContent = 'ESP32‑C6 emulator — Waveshare ESP32‑C6‑LCD‑1.47'; $('#lcdpanel').style.display = ''; $('#lcdstat').textContent = 'ST7789 172×320 over SPI2 + GDMA — nothing drawn yet: this firmware has not written the display'; $('#lcd').style.display = 'none'; $('#lcdextras').style.display = ''; } else if (m.name === 'xiao-esp32c6') { document.querySelector('h1').textContent = 'ESP32‑C6 emulator — Seeed Studio XIAO ESP32‑C6'; $('#xiaocard').style.display = ''; } else if (m.name === 'ttgo-tdisplay') { document.querySelector('h1').textContent = 'ESP32 emulator — LilyGO TTGO T-Display'; $('#lcdpanel').style.display = ''; $('#lcdstat').textContent = 'ST7789 135×240 over VSPI — nothing drawn yet: this firmware has not written the display'; $('#lcd').style.display = 'none'; $('#tdbuttons').style.display = ''; document.querySelector(`.tabs button[data-src="${window.EmuLink && window.EmuLink.terminal ? 'term' : 'uart0'}"]`).click(); } else if (m.name === 'ulanzi-tc001') { document.querySelector('h1').textContent = 'ESP32 emulator — Ulanzi TC001 pixel clock'; $('#lcdpanel').style.display = ''; $('#lcdstat').textContent = '256 WS2812, 32×8, on GPIO 32 via RMT — nothing drawn yet: this firmware has not sent a frame'; $('#lcd').style.display = 'none'; $('#tc001buttons').style.display = ''; document.querySelector(`.tabs button[data-src="${window.EmuLink && window.EmuLink.terminal ? 'term' : 'uart0'}"]`).click(); } else if (/^esp32p4(-rev3)?-c6$/.test(m.name)) { document.querySelector('h1').textContent = 'ESP32‑P4 + ESP32‑C6 — WiFi through ESP‑Hosted over SDIO, two chips in lock‑step'; document.querySelectorAll('.c6tab').forEach(b => b.style.display = ''); document.querySelector('.chiptab[data-src="usb"]').style.display = 'none'; document.querySelector('.chiptab[data-src="all"]').style.display = 'none'; document.querySelector('.chiptab[data-src="uart0"]').textContent = 'ESP32‑P4 (UART0)'; document.querySelector('.c6tab[data-src="uart0+c6"]').click(); } else if (m.name === 'none') { document.querySelector('h1').textContent = ({ esp32: 'ESP32', esp32c3: 'ESP32‑C3', esp32c6: 'ESP32‑C6', esp32p4: 'ESP32‑P4' }[m.chip] || 'ESP32‑S3') + ' emulator — bare module'; document.querySelector(`.tabs button[data-src="${window.EmuLink && window.EmuLink.terminal ? 'term' : 'uart0'}"]`).click(); } if (m.name === 'waveshare-cam') { document.querySelector('h1').textContent = 'ESP32‑S3 emulator — Waveshare ESP32‑S3‑CAM‑OV5640'; $('#campanel').style.display = ''; } if (m.name === 'waveshare-lcd4b') { document.querySelector('h1').textContent = 'ESP32‑S3 emulator — Waveshare ESP32‑S3‑Touch‑LCD‑4B'; $('#lcdpanel').style.display = ''; } if (m.name === 'fh1') { document.querySelector('h1').textContent = 'ESP32‑S3 emulator — FH1 handheld'; $('#lcdpanel').style.display = ''; $('#lcdstat').textContent = PANEL_TEXT.fh1; document.querySelector('.tabs button[data-src="uart0"]').click(); }  syncTitle(); }
+     if (m.t === 'board' && m.name === 'waveshare-p4-lcd35') { document.querySelector('h1').textContent = 'ESP32‑P4 emulator, Waveshare ESP32‑P4‑WIFI6‑Touch‑LCD‑3.5'; $('#lcdstat').textContent = 'ST7796 320×480 over SPI2 + AXI‑GDMA, FT5x06 touch: click or drag to touch'; const lcd = $('#lcd'); const quarter = lcdRotation === 90 || lcdRotation === 270; lcd.style.width = (quarter ? 480 : 320) + 'px'; lcd.style.height = (quarter ? 320 : 480) + 'px'; $('#lcdpanel').style.display = ''; syncTitle(); }
+     if (m.t === 'board' && m.name === 'waveshare-amoled18-v2') { document.querySelector('h1').textContent = 'ESP32‑S3 emulator, Waveshare ESP32‑S3‑Touch‑AMOLED‑1.8 V2'; $('#lcdstat').textContent = 'CO5300 368×448 over QSPI, click or drag to touch'; const lcd = $('#lcd'); const quarter = lcdRotation === 90 || lcdRotation === 270; lcd.style.width = (quarter ? 448 : 368) + 'px'; lcd.style.height = (quarter ? 368 : 448) + 'px'; $('#lcdpanel').style.display = ''; syncTitle(); }
+     if (m.t === 'board') {

@@ -1,0 +1,15 @@
+name: "💡 Sugestão / Suggestion"
+description: "Uma ideia para o FH1, um jogo, um app / An idea for the FH1, a game, an app"
+labels: ["sugestão"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: "A ideia / The idea"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: "Por quê? / Why?"
+      description: "O que ela tornaria possível ou mais divertido. / What it would make possible or more fun."

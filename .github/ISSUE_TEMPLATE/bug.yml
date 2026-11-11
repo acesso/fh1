@@ -1,0 +1,35 @@
+name: "🐞 Bug"
+description: "Algo não funcionou como devia / Something did not work as it should"
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: "O que aconteceu? / What happened?"
+      description: "E o que você esperava. / And what you expected."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Como reproduzir / How to reproduce"
+      placeholder: "1. ...\n2. ...\n3. ..."
+  - type: dropdown
+    id: where
+    attributes:
+      label: "Onde? / Where?"
+      options:
+        - "Simulador no navegador / Browser simulator"
+        - "FH1 (aparelho / device)"
+        - "Placa Guition / Guition board"
+        - "Outro / Other"
+  - type: input
+    id: version
+    attributes:
+      label: "Versão / Version"
+      description: "O rodapé do site mostra a versão do firmware. / The site's footer shows the firmware version."
+  - type: textarea
+    id: log
+    attributes:
+      label: "Log do console / Console log"
+      render: text

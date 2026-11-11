@@ -1,0 +1,9 @@
+name: "💬 Outro / Other"
+description: "Perguntas, comentários, qualquer coisa / Questions, comments, anything else"
+body:
+  - type: textarea
+    id: text
+    attributes:
+      label: "Mensagem / Message"
+    validations:
+      required: true

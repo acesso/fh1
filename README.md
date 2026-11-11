@@ -8,6 +8,8 @@ A modular, pocket-sized handheld built on an ESP32-S3, hand-wired on two 12 × 8
 
 *Concept render of the V1 build, made by [`hardware/layout/concept-render.html`](hardware/layout/concept-render.html) from the layout's positions and wires.*
 
+**Try it in the browser:** [acesso.github.io/fh1](https://acesso.github.io/fh1/) runs the real firmware on an emulated FH1 (`simulator/`).
+
 It borrows its building style from an ESP32-S3 Wi-Fi bridge built earlier: modules on 2.54 mm round-pin sockets, so each one can be swapped or reworked.
 
 ## Goals
@@ -40,3 +42,4 @@ The parts for **two devices** are bought; placement is drawn and wiring routed; 
 | `firmware/PLAN.md` | Firmware design: boards, devices, interface, packages, emulators, music, bridge, users |
 | `firmware/` | The firmware (ESP-IDF v6.1): build, flash and app notes in `firmware/README.md` |
 | `bridge/` | The Bluetooth bridge's firmware (ESP32 + Bluepad32) |
+| `simulator/` | The web simulator and the site: the FH1 firmware on esp32sim in the browser |
