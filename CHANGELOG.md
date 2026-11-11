@@ -2,6 +2,41 @@
 
 Releases of the FH1 firmware and its apps, newest first. Each is a tag (`vX.Y.Z`) on `main`.
 
+## 0.6.0 (2026-11-11)
+
+Themed notices and livelier themes, packages named without the publisher, and a faster game in the simulator.
+
+### Interface
+
+- **The transfer notice** (an upload or a package install) is a window of the theme in use: its frame, its opening,
+  its decorations and motes.
+- **Garden:** the butterfly roams the whole window and rests on flowers; a bee visits the flowers too, staying
+  longer and wobbling after a few seconds.
+- **Command:** the spark sets off from a random point of the window each time.
+- **Poke Gen1** and **Poke Gen2** are the Gen 1 and Gen 2 themes' new names.
+- **Temas** is in the System menu only, before About.
+
+### Packages
+
+- **Ids without the publisher:** `taticas-da-ilha`, `duel`, `hello`, `rpg-sfx`; the publisher goes in the
+  manifest (`"publisher": "org.fh1"`). Package files are named `<id>_<version>.fpk` (`taticas-da-ilha_0.9.0.fpk`).
+- **Updating keeps everything:** on the first start, installed apps, asset packages and every user's saved data
+  move to the new ids; an old package installs under its new id. The installer refuses a package whose id is
+  already installed from another publisher.
+
+### Boards
+
+- **Guition:** native mode is 320 x 320 at 1.5x, the FH1 screen's proportions.
+- **The boot log** says why the last reset happened.
+- **For developers:** `build-board.sh guition OUT psram120` builds the Guition with PSRAM and flash at 120 MHz
+  (opt-in; releases stay at 80 MHz).
+
+### Simulator
+
+- **Faster in games:** blocks of code that become busy after the start (a game's) are now compiled once there is
+  room, instead of staying interpreted: Táticas da Ilha runs about a third faster.
+- **Fixed:** the simulator's README listed the old keys; I J K L are the face buttons.
+
 ## 0.5.2 (2026-11-11)
 
 0.5.0 and 0.5.1's site and downloads go out.
