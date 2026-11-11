@@ -8,6 +8,11 @@ set -e
 out=$(mkdir -p "$1" && cd "$1" && pwd); shift
 fw=$(cd "$(dirname "$0")/.." && pwd); repo=$(dirname "$fw")
 [ $# -gt 0 ] || set -- isotest duel
+# tools/elfcheck.py checks each app against the firmware's own elf_loader (firmware/managed_components): fetch the
+# firmware's managed components first when this checkout has not built the firmware.
+if [ ! -d "$fw/managed_components/espressif__elf_loader" ]; then
+  idf.py -C "$fw" -B "$fw/build-deps" -D SDKCONFIG="$fw/build-deps/sdkconfig" reconfigure >/dev/null
+fi
 for p in "$@"; do
   "$fw/tools/pkgbuild.sh" "$fw/apps/packages/$p"
   cp "$fw/apps/packages/$p"/*.fpk "$out/"
