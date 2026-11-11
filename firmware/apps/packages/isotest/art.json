@@ -1698,5 +1698,17 @@
    ],
    "angle": 45
   }
+ ],
+ "tile_anims": [
+  {
+   "name": "tile.90",
+   "from": "tile.90",
+   "ripple": {
+    "frames": 6,
+    "ms": 170,
+    "period": 12,
+    "keep": 2
+   }
+  }
  ]
 }

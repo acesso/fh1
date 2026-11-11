@@ -14,6 +14,7 @@
 typedef struct {
     uint32_t down, edge;             // bits 1 << FH1_KEY_*
     int dir;                         // a D-pad press or repeat this frame: FART_NE (Up), SE (Right), SW (Down), NW (Left); -1
+    int turn;                        // turn the map's view this frame: +1 (Select, R1), -1 (L1), 0
 } keys_t;
 extern keys_t g_keys;
 static inline bool key(int k) { return g_keys.edge & (1u << k); }
@@ -175,10 +176,13 @@ typedef struct {
     bool boss;
 } battle_def_t;
 void battle_make(int realm, int tier, int index, battle_def_t *b);
+// The test field in a realm's colours (its creatures, its first boss): the engine's tests and showcase.
+void battle_test(int realm, battle_def_t *b);
 extern battle_def_t g_battle;        // the battle chosen (the loading screen, the battle, its summary)
 // Builds the battle's map into m (initialised to its size); spots: the heroes' starting cells, foes: the enemies'.
 void map_build(iso_map_t *m, const battle_def_t *b, uint8_t spots[3][2], uint8_t foes[6][2]);
 // The realm's colours over the built scenery (lava for water in the fire realm, a cold blue by the sea...).
+// The realm's colours over the map's scenery and its sky (before iso_build_layer).
 void map_grade(iso_map_t *m, int realm);
 
 // What a battle leaves for the summary.

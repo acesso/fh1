@@ -36,8 +36,86 @@ static struct { bool on; float x, y; uint32_t t, spawn; int16_t crack[2][6]; } s
 
 static float rnd(void) { return (rand() & 0xffff) / 65536.0f; }
 
+// ── The whole screen ──
+
+static struct { uint32_t t, len; int strength; } s_screen[FX_SCREENS];
+
+void fx_screen(int kind, uint32_t ms, int strength)
+{
+    if (kind < 0 || kind >= FX_SCREENS) return;
+    s_screen[kind].t = 0;
+    s_screen[kind].len = ms;
+    s_screen[kind].strength = strength < 1 ? 1 : strength > 3 ? 3 : strength;
+}
+
+static void screen_update(uint32_t dt)
+{
+    for (int k = 0; k < FX_SCREENS; k++)
+        if (s_screen[k].len) {
+            s_screen[k].t += dt;
+            if (s_screen[k].t >= s_screen[k].len) s_screen[k].len = 0;
+        }
+}
+
+// How much of a screen effect is left (1 at its start, 0 at its end).
+static float screen_left(int kind)
+{
+    return s_screen[kind].len ? 1.0f - (float)s_screen[kind].t / s_screen[kind].len : 0;
+}
+
+void fx_screen_offset(int *dx, int *dy)
+{
+    *dx = *dy = 0;
+    const float k = screen_left(FX_SCREEN_SHAKE);
+    if (k <= 0) return;
+    const uint32_t step = s_screen[FX_SCREEN_SHAKE].t / 33;            // a new jolt every frame or so
+    uint32_t r = step * 2654435761u;
+    r ^= r >> 15;
+    const int amp = 1 + s_screen[FX_SCREEN_SHAKE].strength * 2;
+    *dx = (int)(((int)(r % (2 * amp + 1)) - amp) * k);
+    *dy = (int)(((int)((r >> 8) % (amp + 1)) - amp / 2) * k);
+}
+
+void fx_screen_apply(uint16_t *px, int w, int h)
+{
+    const float wave = screen_left(FX_SCREEN_WAVE);
+    if (wave > 0 && w <= 512) {                                         // each row slides by a sine of its height
+        static uint16_t row[512];
+        const int amp = s_screen[FX_SCREEN_WAVE].strength * 2;
+        const float ph = s_screen[FX_SCREEN_WAVE].t / 160.0f;
+        for (int y = 0; y < h; y++) {
+            const int dx = (int)(amp * wave * sinf(y / 9.0f + ph));
+            if (!dx) continue;
+            uint16_t *line = px + y * w;
+            memcpy(row, line, w * 2);
+            for (int x = 0; x < w; x++) {
+                int sx = x - dx;
+                sx = sx < 0 ? 0 : sx >= w ? w - 1 : sx;
+                line[x] = row[sx];
+            }
+        }
+    }
+    const float neg = screen_left(FX_SCREEN_NEGATIVE);
+    if (neg > 0) {                                                      // fully negative, then easing back
+        const int a = neg > 0.6f ? 256 : (int)(neg / 0.6f * 256);
+        const int n = w * h;
+        for (int i = 0; i < n; i++) {
+            const uint16_t v = px[i], iv = (uint16_t)~v;
+            if (a >= 256) {
+                px[i] = iv;
+                continue;
+            }
+            const int r = ((v >> 11) * (256 - a) + (iv >> 11) * a) >> 8;
+            const int g = (((v >> 5) & 63) * (256 - a) + ((iv >> 5) & 63) * a) >> 8;
+            const int b = ((v & 31) * (256 - a) + (iv & 31) * a) >> 8;
+            px[i] = (uint16_t)(r << 11 | g << 5 | b);
+        }
+    }
+}
+
 void fx_reset(void)
 {
+    memset(s_screen, 0, sizeof(s_screen));
     memset(s_proj, 0, sizeof(s_proj));
     s_nparts = s_nbusy = 0;
     s_bolt.on = false;
@@ -174,6 +252,7 @@ void fx_bolt(float x, float y)
 
 void fx_update(uint32_t dt)
 {
+    screen_update(dt);
     for (int i = 0; i < PROJ; i++) {
         proj_t *p = &s_proj[i];
         if (!p->on || p->landed) continue;

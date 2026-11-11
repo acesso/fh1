@@ -1,0 +1,39 @@
+# Views: the map spinning a quarter four times round the cursor (caught on its way), the cursor kept in place, the D-pad
+# moving as on screen in a turned view, a turn asked for while one runs ignored; then the narrowing style.
+nosave
+test 1
+wait 70
+shot v00-view0
+turn 1
+wait 4
+shot v01-spinning
+wait 3
+shot v02-spinning-on
+wait 10
+shot v03-view1
+checklayer
+key RIGHT
+key RIGHT
+shot v04-view1-right
+turn 1
+turn 1
+wait 16
+shot v05-view2
+checklayer
+turn 1
+wait 16
+turn 1
+wait 16
+shot v06-view0-again
+checklayer
+turnstyle 1
+turn -1
+wait 4
+shot v07-narrowing
+wait 12
+shot v08-view3
+checklayer
+turnstyle 0
+turn 1
+wait 16
+checklayer

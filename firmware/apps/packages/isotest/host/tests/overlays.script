@@ -1,0 +1,17 @@
+# The whole screen: a negative flash fading back, a wave through the rows, a shake (kind MS STRENGTH).
+nosave
+test 1
+wait 70
+screen 0 400 3
+wait 2
+shot o00-negative
+wait 8
+shot o01-negative-easing
+screen 1 800 3
+wait 6
+shot o02-wave
+screen 2 500 3
+wait 2
+shot o03-shake
+wait 30
+checklayer

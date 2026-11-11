@@ -1,0 +1,17 @@
+# Looks only: tops cracking (power 1..3) and rocks dropped to shatter, the map unchanged after.
+nosave
+test 1
+wait 70
+crack 5 9 1
+crack 6 9 2
+crack 7 9 3
+wait 3
+shot e00-cracking
+dropon 5 10 65
+dropon 6 10 44
+wait 9
+shot e01-dropping
+wait 4
+shot e02-shattering
+wait 30
+checklayer

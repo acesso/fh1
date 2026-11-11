@@ -34,3 +34,11 @@ void fx_bolt(float x, float y);                                                 
 // an elemental weapon's glow). Kinds: rising (fire), dripping (water), dust (earth), swirling (air).
 enum { FX_RISE, FX_DRIP, FX_DUST, FX_SWIRL };
 void fx_aura(float x, float y, float r, uint16_t c1, uint16_t c2, int kind);
+
+// The whole screen, for strong moments (a high spell, a boss landing): a flash to the negative that fades back, a
+// wave running through the rows (heat, water), a shake (the camera's: fx_screen_offset, added to it while drawing).
+// strength 1..3; each kind's newest call wins. fx_screen_apply draws the negative and the wave over a frame.
+enum { FX_SCREEN_NEGATIVE, FX_SCREEN_WAVE, FX_SCREEN_SHAKE, FX_SCREENS };
+void fx_screen(int kind, uint32_t ms, int strength);
+void fx_screen_offset(int *dx, int *dy);
+void fx_screen_apply(uint16_t *px, int w, int h);

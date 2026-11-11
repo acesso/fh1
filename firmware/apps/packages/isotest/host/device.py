@@ -6,7 +6,9 @@ screenshots. One connection for the whole script, so the timing stays close to t
 
 Script lines: key A|B|X|Y|UP|DOWN|LEFT|RIGHT|START|SELECT|MENU, sleep SECONDS, shot NAME (OUTDIR/NAME.png),
 dev TEXT (the game's dev_command: place, act, counter, gear, ranged, xp, hp, win, lose, log, nosave...),
-op OP [PATH] [ID] (a console op: start, stop...). Lines starting with # are comments.
+op OP [PATH] [ID] (a console op: start, stop...). Lines starting with # are comments. The PC host's scripts run
+too: wait FRAMES (33 ms each) is a sleep, and any other line goes to the game as a dev command. The game's own log
+lines (checks, bench, dev replies) are printed as they come.
 """
 import asyncio
 import io
@@ -38,6 +40,10 @@ async def main(script, outdir, host):
                     continue
                 if m.get("t") == "reply":
                     await replies.put(m.get("msg", m))
+                elif m.get("t") == "stats":
+                    for l in m.get("log", "").splitlines():
+                        if "[org." in l:
+                            print(l.split("] ", 1)[-1])
 
         reading = asyncio.create_task(reader())
 
@@ -61,6 +67,8 @@ async def main(script, outdir, host):
                 await asyncio.sleep(0.12)
             elif cmd == "sleep":
                 await asyncio.sleep(float(rest))
+            elif cmd == "wait":
+                await asyncio.sleep(int(rest) * 0.033)
             elif cmd == "shot":
                 data = await asyncio.to_thread(
                     lambda: urllib.request.urlopen(f"http://{host}/shot.bmp?code={code}", timeout=20).read())
@@ -77,7 +85,10 @@ async def main(script, outdir, host):
                     print("the game did not start: stopping before any key is sent")
                     break
             else:
-                print("?", line)
+                reply = await op("dev", line)
+                print("dev", line, "->", reply)
+                if reply and "not understood" in str(reply):
+                    print("? ", line)
         reading.cancel()
 
 

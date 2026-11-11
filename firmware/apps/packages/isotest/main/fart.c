@@ -58,10 +58,127 @@ bool fart_load(fart_t *a, const char *path)
 
 void fart_free(fart_t *a)
 {
+    while (a->pool) {
+        uint8_t *next = *(uint8_t **)a->pool;
+        free(a->pool);
+        a->pool = next;
+    }
+    free(a->orig);
     free(a->data);
     free(a->img);
     free(a->anim);
     memset(a, 0, sizeof(*a));
+}
+
+static const uint8_t s_bayer[4][4] = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };
+
+void fart_draw_dither(uint16_t *dst, int stride, const fart_clip_t *clip, const fart_img_t *im, int ax, int ay,
+                      bool mirror, int level)
+{
+    if (level <= 0) return;
+    const int top = ay + im->oy, left = mirror ? ax - im->ox - 1 : ax + im->ox;
+    const uint16_t *p = im->spans;
+    for (int row = 0; row < im->h; row++) {
+        const int y = top + row;
+        int runs = *p++, x = 0;
+        const bool on = y >= clip->y0 && y < clip->y1;
+        while (runs--) {
+            x += *p++;
+            const int len = *p++;
+            for (int i = 0; on && i < len; i++) {
+                const int sx = mirror ? left - (x + i) : left + x + i;
+                if (sx < clip->x0 || sx >= clip->x1 || s_bayer[y & 3][sx & 3] >= level) continue;
+                dst[y * stride + sx] = p[i];
+            }
+            p += len;
+            x += len;
+        }
+    }
+}
+
+bool fart_unpack(const fart_img_t *im, uint16_t *px, uint8_t *mask, int max)
+{
+    if (im->w > max || im->h > max) return false;
+    memset(mask, 0, (size_t)im->w * im->h);
+    const uint16_t *p = im->spans;
+    for (int row = 0; row < im->h; row++) {
+        int runs = *p++, x = 0;
+        while (runs--) {
+            x += *p++;
+            const int len = *p++;
+            for (int i = 0; i < len; i++) {
+                px[row * im->w + x + i] = p[i];
+                mask[row * im->w + x + i] = 1;
+            }
+            p += len;
+            x += len;
+        }
+    }
+    return true;
+}
+
+// How many 16-bit words an image's spans take.
+static size_t span_words(const fart_img_t *im)
+{
+    const uint16_t *p = im->spans;
+    for (int row = 0; row < im->h; row++) {
+        int runs = *p++;
+        while (runs--) {
+            const int len = p[1];
+            p += 2 + len;
+        }
+    }
+    return (size_t)(p - im->spans);
+}
+
+// Room for an original's copy. Small blocks would come from internal RAM (ESP-IDF serves blocks of up to 4 KB from
+// there: Wi-Fi's), so copies share 16 KB blocks, which come from PSRAM; one larger than a block gets its own.
+#define POOL_BLOCK 16384
+static void *pool_take(fart_t *a, size_t n)
+{
+    n = (n + 7) & ~(size_t)7;
+    const size_t head = sizeof(uint8_t *) > 8 ? sizeof(uint8_t *) : 8;
+    if (!a->pool || a->pool_used + n > POOL_BLOCK) {
+        const size_t size = n + head > POOL_BLOCK ? n + head : POOL_BLOCK;
+        uint8_t *b = malloc(size);
+        if (!b) return NULL;
+        *(uint8_t **)b = a->pool;
+        a->pool = b;
+        a->pool_used = head;
+        if (size > POOL_BLOCK) {                                  // its own block: full at once
+            a->pool_used = POOL_BLOCK;
+            return b + head;
+        }
+    }
+    void *p = a->pool + a->pool_used;
+    a->pool_used += n;
+    return p;
+}
+
+bool fart_recolor(fart_t *a, int idx, uint16_t (*fn)(uint16_t v, void *user), void *user)
+{
+    if (idx < 0 || idx >= a->nimg) return false;
+    // More than 4 KB, so it comes from PSRAM.
+    if (!a->orig && !(a->orig = calloc(a->nimg < 1040 ? 1040 : a->nimg, sizeof(uint16_t *)))) return false;
+    fart_img_t *im = &a->img[idx];
+    const size_t n = span_words(im);
+    if (!a->orig[idx]) {
+        if (!fn) return true;                                     // never recoloured: already as loaded
+        if (!(a->orig[idx] = pool_take(a, n * 2))) return false;
+        memcpy(a->orig[idx], im->spans, n * 2);
+    }
+    const uint16_t *o = a->orig[idx];
+    uint16_t *d = (uint16_t *)im->spans;                          // the pack is in RAM: its pixels can change
+    size_t i = 0;
+    for (int row = 0; row < im->h; row++) {
+        int runs = o[i++];
+        while (runs--) {
+            const int len = o[i + 1];
+            i += 2;
+            for (int k = 0; k < len; k++, i++) d[i] = fn ? fn(o[i], user) : o[i];
+        }
+    }
+    return true;
 }
 
 int fart_image(const fart_t *a, const char *name)

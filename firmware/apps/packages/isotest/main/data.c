@@ -62,7 +62,7 @@ static void make_glow(uint16_t out[32], uint32_t dark, uint32_t mid, uint32_t li
     }
 }
 
-static uint16_t s_shade[EL_COUNT][32], s_glow[EL_COUNT][32], s_metal[3][32], s_el_ramp[EL_COUNT][4];
+static uint16_t s_shade[EL_COUNT][32], s_glow[EL_COUNT][32], s_foe[EL_COUNT][32], s_metal[3][32], s_el_ramp[EL_COUNT][4];
 enum { METAL_STEEL, METAL_GOLD, METAL_MYTH };
 const uint16_t *el_shade(int el) { return el > EL_NONE && el < EL_COUNT ? s_shade[el] : NULL; }
 
@@ -116,6 +116,13 @@ void goods_init(void)
     make_glow(s_glow[EL_WATER], 0x082060, 0x2c8cf0, 0xc8f4ff);
     make_glow(s_glow[EL_EARTH], 0x203008, 0x70b030, 0xe8e090);
     make_glow(s_glow[EL_AIR], 0x504010, 0xe8d040, 0xffffe0);
+    // A realm's creatures: its element, but apart from its ground (a ramp darker at the bottom and brighter at the
+    // top than the scenery's): fire charcoal to ember to flame over red rock, water navy to ice over green and sea,
+    // earth umber to sandstone over grass and dirt, air ochre to pale gold over its pale stone.
+    make_glow(s_foe[EL_FIRE], 0x100604, 0xf08a28, 0xfff4b8);
+    make_glow(s_foe[EL_WATER], 0x081438, 0x3898f0, 0xe0f8ff);
+    make_glow(s_foe[EL_EARTH], 0x2a1c0c, 0xb89a60, 0xf6eed0);
+    make_glow(s_foe[EL_AIR], 0x382808, 0xd8b030, 0xfff8d0);
     make_shade(s_metal[METAL_STEEL], 0x9cb4d0);
     make_shade(s_metal[METAL_GOLD], 0xe8b830);
     make_shade(s_metal[METAL_MYTH], 0xb070f0);
@@ -267,7 +274,7 @@ void foe_make(int type, int realm, int level, bool caster, foe_t *f)
     strlcpy(f->name, type == E_ALPHA ? rm->alpha_name : type == E_ELEMENTAL ? rm->elemental : e->name, sizeof(f->name));
     if (look->realm_art) snprintf(f->art, sizeof(f->art), "%s.%s", look->art, rm->key);
     else strlcpy(f->art, look->art, sizeof(f->art));
-    f->shade = type == E_ELEMENTAL ? s_glow[rm->element] : look->tinted ? el_shade(rm->element) : NULL;
+    f->shade = type == E_ELEMENTAL ? s_glow[rm->element] : look->tinted ? s_foe[rm->element] : NULL;
     f->hp = e->hp + e->hp_level * (level - 1);
     f->atk = level + 2 + e->atk;
     f->def = e->def;
@@ -387,6 +394,47 @@ void battle_make(int realm, int tier, int index, battle_def_t *b)
         if (b->foes[k].level < 1) b->foes[k].level = 1;
     }
     if (tier >= 1) b->foes[(mix >> 20) % b->n].caster = true;   // from fase 2: one caster in each pack
+}
+
+// The test field (dev `test REALM`): every kind of ground the engine draws, for its end-to-end tests and as a
+// showcase. Heights 0..6: a stair up to a tower (6, 3), a channel of water (cols 3-4), a flat yard in the middle;
+// objects (r rock, p plant, s stump); floating slabs one block thick, high over the ground (f still, cols 6-7 of
+// row 2 at 5; b and B: two groups bobbing, cols 8-10 of rows 7-8 at 5 and of row 9 at 6). The heroes at the bottom left; two of the realm's creatures, and its first boss waiting
+// off the field (it drops in when they are down).
+static const char *const test_h[14] = {
+    "00000000000000", "01111222211110", "01222255332110", "01234565432110", "01222333322210", "01222222222210",
+    "01200222222210", "01200222555210", "01222222555210", "01222222666210", "01222222222210", "01111111111110",
+    "00000000000000", "00000000000000",
+};
+static const char *const test_o[14] = {
+    "..............", "..p.......s...", "......ff......", "..............", "..r.......p...", "..............",
+    "..............", "........bbb...", "........bbb...", "........BBB...", "....s...r.....", "..............",
+    "..............", "..............",
+};
+
+void battle_test(int realm, battle_def_t *b)
+{
+    const realm_t *rm = &g_realms[realm < 0 || realm >= REALMS ? 0 : realm];
+    memset(b, 0, sizeof(*b));
+    snprintf(b->name, sizeof(b->name), "Campo de Testes");
+    b->about = "Onde o motor mostra o que faz.";
+    b->realm = (uint8_t)(rm - g_realms);
+    b->theme = rm->theme;
+    b->map = MAP_FIXED;
+    b->cols = b->rows = 14;
+    b->heights = test_h;
+    b->objects = test_o;
+    b->boss = true;
+    static const uint8_t heroes[3][2] = { { 3, 8 }, { 4, 9 }, { 3, 10 } };
+    memcpy(b->heroes, heroes, sizeof(b->heroes));
+    static const uint8_t spots[3][2] = { { 6, 4 }, { 7, 5 }, { 8, 6 } };
+    b->n = 3;
+    for (int k = 0; k < 3; k++) {
+        b->foes[k].type = k ? rm->foes[k % rm->nfoes] : E_ALPHA;
+        b->foes[k].level = 5;
+        b->foes[k].c = spots[k][0];
+        b->foes[k].r = spots[k][1];
+    }
 }
 
 battle_def_t g_battle;

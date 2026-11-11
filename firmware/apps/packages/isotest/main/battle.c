@@ -26,6 +26,7 @@ typedef struct {
     const fart_anim_t *attack, *death, *hit;
     int slot;                        // heroes: the party slot (result_t arrays)
     int range;                       // enemies: how far they attack (1: next to them)
+    bool absent;                     // a boss not on the field yet: it drops in once its minions are down
 } fighter_t;
 
 typedef enum { ST_CHOOSE, ST_MENU, ST_MOVE, ST_TARGET, ST_LIST, ST_BUSY, ST_ENEMY, ST_BATTLE, ST_OVER, ST_SUMMARY } state_t;
@@ -51,6 +52,10 @@ static int s_enemy_i;
 static uint32_t s_enemy_wait;
 static bool s_leave, s_ended;
 static bool s_cam_fixed;                        // the PC host holds the camera still
+static int s_boss_in = -1;                      // a boss arriving (its unit), and how far along
+static uint32_t s_boss_t;
+static int s_quake;                             // a spell's rocks shake the screen as they land (strength)
+static int s_tier_force;                        // tests: every spell at this tier (0: by its caster's level)
 uint32_t summary_length(void);
 void summary_draw(const ui_t *u, uint32_t t);
 
@@ -115,6 +120,18 @@ static void footstep(const iso_map_t *m, const iso_unit_t *u, int from_h, int to
     else snd_play(g_battle.theme == THEME_ROCKS ? S_STEP_ROCK : S_STEP_GRASS, 150);
 }
 
+// Scenery changing: a crack as it breaks, a rumble as it rises or sinks, a thud where a drop lands.
+static void scenery_sound(const iso_map_t *m, int c, int r, int fx, int event)
+{
+    (void)m, (void)c, (void)r;
+    if (event == ISO_EV_START && (fx == ISO_FX_BREAK || fx == ISO_FX_DROP)) snd_play(fx == ISO_FX_BREAK ? S_HIT : S_WHOOSH, 180);
+    else if (event == ISO_EV_START && fx == ISO_FX_RISE) snd_play(S_EARTH, 170);
+    else if (event == ISO_EV_LAND) {
+        snd_play(S_LANDING, 220);
+        if (s_quake) fx_screen(FX_SCREEN_SHAKE, 260, s_quake);
+    }
+}
+
 bool battle_enter(void)
 {
     const battle_def_t *b = &g_battle;
@@ -161,8 +178,20 @@ bool battle_enter(void)
         snprintf(an, sizeof(an), "%s.hit", foe.art);
         f->hit = fart_anim(&g_art, an);
     }
-    if (!iso_build_layer(&s_map)) return false;
+    // A boss with minions waits off the field: it drops in once they are all down.
+    s_boss_in = -1;
+    s_quake = 0;
+    int minions = 0;
+    for (int i = 0; i < s_map.nunits; i++) minions += !s_f[i].hero && !s_f[i].foe.boss;
+    for (int i = 0; i < s_map.nunits && minions; i++)
+        if (!s_f[i].hero && s_f[i].foe.boss) {
+            s_f[i].absent = s_f[i].down = true;
+            s_map.units[i].hidden = true;
+        }
+    // Water ripples, a wave rolling across the map (lava in the fire realm: the grade turns its frames too).
+    iso_tile_anim(&s_map, fart_image(&g_art, "tile.90"), fart_anim(&g_art, "tile.90"), ISO_TA_WAVE);
     map_grade(&s_map, b->realm);
+    if (!iso_build_layer(&s_map)) return false;
     memset(s_pop, 0, sizeof(s_pop));
     fx_reset();
     s_sel = -1;
@@ -175,6 +204,7 @@ bool battle_enter(void)
     s_st = ST_CHOOSE;
     banner("Sua vez", 1200);
     s_map.on_step = footstep;
+    s_map.on_change = scenery_sound;
     snd_play(S_ENCOUNTER, 200);
     return true;
 }
@@ -371,6 +401,10 @@ static bool start_action(int a, int act, int what, int c, int r, bool counter)
         f->mp -= g_spells[what].mp;
         q->impact = 780;
         q->len = 1250;
+        if (g_spells[what].element == EL_EARTH) {                // the rock has to land first
+            q->impact = 980;
+            q->len = 1500;
+        }
     } else {
         q->kind = K_THROW;
         g_save.bag[what]--;
@@ -403,11 +437,56 @@ static void el_burst(int el, float x, float y, int n)
 }
 static int el_aura_kind(int el) { return el == EL_FIRE ? FX_RISE : el == EL_WATER ? FX_DRIP : el == EL_EARTH ? FX_DUST : FX_SWIRL; }
 
+// How grand a spell looks: by its caster's level (1: up to 4, 2: up to 9, 3: from 10).
+static int spell_tier(int a)
+{
+    if (s_tier_force) return s_tier_force;
+    const int lv = s_f[a].hero ? s_f[a].h->level : s_f[a].level;
+    return 1 + (lv >= 5) + (lv >= 10);
+}
+
+// A spell striking, grander at each tier: more sparks, then the whole screen (heat and water waves, lightning's
+// negative flash, the ground shaking). Earth drops rocks that shatter: one, then more round the target, cracking
+// the ground (looks only).
+static void cast_visual(int tc, int tr, int seed, int el, int tier, float tx, float ty)
+{
+    static const int8_t dc[4] = { 1, 0, -1, 0 }, dr[4] = { 0, 1, 0, -1 };
+    if (el == EL_FIRE) {
+        fx_burst(tx, ty + 8, 0xfa20, 0xfd60, 30 * tier, 60 + 20 * tier);
+        fx_burst(tx, ty, 0xf800, 0xffe0, 16 * tier, 30 + 10 * tier);
+        if (tier >= 2) {
+            for (int k = 0; k < 10 * tier; k++) fx_aura(tx, ty + 6, 8 + 5 * tier, 0xf800, 0xffe0, FX_RISE);
+            fx_screen(FX_SCREEN_WAVE, 300 + 150 * tier, tier - 1);
+        }
+        if (tier >= 3) fx_screen(FX_SCREEN_SHAKE, 300, 1);
+    } else if (el == EL_WATER) {                                  // a splash, drops falling; then the screen waves
+        fx_burst(tx, ty + 6, 0x3c9e, 0xaf9f, 34 * tier, 50 + 15 * tier);
+        for (int k = 0; k < 14 * tier; k++) fx_aura(tx, ty, 12 + 4 * tier, 0x5d1f, 0xffff, FX_DRIP);
+        if (tier >= 2) fx_screen(FX_SCREEN_WAVE, 400 + 200 * tier, tier);
+    } else if (el == EL_EARTH) {
+        const int rock = fart_image(&g_art, "tile.65");
+        iso_drop_on(&s_map, tc, tr, rock, 0);
+        for (int k = 0; tier >= 2 && k < (tier == 2 ? 2 : 4); k++) {
+            const int c = tc + dc[(k + seed) % 4], r = tr + dr[(k + seed) % 4];
+            if (iso_inside(&s_map, c, r)) iso_drop_on(&s_map, c, r, rock, 80 + 70 * k);
+        }
+        if (tier >= 2) iso_crack(&s_map, tc, tr, tier, 300);
+        for (int k = 0; tier >= 3 && k < 4; k++)
+            if (iso_inside(&s_map, tc + dc[k], tr + dr[k])) iso_crack(&s_map, tc + dc[k], tr + dr[k], 2, 340);
+        s_quake = tier - 1;
+    } else if (el == EL_AIR) {
+        fx_bolt(tx, ty + 10);
+        if (tier >= 2) fx_screen(FX_SCREEN_NEGATIVE, 140 + 90 * tier, tier);
+        if (tier >= 3) fx_screen(FX_SCREEN_SHAKE, 360, 2);
+    } else fx_sparkle(tx, ty + 10, 0x87f0, 20 + 14 * tier);
+}
+
 static void play_action(action_t *q, uint32_t dt)
 {
     iso_unit_t *u = &s_map.units[q->actor];
     q->t += dt;
-    const bool right = u->dir == FART_SE || u->dir == FART_NE;
+    const int sd = iso_screen_dir(&s_map, u->dir);                // swings go by how it faces on screen
+    const bool right = sd == FART_SE || sd == FART_NE;
     int hx, hy;
     float tx, ty;
     chest(q->target, &tx, &ty);
@@ -496,17 +575,7 @@ static void play_action(action_t *q, uint32_t dt)
         if (q->t >= 650 && q->t - dt < 650) {
             static const snd_t sound[EL_COUNT] = { S_HEAL, S_FIRE, S_WATER, S_EARTH, S_THUNDER };
             snd_play(sound[el], 230);
-            if (el == EL_FIRE) {
-                fx_burst(tx, ty + 8, 0xfa20, 0xfd60, 30, 70);
-                fx_burst(tx, ty, 0xf800, 0xffe0, 16, 40);
-            } else if (el == EL_WATER) {                         // a wave: a splash, then drops falling
-                fx_burst(tx, ty + 6, 0x3c9e, 0xaf9f, 34, 60);
-                for (int k = 0; k < 14; k++) fx_aura(tx, ty, 14, 0x5d1f, 0xffff, FX_DRIP);
-            } else if (el == EL_EARTH) {                         // rocks bursting out of the ground
-                fx_burst(tx, ty + 10, 0x8a85, 0xd5ac, 30, 75);
-                fx_burst(tx, ty + 12, 0x52aa, 0xa514, 14, 30);
-            } else if (el == EL_AIR) fx_bolt(tx, ty + 10);
-            else fx_sparkle(tx, ty + 10, 0x87f0, 26);
+            cast_visual(s_map.units[q->target].c, s_map.units[q->target].r, q->actor, el, spell_tier(q->actor), tx, ty);
         }
         break;
     }
@@ -912,7 +981,8 @@ static void input(void)
     const int dir = g_keys.dir;
     switch (s_st) {
     case ST_CHOOSE: {
-        if (dir >= 0) move_cursor(dir);
+        if (dir >= 0) move_cursor(iso_map_dir(&s_map, dir));      // the D-pad as on screen, whatever the view
+        if (g_keys.turn) iso_turn(&s_map, g_keys.turn, s_cc, s_cr);
         const int n = key(FH1_KEY_X) ? next_hero(1) : key(FH1_KEY_Y) ? next_hero(-1) : -1;
         if (n >= 0) cursor_to(n);
         if (key(FH1_KEY_A)) {
@@ -993,7 +1063,8 @@ static void input(void)
         break;
     }
     case ST_MOVE:
-        if (dir >= 0) move_cursor(dir);
+        if (dir >= 0) move_cursor(iso_map_dir(&s_map, dir));      // the D-pad as on screen, whatever the view
+        if (g_keys.turn) iso_turn(&s_map, g_keys.turn, s_cc, s_cr);
         if (key(FH1_KEY_A)) {
             uint8_t path[ISO_PATH];
             const int n = iso_path_to(&s_map, &s_map.units[s_sel], s_dist, s_from, s_cc, s_cr, path);
@@ -1043,21 +1114,143 @@ static void input(void)
     }
 }
 
+// ── A boss arriving: its minions down, it comes onto the field (dropping from the sky, or descending glowing for an
+// Elemental), the ground cracking where it lands (looks only) ──
+
+#define BOSS_WAIT 700                                             // its shadow growing, the ground rumbling
+
+static int waiting_boss(void)
+{
+    for (int i = 0; i < s_map.nunits; i++)
+        if (s_f[i].absent) return i;
+    return -1;
+}
+
+// Where it lands: its own cell, or the nearest free one (no unit, no object, not water).
+static void boss_spot(int i)
+{
+    iso_unit_t *u = &s_map.units[i];
+    int best = -1, bd = 1 << 30;
+    for (int r = 0; r < ROWS; r++)
+        for (int c = 0; c < COLS; c++) {
+            const iso_cell_t *cl = iso_cell(&s_map, c, r);
+            if (cl->h == 0 || cl->obj != ISO_NONE || iso_unit_at(&s_map, c, r) || iso_changing(&s_map, c, r)) continue;
+            const int d = abs(c - u->c) + abs(r - u->r);
+            if (d < bd) {
+                bd = d;
+                best = r * COLS + c;
+            }
+        }
+    if (best >= 0) u->c = u->fc = best % COLS, u->r = u->fr = best / COLS;
+}
+
+static void boss_enter(int i)
+{
+    boss_spot(i);
+    s_boss_in = i;
+    s_boss_t = 0;
+    cursor_to(i);
+    banner("Algo se aproxima...", BOSS_WAIT + 300);
+    fx_screen(FX_SCREEN_SHAKE, BOSS_WAIT, 1);
+    snd_play(S_EARTH, 200);
+}
+
+// How high above its cell the arriving boss is (pixels), and whether it has landed.
+static int boss_height(int i, bool *landed)
+{
+    const bool descends = s_f[i].type == E_ELEMENTAL;
+    const uint32_t t = s_boss_t > BOSS_WAIT ? s_boss_t - BOSS_WAIT : 0, fall = descends ? 1100 : 400;
+    *landed = t >= fall;
+    if (*landed) return 0;
+    const float k = (float)t / fall;
+    return descends ? (int)(110 * (1 - k * k * (3 - 2 * k))) : (int)(128 * (1 - k * k));   // eased, or falling
+}
+
+static void boss_step(uint32_t dt)
+{
+    const int i = s_boss_in;
+    iso_unit_t *u = &s_map.units[i];
+    fighter_t *f = &s_f[i];
+    bool was;
+    boss_height(i, &was);
+    s_boss_t += dt;
+    bool landed;
+    const int up = boss_height(i, &landed);
+    u->hidden = s_boss_t < BOSS_WAIT;
+    u->lunge_y = (int8_t)(up > 127 ? -127 : -up);
+    const bool descends = f->type == E_ELEMENTAL;
+    int hx, hy;
+    iso_feet(&s_map, u, &hx, &hy);
+    if (descends && !landed && s_boss_t >= BOSS_WAIT) fx_aura(hx, hy - 16, 18, el_565(f->foe.element, false), el_565(f->foe.element, true), FX_SWIRL);
+    if (landed && !was) {                                         // the impact
+        static const int8_t dc[4] = { 1, 0, -1, 0 }, dr[4] = { 0, 1, 0, -1 };
+        iso_crack(&s_map, u->c, u->r, descends ? 1 : 3, 0);
+        for (int k = 0; k < 4 && !descends; k++)
+            if (iso_inside(&s_map, u->c + dc[k], u->r + dr[k])) iso_crack(&s_map, u->c + dc[k], u->r + dr[k], 2, 40 + 30 * k);
+        fx_screen(FX_SCREEN_SHAKE, descends ? 300 : 520, descends ? 1 : 3);
+        if (descends) {
+            fx_screen(FX_SCREEN_NEGATIVE, 220, 1);
+            fx_burst(hx, hy - 10, el_565(f->foe.element, false), el_565(f->foe.element, true), 40, 90);
+        } else fx_burst(hx, hy, 0x8a85, 0xd5ac, 30, 80);
+        snd_play(S_LANDING, 240);
+        snd_play(descends ? S_THUNDER : S_HIT, 220);
+        banner(f->name, 1600);
+    }
+    if (f->type == E_KING && landed && s_boss_t < BOSS_WAIT + 400 + 360) {   // a king slime bounces once
+        const uint32_t b = s_boss_t - BOSS_WAIT - 400;
+        u->lunge_y = (int8_t)(-14 * sinf(3.1415926f * b / 360));
+    }
+    if (landed && s_boss_t >= BOSS_WAIT + (descends ? 1100 : 400) + 800) {   // on the field: the battle goes on
+        u->lunge_y = 0;
+        f->absent = f->down = false;
+        u->hidden = false;
+        s_boss_in = -1;
+    }
+}
+
+// The arriving boss's shadow on its cell, growing as it comes.
+static void boss_shadow(const ui_t *ui)
+{
+    if (s_boss_in < 0) return;
+    bool landed;
+    const int up = boss_height(s_boss_in, &landed);
+    if (landed) return;
+    int x, y;
+    iso_world(&s_map, s_map.units[s_boss_in].c, s_map.units[s_boss_in].r, &x, &y);
+    x -= s_map.camx;
+    y -= s_map.camy;
+    const float k = s_boss_t < BOSS_WAIT ? (float)s_boss_t / BOSS_WAIT * 0.6f : 1.0f - up / 260.0f;
+    const int rx = 3 + (int)(13 * k), ry = rx / 2 > 1 ? rx / 2 : 1;
+    for (int dy = -ry; dy <= ry; dy++)
+        for (int dx = -rx; dx <= rx; dx++) {
+            if (dx * dx * ry * ry + dy * dy * rx * rx > rx * rx * ry * ry) continue;
+            const int X = x + dx, Y = y + dy;
+            if (X >= 0 && Y >= 0 && X < ui->w && Y < ui->h) ui->px[Y * ui->w + X] = (uint16_t)((ui->px[Y * ui->w + X] >> 1) & 0x7BEF);
+        }
+}
+
 static void update(uint32_t dt)
 {
+    if (s_boss_in >= 0) {
+        boss_step(dt);
+        return;
+    }
     if (s_st == ST_BUSY) {
         bool busy = s_nq > 0 || fx_busy();
         for (int i = 0; i < s_map.nunits; i++) busy |= iso_busy(&s_map.units[i]);
         if (busy) return;
         if (!side_left(false)) {
-            finish(true);
+            const int boss = waiting_boss();                     // its minions down: the boss comes
+            if (boss >= 0) boss_enter(boss);
+            else finish(true);
             return;
         }
         if (!side_left(true)) {
             finish(false);
             return;
         }
-        if (s_after_busy == ST_MENU) {
+        if (s_after_busy == ST_MENU && (s_sel < 0 || !s_f[s_sel].hero)) s_st = ST_CHOOSE;   // nobody's menu to go back to
+        else if (s_after_busy == ST_MENU) {
             const fighter_t *f = &s_f[s_sel];
             if (f->moved && f->acted) hero_done();
             else open_menu(s_sel);
@@ -1077,7 +1270,7 @@ static void update(uint32_t dt)
             }
             s_st = ST_ENEMY;
             s_enemy_wait = 0;
-        }
+        } else s_st = s_after_busy;                               // (a development command's: back where it was)
     } else if (s_st == ST_ENEMY && g_t > s_banner_until) {
         s_enemy_wait += dt;
         if (s_enemy_wait > 300) enemy_step();
@@ -1143,7 +1336,8 @@ static void draw_panel(const ui_t *u, int i, int x, int y)
         ui_text(u, x + 6, y + 28, g_elements[el].name, g_elements[el].rgb);
         snprintf(line, sizeof(line), "Nv %d", f->level);
         ui_text(u, x + 6 + 8 * 6, y + 28, line, 0xc8c8d0);
-        if (f->down) ui_text(u, x + 92, y + 28, "caído", 0xff7060);
+        if (f->absent) ui_text(u, x + 100, y + 28, "vindo", 0xffd060);
+        else if (f->down) ui_text(u, x + 92, y + 28, "caído", 0xff7060);
         else if (f->foe.boss) ui_text(u, x + 92, y + 28, "chefe", 0xffd060);
         else if (f->foe.caster) ui_text(u, x + 100, y + 28, "mago", 0xd8a0ff);
     }
@@ -1200,8 +1394,11 @@ static void draw_preview(const ui_t *u, int i, int x, int y, bool ok, const effe
     }
 }
 
+static ui_t s_last_ui;                                            // the screen battle_frame drew last (bench)
+
 screen_t battle_frame(const ui_t *u, uint32_t dt)
 {
+    s_last_ui = *u;
     input();
     if (s_ended) {
         battle_leave();
@@ -1218,8 +1415,16 @@ screen_t battle_frame(const ui_t *u, uint32_t dt)
     iso_world(&s_map, s_cc, s_cr, &cx, &cy);
     if (!s_cam_fixed) iso_follow(&s_map, cx, cy, u->w, u->h, dt);
     const bool show_cursor = s_st == ST_CHOOSE || s_st == ST_MOVE;
+    int shx, shy;                                                 // the screen shaking: the camera, while drawing
+    fx_screen_offset(&shx, &shy);
+    s_map.camx += shx;
+    s_map.camy += shy;
     iso_draw(&s_map, u->px, u->w, u->h, show_cursor ? s_cc : -1, s_cr, g_t);
+    boss_shadow(u);
     fx_draw(&g_art, u->px, u->w, u->h, s_map.camx, s_map.camy);
+    s_map.camx -= shx;
+    s_map.camy -= shy;
+    fx_screen_apply(u->px, u->w, u->h);
 
     for (int i = 0; i < 6; i++) {
         if (!s_pop[i].text[0]) continue;
@@ -1270,6 +1475,10 @@ screen_t battle_frame(const ui_t *u, uint32_t dt)
         int bw, bh;
         ui_menu_size(&s_battle, &bw, &bh);
         ui_menu_draw(u, &s_battle, (u->w - bw) / 2, (u->h - bh) / 2, g_t);
+    } else if (s_st == ST_CHOOSE) {                               // the map turns with Select (R1 / L1 on a pad)
+        const int hw = ui_hints_width("{s} girar");
+        ui_box(u, u->w - hw - 16, 4, hw + 12, 22);
+        ui_hints(u, u->w - hw - 10, 11, "{s} girar", 0xf0f0f0);
     } else if (s_st == ST_MOVE || s_st == ST_TARGET) {
         ui_box(u, u->w - 172, 4, 168, 22);
         if (s_st == ST_MOVE) ui_hints(u, u->w - 166, 11, "Mover para onde? {A}", 0xf0f0f0);
@@ -1329,6 +1538,11 @@ void battle_host_log(void)
 // Ends the battle as if fought: won (every enemy knocked out by the first hero) or lost (every hero down).
 void battle_host_end(bool won)
 {
+    for (int i = 0; i < s_map.nunits && won; i++)                // a boss still waiting goes down with the rest
+        if (s_f[i].absent) {
+            s_f[i].absent = s_f[i].down = false;
+            s_map.units[i].hidden = false;
+        }
     for (int i = 0; i < s_map.nunits; i++)
         if (s_f[i].hero != won && !s_f[i].down) hurt(won ? 0 : i, i, 999);
     s_after_busy = ST_MENU;
@@ -1337,6 +1551,136 @@ void battle_host_end(bool won)
 void battle_host_ranged(int i, int range) { s_f[i].range = range; }
 // XP the battle will give each hero on top of what its creatures give (shared out at the end, per creature down).
 void battle_host_xp(int slot, int xp) { if (slot >= 0 && slot < PARTY_MAX) g_result.xp[slot] += xp; }
+// Turns the view a quarter (by: +1 / -1) round the cursor, as Select does; view: one of the four at once.
+void battle_host_turn(int by) { iso_turn(&s_map, by, s_cc, s_cr); }
+void battle_host_view(int view) { iso_set_view(&s_map, view); }
+// What the view and the scenery animations cost here: a layer rebuild (a turn's half way) and every animated cell
+// redrawn at once (the most a frame change can ask), in ms, to the log.
+// Scenery changes (dev commands obj, height, top): a tile by its number in the pack (tile.N; -1 none), fx ISO_FX_*.
+static int dev_tile(int n) { char t[16]; snprintf(t, sizeof(t), "tile.%d", n); return n < 0 ? ISO_NONE : fart_image(&g_art, t); }
+
+void battle_host_bench(void)
+{
+    uint32_t t0 = fh1_millis();
+    for (int k = 0; k < 4; k++) iso_set_view(&s_map, s_map.view + 1);
+    const uint32_t build = fh1_millis() - t0;
+    t0 = fh1_millis();
+    for (int k = 0; k < 4; k++) iso_redraw_animated(&s_map);
+    const uint32_t anim = fh1_millis() - t0;
+    // A spinning frame (a quarter of the way into a turn) against a still one, drawn into the screen's buffer (the
+    // frame after this draws it again).
+    uint32_t spin = 0, still = 0;
+    if (s_last_ui.px) {
+        const iso_map_t keep = s_map;
+        s_map.turn_style = ISO_TURN_SPIN;
+        s_map.turn_len = ISO_SPIN_MS;
+        s_map.turn_ms = ISO_SPIN_MS / 4;
+        s_map.turn_by = 1;
+        s_map.turned = false;
+        s_map.turn_c = (int16_t)s_cc;
+        s_map.turn_r = (int16_t)s_cr;
+        t0 = fh1_millis();
+        for (int k = 0; k < 4; k++) iso_draw(&s_map, s_last_ui.px, s_last_ui.w, s_last_ui.h, -1, 0, g_t);
+        spin = fh1_millis() - t0;
+        s_map.turn_ms = 0;
+        t0 = fh1_millis();
+        for (int k = 0; k < 4; k++) iso_draw(&s_map, s_last_ui.px, s_last_ui.w, s_last_ui.h, -1, 0, g_t);
+        still = fh1_millis() - t0;
+        s_map.turn_ms = keep.turn_ms;
+        s_map.turn_len = keep.turn_len;
+        s_map.turn_style = keep.turn_style;
+    }
+    // Four scenery changes at once, half way (two columns rising, a rock dropping, a top shattering), then the map
+    // as it was.
+    uint32_t chg = 0;
+    if (s_last_ui.px) {
+        iso_cell_t was[4];
+        const int cs[4][2] = { { s_cc + 1, s_cr }, { s_cc, s_cr + 1 }, { s_cc + 1, s_cr + 1 }, { s_cc + 2, s_cr } };
+        int ok = 0;
+        for (int k = 0; k < 4; k++) {
+            if (!iso_inside(&s_map, cs[k][0], cs[k][1])) continue;
+            const iso_cell_t *cl = iso_cell(&s_map, cs[k][0], cs[k][1]);
+            was[k] = *cl;
+            ok += k < 2 ? iso_set_height(&s_map, cs[k][0], cs[k][1], cl->h + 2, ISO_FX_RISE)
+                : k == 2 ? iso_set_obj(&s_map, cs[k][0], cs[k][1], dev_tile(65), ISO_FX_DROP)
+                         : iso_set_top(&s_map, cs[k][0], cs[k][1], dev_tile(11), ISO_FX_BREAK);
+        }
+        for (int k = 0; k < ISO_CHANGES; k++)
+            if (s_map.chg[k].len) s_map.chg[k].t = s_map.chg[k].len / 3;
+        t0 = fh1_millis();
+        for (int k = 0; k < 4; k++) iso_draw(&s_map, s_last_ui.px, s_last_ui.w, s_last_ui.h, -1, 0, g_t);
+        chg = (fh1_millis() - t0) / 4;
+        for (int k = 0; k < ISO_CHANGES; k++) s_map.chg[k].len = 0;
+        memset(s_map.chg_of, 0, (size_t)s_map.cols * s_map.rows);
+        for (int k = 0; k < 4; k++)
+            if (iso_inside(&s_map, cs[k][0], cs[k][1])) *iso_cell(&s_map, cs[k][0], cs[k][1]) = was[k];
+        iso_build_layer(&s_map);
+        fh1_log("bench: %d scenery changes running, a frame %u ms", ok, (unsigned)chg);
+    }
+    fh1_log("bench: layer %u x %u, rebuild %u ms; %d animated cells, all redrawn %u ms; a frame %u ms, spinning %u ms",
+            (unsigned)s_map.lw, (unsigned)s_map.lh, (unsigned)(build / 4), s_map.nacells, (unsigned)(anim / 4),
+            (unsigned)(still / 4), (unsigned)(spin / 4));
+}
+void battle_host_scenery(const char *what, int c, int r, int v, int fx)
+{
+    const bool ok = !strcmp(what, "obj") ? iso_set_obj(&s_map, c, r, dev_tile(v), fx)
+                  : !strcmp(what, "height") ? iso_set_height(&s_map, c, r, v, fx)
+                  : iso_set_top(&s_map, c, r, dev_tile(v), fx);
+    if (!ok) fh1_log("dev: %s %d %d: no change", what, c, r);
+}
+// The layer built again from scratch (checks that changes left it as a full build would).
+void battle_host_relayer(void) { iso_build_layer(&s_map); }
+// The layer under the camera against a fresh build: "check: layer ok" or "check: layer differs" (tests grep it).
+void battle_host_checklayer(void)
+{
+    if (!s_last_ui.px) return;
+    int box[4];
+    const int n = iso_check_layer(&s_map, s_last_ui.w, s_last_ui.h, box);
+    if (n == 0) fh1_log("check: layer ok");
+    else fh1_log("check: layer differs: %d pixels in %d,%d..%d,%d", n, box[0], box[1], box[2], box[3]);
+}
+// Spells at a tier for tests (0: by the caster's level), and a spell's looks played at a cell (no caster, no damage).
+void battle_host_tier(int tier) { s_tier_force = tier < 0 ? 0 : tier > 3 ? 3 : tier; }
+void battle_host_cast(int el, int tier, int c, int r)
+{
+    if (!iso_inside(&s_map, c, r) || el < 0 || el >= EL_COUNT) return;
+    int x, y;
+    iso_world(&s_map, c, r, &x, &y);
+    static const snd_t sound[EL_COUNT] = { S_HEAL, S_FIRE, S_WATER, S_EARTH, S_THUNDER };
+    snd_play(sound[el], 230);
+    cast_visual(c, r, c + r, el, tier < 1 ? 1 : tier > 3 ? 3 : tier, (float)x, (float)y - 14);
+}
+// Looks only: a cell's top cracking, an image (a tile's number) dropped onto a cell to shatter.
+void battle_host_crack(int c, int r, int power) { iso_crack(&s_map, c, r, power, 0); }
+void battle_host_dropon(int c, int r, int tile) { iso_drop_on(&s_map, c, r, dev_tile(tile), 0); }
+// A cell floating (base) and bobbing (group, 0: still).
+void battle_host_float(int c, int r, int base, int bob) { iso_set_float(&s_map, c, r, base, bob); }
+// A unit knocked out at once (its minions down, a waiting boss comes), and a waiting boss called in now.
+void battle_host_kill(int i)
+{
+    if (i < 0) {                                                  // -1: every creature on the field but bosses
+        for (int k = 0; k < s_map.nunits; k++)
+            if (!s_f[k].hero && !s_f[k].foe.boss && !s_f[k].down) battle_host_kill(k);
+        return;
+    }
+    if (i >= s_map.nunits || s_f[i].down) return;
+    int by = 0;
+    while (by < s_map.nunits && !s_f[by].hero) by++;
+    hurt(by < s_map.nunits ? by : i, i, s_f[i].hp);
+    if (s_st != ST_BUSY) {
+        s_after_busy = s_st;
+        s_st = ST_BUSY;
+    }
+}
+void battle_host_boss(void)
+{
+    const int b = waiting_boss();
+    if (b >= 0 && s_boss_in < 0) boss_enter(b);
+}
+// The whole screen: kind (0 negative, 1 wave, 2 shake), ms, strength.
+void battle_host_screen(int kind, int ms, int strength) { fx_screen(kind, (uint32_t)ms, strength); }
+// How the view turns: 0 spinning, 1 narrowing.
+void battle_host_turnstyle(int style) { s_map.turn_style = (uint8_t)(style ? ISO_TURN_NARROW : ISO_TURN_SPIN); }
 void battle_host_cam(int x, int y)
 {
     s_cam_fixed = true;

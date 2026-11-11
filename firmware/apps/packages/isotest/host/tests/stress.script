@@ -1,0 +1,22 @@
+# Everything at once: eight scenery changes and effects, a tier-3 earth spell and fire, the screen waving and shaking,
+# bobbing slabs; then a spin; what it costs (bench) and the layer checked.
+nosave
+test 1
+wait 70
+cast 3 3 7 5
+cast 1 3 8 6
+obj 5 9 65 2
+height 6 9 4 3
+top 7 9 11 5
+obj 5 10 44 4
+crack 6 10 3
+dropon 7 10 65
+wait 8
+shot x00-everything
+wait 50
+turn 1
+wait 6
+shot x01-spinning
+wait 20
+bench
+checklayer

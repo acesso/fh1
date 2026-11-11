@@ -1,0 +1,20 @@
+# Water: the ripple's wave across the sea (a still camera, a shot every two frames), in two realms' colours.
+nosave
+test 1
+wait 70
+cam -60 20
+shot w00
+wait 2
+shot w01
+wait 2
+shot w02
+wait 2
+shot w03
+checklayer
+test 0
+wait 70
+cam -60 20
+shot w10-lava
+wait 3
+shot w11-lava
+checklayer

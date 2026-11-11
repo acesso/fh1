@@ -49,7 +49,7 @@ static void paint(iso_map_t *m, const theme_t *th, int c, int r, int h, bool obj
 {
     iso_cell_t *cell = iso_cell(m, c, r);
     if (h <= 0) {
-        *cell = (iso_cell_t){ 0, th->water, th->water, ISO_NONE };
+        *cell = (iso_cell_t){ 0, th->water, th->water, ISO_NONE, 0, 0 };
         return;
     }
     cell->h = h;
@@ -180,55 +180,59 @@ static void build_fixed(iso_map_t *m, const battle_def_t *b, uint8_t spots[3][2]
             if (h > 0 && o == 'r') cell->obj = tile(65);
             else if (h > 0 && o == 'p') cell->obj = tile(43);
             else if (h > 0 && o == 's') cell->obj = tile(52);
+            else if (h > 0 && (o == 'f' || o == 'b' || o == 'B')) {   // a slab one block thick, floating
+                cell->base = (uint8_t)h;
+                cell->bob = (uint8_t)(o == 'b' ? 1 : o == 'B' ? 2 : 0);
+            }
         }
     for (int k = 0; k < 3; k++) memcpy(spots[k], b->heroes[k], 2);
     for (int k = 0; k < b->n; k++) foes[k][0] = b->foes[k].c, foes[k][1] = b->foes[k].r;
 }
 
-// Every pixel of the built scenery through the realm's colours.
+// One scenery pixel through the realm's colours.
+static uint16_t grade_px(uint16_t v, void *user)
+{
+    const int el = *(const int *)user;
+    int r = (v >> 11) << 3, g = ((v >> 5) & 63) << 2, b = (v & 31) << 3;
+    const bool water = b > r + 24 && b >= g;
+    const int lum = (r * 3 + g * 6 + b) / 10;
+    if (el == EL_FIRE) {
+        if (water) {                                             // lava: dark red to yellow by brightness
+            r = 120 + lum;
+            g = lum * 3 / 4;
+            b = lum / 8;
+        } else {                                                 // scorched: warm and dark
+            r = r * 9 / 10 + 18;
+            g = g * 7 / 10;
+            b = b / 2;
+        }
+    } else if (el == EL_WATER) {
+        r = r * 8 / 10;
+        g = g * 9 / 10 + 6;
+        b = b + 20;
+    } else if (el == EL_EARTH) {
+        r = r * 9 / 10;
+        g = g + 10;
+        b = b * 8 / 10;
+    } else {                                                     // air: pale, cold, light
+        r = r + (200 - r) / 4;
+        g = g + (215 - g) / 4;
+        b = b + (240 - b) / 4;
+    }
+    r = r > 255 ? 255 : r;
+    g = g > 255 ? 255 : g;
+    b = b > 255 ? 255 : b;
+    return (uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
+}
+
+// The realm's colours: over the scenery's images (so the layer, its redraws and the scenery drawn over units all
+// have them) and the sky.
 void map_grade(iso_map_t *m, int realm)
 {
-    const int el = g_realms[realm].element;
-    const uint16_t old = m->sky;
+    static int el;
+    el = g_realms[realm].element;
     m->sky = g_realms[realm].sky;
-    const int n = m->lw * m->lh;
-    for (int i = 0; i < n; i++) {
-        const uint16_t v = m->layer[i];
-        if (v == old) {                                              // the layer's background: the realm's sky
-            m->layer[i] = m->sky;
-            continue;
-        }
-        int r = (v >> 11) << 3, g = ((v >> 5) & 63) << 2, b = (v & 31) << 3;
-        const bool water = b > r + 24 && b >= g;
-        const int lum = (r * 3 + g * 6 + b) / 10;
-        if (el == EL_FIRE) {
-            if (water) {                                             // lava: dark red to yellow by brightness
-                r = 120 + lum;
-                g = lum * 3 / 4;
-                b = lum / 8;
-            } else {                                                 // scorched: warm and dark
-                r = r * 9 / 10 + 18;
-                g = g * 7 / 10;
-                b = b / 2;
-            }
-        } else if (el == EL_WATER) {
-            r = r * 8 / 10;
-            g = g * 9 / 10 + 6;
-            b = b + 20;
-        } else if (el == EL_EARTH) {
-            r = r * 9 / 10;
-            g = g + 10;
-            b = b * 8 / 10;
-        } else {                                                     // air: pale, cold, light
-            r = r + (200 - r) / 4;
-            g = g + (215 - g) / 4;
-            b = b + (240 - b) / 4;
-        }
-        r = r > 255 ? 255 : r;
-        g = g > 255 ? 255 : g;
-        b = b > 255 ? 255 : b;
-        m->layer[i] = (uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
-    }
+    iso_grade(m, grade_px, &el);
 }
 
 void map_build(iso_map_t *m, const battle_def_t *b, uint8_t spots[3][2], uint8_t foes[6][2])

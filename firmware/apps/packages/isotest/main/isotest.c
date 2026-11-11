@@ -40,6 +40,12 @@ static void read_keys(uint32_t dt)
     }
     s_rep_t = any ? s_rep_t + dt : 0;
     g_keys.down = down;
+    // Turning the view: Select, or a controller's shoulder buttons (R1 the same way as Select, L1 back).
+    static uint32_t s_pad_prev;
+    fh1_pad_t pad;
+    const uint32_t pb = fh1_pad(0, &pad) ? pad.buttons : 0, pe = pb & ~s_pad_prev;
+    s_pad_prev = pb;
+    g_keys.turn = (g_keys.edge & (1u << FH1_KEY_SELECT)) || (pe & FH1_PAD_BTN_R1) ? 1 : (pe & FH1_PAD_BTN_L1) ? -1 : 0;
 }
 
 int menu_key(void)
@@ -138,10 +144,11 @@ void hero_draw(const ui_t *u, const hero_t *h, int x, int y, int dir, bool walki
 
 void hero_pose(uint32_t t, int *dir, bool *walking)
 {
-    static const int turn[4] = { FART_SE, FART_SW, FART_NW, FART_NE };   // round, a quarter at a time
-    const uint32_t step = t / 2200, in = t % 2200;
-    *dir = turn[step % 4];
-    *walking = in < 1600;                                      // walking 1.6 s, standing 0.6 s, then turning
+    // Round, a quarter at a time, walking all along: the heroes' art has no idle (one standing frame at most), so
+    // a pause would hold one frame still. A turn every 1.6 s (two loops of the walk).
+    static const int turn[4] = { FART_SE, FART_SW, FART_NW, FART_NE };
+    *dir = turn[(t / 1600) % 4];
+    *walking = true;
 }
 
 // ── Transitions: the old screen's last frame, replaced by the new one through a grid of growing diamonds ──
@@ -204,6 +211,21 @@ void battle_host_gear(int i, int weapon, int armour);
 void battle_host_end(bool won);
 void battle_host_ranged(int i, int range);
 void battle_host_cam(int x, int y);
+void battle_host_turn(int by);
+void battle_host_view(int view);
+void battle_host_bench(void);
+void battle_host_turnstyle(int style);
+void battle_host_relayer(void);
+void battle_host_checklayer(void);
+void battle_host_tier(int tier);
+void battle_host_cast(int el, int tier, int c, int r);
+void battle_host_crack(int c, int r, int power);
+void battle_host_dropon(int c, int r, int tile);
+void battle_host_float(int c, int r, int base, int bob);
+void battle_host_kill(int i);
+void battle_host_boss(void);
+void battle_host_screen(int kind, int ms, int strength);
+void battle_host_scenery(const char *what, int c, int r, int v, int fx);
 void battle_host_xp(int slot, int xp);
 void battle_host_log(void);
 void battle_host_hp(int i, int hp);
@@ -229,12 +251,20 @@ bool dev_command(const char *line)
         fh1_log("dev: saving off until the game closes");
         return true;
     }
+    // Anywhere (a battle under way is left): a battle, or the test field in a realm's colours.
+    if (!strcmp(cmd, "go") && sscanf(line, "%*s %d %d %d", &n[0], &n[1], &n[2]) == 3 && n[0] >= 0 && n[0] < REALMS &&
+        n[1] >= 0 && n[1] < TIERS && n[2] >= 0 && n[2] < g_tier_len[n[1]]) {
+        battle_make(n[0], n[1], n[2], &g_battle);
+        s_dev_next = SCR_LOAD;
+        return true;
+    }
+    if (!strcmp(cmd, "test")) {
+        battle_test(sscanf(line, "%*s %d", &n[0]) == 1 ? n[0] : 1, &g_battle);
+        s_dev_next = SCR_LOAD;
+        return true;
+    }
     if (s_screen != SCR_BATTLE) {
-        if (!strcmp(cmd, "go") && sscanf(line, "%*s %d %d %d", &n[0], &n[1], &n[2]) == 3 && n[0] >= 0 && n[0] < REALMS &&
-            n[1] >= 0 && n[1] < TIERS && n[2] >= 0 && n[2] < g_tier_len[n[1]]) {
-            battle_make(n[0], n[1], n[2], &g_battle);
-            s_dev_next = SCR_LOAD;
-        } else if (!strcmp(cmd, "won") && sscanf(line, "%*s %d %d %d", &n[0], &n[1], &n[2]) == 3 && n[0] >= 0 &&
+        if (!strcmp(cmd, "won") && sscanf(line, "%*s %d %d %d", &n[0], &n[1], &n[2]) == 3 && n[0] >= 0 &&
                    n[0] < REALMS && n[1] >= 0 && n[1] < TIERS)
             g_save.won[n[0]][n[1]] = (uint8_t)(n[2] > g_tier_len[n[1]] ? g_tier_len[n[1]] : n[2]);
         else if (!strcmp(cmd, "level") && sscanf(line, "%*s %d %d", &n[0], &n[1]) == 2 && n[0] >= 0 && n[0] < ROSTER) {
@@ -264,6 +294,25 @@ bool dev_command(const char *line)
     else if (!strcmp(cmd, "gear") && sscanf(line, "%*s %d %d %d", &n[0], &n[1], &n[2]) == 3) battle_host_gear(n[0], n[1], n[2]);
     else if (!strcmp(cmd, "ranged") && sscanf(line, "%*s %d %d", &n[0], &n[1]) == 2) battle_host_ranged(n[0], n[1]);
     else if (!strcmp(cmd, "cam") && sscanf(line, "%*s %d %d", &n[0], &n[1]) == 2) battle_host_cam(n[0], n[1]);
+    else if (!strcmp(cmd, "turn") && sscanf(line, "%*s %d", &n[0]) == 1) battle_host_turn(n[0]);
+    else if (!strcmp(cmd, "view") && sscanf(line, "%*s %d", &n[0]) == 1) battle_host_view(n[0]);
+    else if (!strcmp(cmd, "bench")) battle_host_bench();
+    else if (!strcmp(cmd, "relayer")) battle_host_relayer();
+    else if (!strcmp(cmd, "checklayer")) battle_host_checklayer();
+    else if (!strcmp(cmd, "tier") && sscanf(line, "%*s %d", &n[0]) == 1) battle_host_tier(n[0]);
+    else if (!strcmp(cmd, "cast") && sscanf(line, "%*s %d %d %d %d", &n[0], &n[1], &n[2], &n[3]) == 4)
+        battle_host_cast(n[0], n[1], n[2], n[3]);
+    else if (!strcmp(cmd, "crack") && sscanf(line, "%*s %d %d %d", &n[0], &n[1], &n[2]) == 3) battle_host_crack(n[0], n[1], n[2]);
+    else if (!strcmp(cmd, "dropon") && sscanf(line, "%*s %d %d %d", &n[0], &n[1], &n[2]) == 3) battle_host_dropon(n[0], n[1], n[2]);
+    else if (!strcmp(cmd, "float") && sscanf(line, "%*s %d %d %d %d", &n[0], &n[1], &n[2], &n[3]) == 4)
+        battle_host_float(n[0], n[1], n[2], n[3]);
+    else if (!strcmp(cmd, "kill") && sscanf(line, "%*s %d", &n[0]) == 1) battle_host_kill(n[0]);
+    else if (!strcmp(cmd, "boss")) battle_host_boss();
+    else if (!strcmp(cmd, "screen") && sscanf(line, "%*s %d %d %d", &n[0], &n[1], &n[2]) == 3) battle_host_screen(n[0], n[1], n[2]);
+    else if (!strcmp(cmd, "turnstyle") && sscanf(line, "%*s %d", &n[0]) == 1) battle_host_turnstyle(n[0]);
+    else if ((!strcmp(cmd, "obj") || !strcmp(cmd, "height") || !strcmp(cmd, "top")) &&
+             sscanf(line, "%*s %d %d %d %d", &n[0], &n[1], &n[2], &n[3]) == 4)
+        battle_host_scenery(cmd, n[0], n[1], n[2], n[3]);
     else if (!strcmp(cmd, "xp") && sscanf(line, "%*s %d %d", &n[0], &n[1]) == 2) battle_host_xp(n[0], n[1]);
     else if (!strcmp(cmd, "hp") && sscanf(line, "%*s %d %d", &n[0], &n[1]) == 2) battle_host_hp(n[0], n[1]);
     else if (!strcmp(cmd, "win")) battle_host_end(true);
@@ -331,6 +380,7 @@ static int frame(uint16_t *px, int w, int h, uint32_t dt, void *user)
     s_frame_ms = fh1_millis() - t0;
     if (next == SCR_QUIT) return FH1_FRAME_END;
     if (next != s_screen) {
+        if (s_screen == SCR_BATTLE) battle_leave();               // (a dev command's jump out of a battle)
         trans_start(px, w, h, next == SCR_BATTLE ? TR_BURST : TR_SWEEP);
         s_screen = next;
         enter(next);

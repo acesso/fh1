@@ -3,6 +3,7 @@
 #pragma once
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 enum { FART_SE, FART_SW, FART_NW, FART_NE, FART_DIRS };
 #define FART_NONE 0xFFFF
@@ -30,6 +31,9 @@ typedef struct {
     int nimg, nanim;
     fart_img_t *img;
     fart_anim_t *anim;
+    uint16_t **orig;                 // per image: its pixels as loaded, once recoloured (fart_recolor), else NULL
+    uint8_t *pool;                   // where those copies live: 16 KB blocks (PSRAM), chained
+    size_t pool_used;
 } fart_t;
 
 typedef struct { int x0, y0, x1, y1; } fart_clip_t;   // x0 <= x < x1, y0 <= y < y1
@@ -38,6 +42,15 @@ bool fart_load(fart_t *a, const char *path);
 void fart_free(fart_t *a);
 int fart_image(const fart_t *a, const char *name);                       // its index, or -1
 const fart_anim_t *fart_anim(const fart_t *a, const char *name);         // NULL if missing
+// Dissolving: only the pixels whose place on screen passes an ordered 4 x 4 dither at level 0..16 (0: none, 16: all).
+void fart_draw_dither(uint16_t *dst, int stride, const fart_clip_t *clip, const fart_img_t *im, int ax, int ay,
+                      bool mirror, int level);
+// An image unpacked into w x h pixels and a mask (1 byte a pixel), row by row; false if it is bigger than max.
+bool fart_unpack(const fart_img_t *im, uint16_t *px, uint8_t *mask, int max);
+// Recolours an image's pixels in place through fn (a realm's colours over the scenery); fn NULL puts back the colours
+// it was loaded with. The first call keeps a copy of the original pixels, so each call starts from them. false: no
+// memory for the copy (the image is unchanged).
+bool fart_recolor(fart_t *a, int idx, uint16_t (*fn)(uint16_t v, void *user), void *user);
 // The image to show for a facing at a time (looping); a missing facing is its mirror (se/sw, nw/ne): *mirror.
 int fart_frame(const fart_anim_t *an, int dir, uint32_t t_ms, bool *mirror);
 // Draws an image with its anchor at (ax, ay) into a w-wide RGB565 buffer, clipped.

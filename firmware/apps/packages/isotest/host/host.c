@@ -77,6 +77,7 @@ int fh1_state_load(const char *n, void *d, size_t m)
     memcpy(d, s_saves[k].data, s_saves[k].len);
     return s_saves[k].len;
 }
+bool fh1_pad(int player, fh1_pad_t *out) { (void)player; (void)out; return false; }   // no controllers on the PC
 // The controller's style (host command "pad fh1|xbox|nintendo|ps") and its key icons, drawn simply.
 static int s_style;
 int fh1_pad_style(void) { return s_style; }

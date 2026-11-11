@@ -1,0 +1,22 @@
+# Each realm's creatures on its own ground (the test field: two of them and the Alpha once called in).
+nosave
+test 0
+wait 70
+boss
+wait 110
+shot c00-fogo
+test 1
+wait 70
+boss
+wait 110
+shot c01-agua
+test 2
+wait 70
+boss
+wait 110
+shot c02-terra
+test 3
+wait 70
+boss
+wait 110
+shot c03-ar

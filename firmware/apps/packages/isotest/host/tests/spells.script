@@ -1,0 +1,46 @@
+# Spells at each tier (cast EL TIER C R; elements 1 fire, 2 water, 3 earth, 4 air, 0 healing) on the creature at 7,5:
+# grander at each tier, the whole screen joining in from tier 2.
+nosave
+test 1
+wait 70
+cast 1 1 7 5
+wait 6
+shot p00-fire1
+wait 30
+cast 1 3 7 5
+wait 6
+shot p01-fire3
+wait 30
+cast 2 1 7 5
+wait 6
+shot p02-water1
+wait 30
+cast 2 3 7 5
+wait 8
+shot p03-water3
+wait 30
+cast 3 1 7 5
+wait 8
+shot p04-earth1
+wait 30
+cast 3 2 7 5
+wait 10
+shot p05-earth2
+wait 30
+cast 3 3 7 5
+wait 11
+shot p06-earth3
+wait 40
+cast 4 1 7 5
+wait 3
+shot p07-air1
+wait 30
+cast 4 3 7 5
+wait 3
+shot p08-air3
+wait 30
+cast 0 3 3 8
+wait 8
+shot p09-heal3
+wait 40
+checklayer

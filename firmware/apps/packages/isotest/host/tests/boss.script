@@ -1,0 +1,27 @@
+# A boss arriving: its minions knocked out, the Alpha's shadow grows, it drops onto the yard, the ground cracks round
+# it (looks only), and the battle goes on; then an Elemental descending in its shrine.
+nosave
+test 1
+wait 70
+log
+kill -1
+wait 10
+shot b00-rumble
+wait 22
+shot b01-falling
+wait 8
+shot b02-landed
+wait 40
+shot b03-on-the-field
+log
+checklayer
+go 2 2 8
+wait 80
+kill -1
+wait 30
+shot b10-descending
+wait 30
+shot b11-elemental-landed
+wait 40
+log
+checklayer
