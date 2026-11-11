@@ -17,7 +17,7 @@ import json, sys, tarfile, os
 fpk, root = sys.argv[1], sys.argv[2]
 with tarfile.open(fpk) as t:
     m = json.load(t.extractfile("manifest.json"))
-    dest = os.path.join(root, "assets" if ".assets." in m["id"] else "apps", m["id"])
+    dest = os.path.join(root, "assets" if m.get("kind") == "assets" else "apps", m["id"])
     t.extractall(dest, filter="data")
 print(f"  {m['id']} {m.get('version', '')} -> {os.path.relpath(dest, root)}")
 EOF
