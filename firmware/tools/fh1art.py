@@ -24,8 +24,16 @@ Recipe (paths are relative to the recipe):
        "anchor": [32, 108]}}},                        facings kept in separate layers and places
       {"name": "slime.fire.idle", "files": {"sw": "...-Idle Down.png", "ne": "...-Idle Up.png"},
        "grid": [64, 64], "anchor": [32, 50], "pick": [0, 2], "recolor": {"hue": [285, 45], "to": 8}}
+    ],
+    "tile_anims": [                                 a tile's frames made from one of the images above
+      {"name": "tile.90", "from": "tile.90", "ripple": {"frames": 6, "ms": 170, "period": 12, "keep": 2}}
     ]
   }
+
+A "ripple" (water, lava) groups the image's colours into brightness levels and moves a wave through the levels
+above the darkest `keep` (outlines and sides stay), along the screen's diagonal, one `period` (pixels) per loop.
+Every frame is a step of the wave (none is the still image, so the loop never pauses); cells naming the still
+image show the frames instead (iso_tile_anim). The animation has the south-east facing only.
 
 Every image is trimmed to its visible pixels and keeps its anchor (the point that stands on the ground). A
 "scale" below 1 shrinks pixel art: integer factors (1/2, 1/3) keep the most frequent colour of each block;
@@ -267,6 +275,37 @@ def recolor(img, spec):
     return out
 
 
+def ripple(img, frames, period, keep, amp=1.0):
+    """Frames of a wave running through an image's brightness levels, each a step of the same loop."""
+    import math
+    img = img.convert("RGBA")
+    px = img.load()
+    lum = lambda c: c[0] * 3 + c[1] * 6 + c[2]
+    cols = sorted({px[x, y] for y in range(img.height) for x in range(img.width) if px[x, y][3] >= 128}, key=lum)
+    levels = []
+    for c in cols:                                           # colours closer than this in brightness: one level
+        if levels and lum(c) - lum(levels[-1][-1]) < 40:
+            levels[-1].append(c)
+        else:
+            levels.append([c])
+    lev = {c: i for i, l in enumerate(levels) for c in l}
+    rep = [l[len(l) // 2] for l in levels]
+    out = []
+    for k in range(frames):
+        im = img.copy()
+        q = im.load()
+        for y in range(img.height):
+            for x in range(img.width):
+                c = px[x, y]
+                if c[3] < 128 or lev[c] < keep:
+                    continue
+                i = max(keep, min(len(levels) - 1, lev[c] + round(amp * math.sin(2 * math.pi * (k / frames + (x + 2 * y) / period)))))
+                if i != lev[c]:
+                    q[x, y] = rep[i]
+        out.append(im)
+    return out
+
+
 def rgb565(p):
     return ((p[0] & 0xF8) << 8) | ((p[1] & 0xFC) << 3) | (p[2] >> 3)
 
@@ -445,6 +484,18 @@ def build(recipe_path, out=None):
         a["frames"] = min(len(v) for v in a["dirs"].values())
         a["dirs"] = {d: v[:a["frames"]] for d, v in a["dirs"].items()}
         p.anims.append(a)
+
+    names = {im["name"]: i for i, im in enumerate(p.images)}
+    for e in r.get("tile_anims", []):
+        if e["from"] not in names:
+            sys.exit(f"{e['name']}: no image {e['from']}")
+        i = names[e["from"]]
+        base = p.images[i]
+        rp = e["ripple"]
+        frames = ripple(base["img"], rp.get("frames", 6), rp.get("period", 12), rp.get("keep", 2), rp.get("amp", 1.0))
+        anchor = (-base["ox"], -base["oy"])                 # the image is already trimmed: same box, same anchor
+        idx = [p.add_image(f"{e['name']}~{k}", im, anchor) for k, im in enumerate(frames)]
+        p.anims.append({"name": e["name"], "dirs": {"se": idx}, "ms": rp.get("ms", 250), "frames": len(idx)})
 
     out = out or os.path.join(root, r.get("out", "assets/art.fart"))
     size = p.write(out)
