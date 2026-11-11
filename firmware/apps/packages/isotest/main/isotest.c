@@ -51,18 +51,35 @@ int menu_key(void)
     return -1;
 }
 
-void draw_back(const ui_t *u)
+// A night-blue gradient with a faint diamond grid, like the map seen from afar.
+static void paint_back(uint16_t *px, int w, int h)
 {
-    // A night-blue gradient with a faint diamond grid, like the map seen from afar.
-    for (int y = 0; y < u->h; y++) {
-        const int k = y * 12 / u->h;
+    for (int y = 0; y < h; y++) {
+        const int k = y * 12 / h;
         const uint16_t base = (uint16_t)(((2 + k / 3) << 11) | ((5 + k) << 5) | (10 + k));
-        uint16_t *line = u->px + y * u->w;
-        for (int x = 0; x < u->w; x++) {
+        uint16_t *line = px + y * w;
+        for (int x = 0; x < w; x++) {
             const int a = (x + 2 * y) & 31, b = (x - 2 * y) & 31;
             line[x] = (a == 0 || b == 0) ? (uint16_t)(base + 0x0861) : base;
         }
     }
+}
+
+// The background never changes: painted once, then copied each frame (it was most of a menu frame's work).
+static uint16_t *s_back;
+static int s_back_w, s_back_h;
+
+void draw_back(const ui_t *u)
+{
+    if (!s_back || s_back_w != u->w || s_back_h != u->h) {
+        free(s_back);
+        s_back = malloc((size_t)u->w * u->h * 2);
+        if (!s_back) { paint_back(u->px, u->w, u->h); return; }
+        s_back_w = u->w;
+        s_back_h = u->h;
+        paint_back(s_back, u->w, u->h);
+    }
+    memcpy(u->px, s_back, (size_t)u->w * u->h * 2);
 }
 
 void hero_sprite(const ui_t *u, int cls, int x, int y, int dir)
@@ -335,6 +352,8 @@ static void closed(void *user)
     fart_free(&g_art);
     free(s_old);
     s_old = NULL;
+    free(s_back);
+    s_back = NULL;
     fh1_app_exit();
 }
 

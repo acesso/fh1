@@ -13,18 +13,24 @@ static inline uint16_t mix34(uint16_t under, uint16_t c)
 
 void ui_box(const ui_t *u, int x, int y, int bw, int bh)
 {
+    // Rows by kind (no tests per pixel): the outer edge without its corners, the inner shade line, and the middle,
+    // where the scene shows through, darkened, between one shade and one edge pixel on each side.
+    if (bw < 4 || bh < 4) return;
+    const int x0 = x < 0 ? 0 : x, x1 = x + bw > u->w ? u->w : x + bw;        // clipped columns [x0, x1)
     for (int j = 0; j < bh; j++) {
         const int yy = y + j;
         if (yy < 0 || yy >= u->h) continue;
         uint16_t *line = u->px + yy * u->w;
-        for (int i = 0; i < bw; i++) {
-            const int xx = x + i;
-            if (xx < 0 || xx >= u->w) continue;
-            const bool corner = (i == 0 || i == bw - 1) && (j == 0 || j == bh - 1);
-            if (corner) continue;
-            const bool edge = i == 0 || j == 0 || i == bw - 1 || j == bh - 1;
-            const bool inner = i == 1 || j == 1 || i == bw - 2 || j == bh - 2;
-            line[xx] = edge ? EDGE : inner ? SHADE : mix34(line[xx], BG);
+        const bool edge_row = j == 0 || j == bh - 1, shade_row = j == 1 || j == bh - 2;
+        for (int xx = x0; xx < x1; xx++) {
+            const int i = xx - x;
+            if (edge_row) { if (i != 0 && i != bw - 1) line[xx] = EDGE; continue; }
+            if (i == 0 || i == bw - 1) { line[xx] = EDGE; continue; }
+            if (shade_row || i == 1 || i == bw - 2) { line[xx] = SHADE; continue; }
+            // the middle: one straight run
+            const int end = (x + bw - 2 < x1 ? x + bw - 2 : x1);
+            for (; xx < end; xx++) line[xx] = mix34(line[xx], BG);
+            xx--;
         }
     }
 }
