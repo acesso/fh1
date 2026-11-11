@@ -6,7 +6,8 @@
 
 #define FH1_USES_MAX 4
 typedef struct {
-    char id[48];
+    char id[48];                       // short and unique on the device: "taticas-da-ilha"
+    char publisher[48];                // who makes it, reverse-DNS ("org.fh1"); "" when the manifest has none
     char name[32];
     char version[16];
     uint32_t needs, wants;
@@ -22,6 +23,7 @@ esp_err_t pkg_manifest_parse(const char *json, fh1_manifest_t *m, char *err, siz
 esp_err_t pkg_peek(const char *path, fh1_manifest_t *m, char *err, size_t n);
 esp_err_t pkg_install(const char *path, fh1_manifest_t *m, char *err, size_t n);
 esp_err_t pkg_uninstall(const char *id);
+void pkg_migrate_ids(void);              // ids that carried their publisher ("org.fh1.isotest") to their short ones
 
 // run.c (UI task only)
 void run_init(void);

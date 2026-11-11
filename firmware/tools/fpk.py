@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build, check and inspect FH1 app packages (.fpk), as described in firmware/PLAN.md ("App packages").
 
-An .fpk is an uncompressed ustar archive holding manifest.json, app.elf, SHA256SUMS, and optionally
+An .fpk (named <id>_<version>.fpk) is an uncompressed ustar archive holding manifest.json, app.elf, SHA256SUMS, and optionally
 an icon and an assets/ folder. An asset package ("kind": "assets") has no app.elf: only assets/, installed once to
 /sd/assets/<id> ("where": "sd") or /int/assets/<id>, for every app that names it in "uses".
 
@@ -28,6 +28,8 @@ CAPS = {"DISPLAY", "BACKLIGHT", "BUTTONS", "STICK_ANALOG", "TOUCH", "AUDIO_OUT",
 
 def check_manifest(m):
     errors = []
+    if "publisher" in m and not re.fullmatch(r"[a-z0-9-]+(\.[a-z0-9-]+)+", str(m["publisher"])):
+        errors.append('publisher: reverse-DNS, lowercase ("org.fh1")')
     if not re.fullmatch(r"[a-z][a-z0-9._-]{2,46}", str(m.get("id", ""))):
         errors.append("id: lowercase letters, digits, . _ -, 3 to 47 characters")
     if not m.get("name") or len(m["name"]) > 31:
@@ -89,7 +91,7 @@ def pack(args):
             p = os.path.join(root, n)
             files[os.path.relpath(p, d).replace(os.sep, "/")] = open(p, "rb").read()
     sums = "".join(f"{hashlib.sha256(data).hexdigest()}  {name}\n" for name, data in files.items())
-    out = args.output or f"{manifest['id']}-{manifest['version']}.fpk"
+    out = args.output or f"{manifest['id']}_{manifest['version']}.fpk"
     with tarfile.open(out, "w", format=tarfile.USTAR_FORMAT) as tar:
         for name, data in files.items():
             add_bytes(tar, name, data)

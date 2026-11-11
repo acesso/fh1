@@ -174,7 +174,6 @@ static const builtin_t s_user_builtins[] = {
     { "sys.nes", "NES", games_open_nes, FH1_ICON_MENU_NES },
     { "sys.sms", "Master System", games_open_sms, FH1_ICON_MENU_SMS },
     { "sys.music", "Music", music_open, FH1_ICON_MENU_MUSIC },
-    { "sys.themes", "Themes", themes_open, FH1_ICON_MENU_THEMES },
 };
 #define NUSER (sizeof(s_user_builtins) / sizeof(s_user_builtins[0]))
 
@@ -184,7 +183,7 @@ static const builtin_t s_builtins[] = {
     { "sys.devices", "Devices", open_devices, FH1_ICON_MENU_DEVICES },
     { "sys.io", "Inputs and outputs", io_open, FH1_ICON_MENU_IO },
     { "sys.bridges", "Bridges", bridges_open, FH1_ICON_MENU_BRIDGE },
-    { "sys.themes", "Themes", themes_open, FH1_ICON_MENU_THEMES },        // an app, and in SYSTEM too
+    { "sys.themes", "Themes", themes_open, FH1_ICON_MENU_THEMES },
     { "sys.about", "About", open_about, FH1_ICON_MENU_ABOUT },
 };
 #define NBUILTIN (sizeof(s_builtins) / sizeof(s_builtins[0]))
@@ -1308,9 +1307,6 @@ static void console_json(cJSON *root)
         cJSON_AddItemToArray(b, o);
     }
     for (size_t i = 0; i < NBUILTIN; i++) {
-        bool listed = false;                                       // Temas is in both menus: list it once
-        for (size_t j = 0; j < NUSER; j++) listed |= strcmp(s_user_builtins[j].id, s_builtins[i].id) == 0;
-        if (listed) continue;
         cJSON *o = cJSON_CreateObject();
         cJSON_AddStringToObject(o, "id", s_builtins[i].id);
         cJSON_AddStringToObject(o, "name", s_builtins[i].name);
@@ -1809,6 +1805,7 @@ void fh1_apps_start(void)
     fh1_ui_set_sound_fn(ui_sound_play);
     s_lock = xSemaphoreCreateMutex();
     run_init();
+    pkg_migrate_ids();                        // apps and data under their old, long ids move to the short ones
     scan_installed();
     scan_packages();
     fh1_ui_set_menu_handler(open_launcher, NULL);

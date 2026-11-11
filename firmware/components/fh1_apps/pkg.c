@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <sys/stat.h>
+#include <dirent.h>
 #include "apps_priv.h"
 #include "fh1_storage.h"
 #include "fh1_users.h"
@@ -114,6 +115,8 @@ esp_err_t pkg_manifest_parse(const char *json, fh1_manifest_t *m, char *err, siz
     else if (entry && strcmp(entry, "app.elf") != 0) snprintf(err, n, "entry must be app.elf");
     else {
         strlcpy(m->id, id, sizeof(m->id));
+        const char *pub = cJSON_GetStringValue(cJSON_GetObjectItem(j, "publisher"));
+        if (pub) strlcpy(m->publisher, pub, sizeof(m->publisher));
         strlcpy(m->name, name, sizeof(m->name));
         strlcpy(m->version, ver, sizeof(m->version));
         err[0] = 0;
@@ -284,10 +287,39 @@ static esp_err_t verify(const char *dir, const file_sum_t *sums, int nsums, char
     return ret;
 }
 
+static const char *renamed(const char *id);
+static void manifest_renew(const char *dir, const char *id);
+
+// An installed folder's manifest: false if it has none (or it does not parse).
+static bool read_manifest(const char *dir, fh1_manifest_t *m)
+{
+    char p[128], err[64];
+    snprintf(p, sizeof(p), "%s/manifest.json", dir);
+    FILE *f = fopen(p, "rb");
+    if (!f) return false;
+    char *buf = malloc(4096);
+    const size_t len = buf ? fread(buf, 1, 4095, f) : 0;
+    fclose(f);
+    if (!buf) return false;
+    buf[len] = 0;
+    const bool ok = pkg_manifest_parse(buf, m, err, sizeof(err)) == ESP_OK;
+    free(buf);
+    return ok;
+}
+
 esp_err_t pkg_install(const char *path, fh1_manifest_t *m, char *err, size_t n)
 {
     psa_crypto_init();
     if (pkg_peek(path, m, err, n) != ESP_OK) return ESP_FAIL;
+    // A package from before the short ids installs under its new one (the app and its data stay one).
+    const char *to = renamed(m->id), *was = to ? m->id : NULL;
+    char old_id[sizeof(m->id)];
+    if (to) {
+        strlcpy(old_id, m->id, sizeof(old_id));
+        was = old_id;
+        strlcpy(m->id, to, sizeof(m->id));
+        if (!m->publisher[0]) strlcpy(m->publisher, "org.fh1", sizeof(m->publisher));
+    }
     struct stat st;
     fh1_fs_info_t fi;
     fh1_sd_info_t sd;
@@ -308,6 +340,12 @@ esp_err_t pkg_install(const char *path, fh1_manifest_t *m, char *err, size_t n)
     fh1_mkdirs(base);
     snprintf(tmp, sizeof(tmp), "%s/.tmp-%s", base, m->id);
     snprintf(dest, sizeof(dest), "%s/%s", base, m->id);
+    // Ids are short: two publishers may pick the same one. An app installed from another publisher stays.
+    fh1_manifest_t old;
+    if (read_manifest(dest, &old) && old.publisher[0] && m->publisher[0] && strcmp(old.publisher, m->publisher) != 0) {
+        snprintf(err, n, "%s is installed from another publisher (%s)", m->id, old.publisher);
+        return ESP_FAIL;
+    }
     fh1_rmtree(tmp);
     fh1_mkdirs(tmp);
     file_sum_t *sums = calloc(MAX_FILES, sizeof(file_sum_t));
@@ -329,7 +367,12 @@ esp_err_t pkg_install(const char *path, fh1_manifest_t *m, char *err, size_t n)
         }
     }
     if (ret != ESP_OK) fh1_rmtree(tmp);
-    else ESP_LOGI(TAG, "installed %s %s", m->id, m->version);
+    else {
+        if (was) {
+            manifest_renew(dest, m->id);
+            ESP_LOGI(TAG, "installed %s %s (a package of its old id, %s)", m->id, m->version, was);
+        } else ESP_LOGI(TAG, "installed %s %s", m->id, m->version);
+    }
     return ret;
 }
 
@@ -347,4 +390,101 @@ esp_err_t pkg_uninstall(const char *id)
     fh1_users_remove_app_data(id);          // every user's data of it
     ESP_LOGI(TAG, "uninstalled %s", id);
     return ret;
+}
+
+// ── Ids before 0.6 carried their publisher ("org.fh1.isotest"); they are short now ("taticas-da-ilha"), the publisher
+// in the manifest. Once, at start: installed apps and asset packages, their manifests (their id, the asset packages
+// they use) and every user's data folders move to the new ids, so nothing is lost; a folder already there under
+// the new id (a package installed meanwhile) is kept, and the old app's folder is dropped. ──
+
+static const struct { const char *from, *to; } s_renamed[] = {
+    { "org.fh1.isotest", "taticas-da-ilha" },
+    { "org.fh1.duel", "duel" },
+    { "org.fh1.hello", "hello" },
+    { "org.fh1.assets.rpg-sfx", "rpg-sfx" },
+};
+#define NRENAMED (sizeof(s_renamed) / sizeof(s_renamed[0]))
+
+static const char *renamed(const char *id)
+{
+    for (size_t i = 0; i < NRENAMED; i++)
+        if (strcmp(id, s_renamed[i].from) == 0) return s_renamed[i].to;
+    return NULL;
+}
+
+// base/from moved to base/to: true if it moved. When base/to is there already, base/from goes if drop_old.
+static bool move_folder(const char *base, const char *from, const char *to, bool drop_old)
+{
+    char a[160], b[160];
+    struct stat st;
+    snprintf(a, sizeof(a), "%s/%s", base, from);
+    snprintf(b, sizeof(b), "%s/%s", base, to);
+    if (stat(a, &st) != 0) return false;
+    if (stat(b, &st) == 0) {
+        if (drop_old) fh1_rmtree(a);
+        return false;
+    }
+    if (rename(a, b) != 0) {
+        ESP_LOGW(TAG, "could not move %s to %s", a, b);
+        return false;
+    }
+    ESP_LOGI(TAG, "moved %s to %s", a, b);
+    return true;
+}
+
+// A moved app's manifest: its new id, and the new ids of the asset packages it uses.
+static void manifest_renew(const char *dir, const char *id)
+{
+    char p[160];
+    snprintf(p, sizeof(p), "%s/manifest.json", dir);
+    FILE *f = fopen(p, "rb");
+    if (!f) return;
+    char *buf = malloc(4096);
+    const size_t len = buf ? fread(buf, 1, 4095, f) : 0;
+    fclose(f);
+    if (!buf) return;
+    buf[len] = 0;
+    cJSON *j = cJSON_Parse(buf);
+    free(buf);
+    if (!j) return;
+    cJSON_ReplaceItemInObject(j, "id", cJSON_CreateString(id));
+    if (!cJSON_GetObjectItem(j, "publisher")) cJSON_AddStringToObject(j, "publisher", "org.fh1");
+    cJSON *u;
+    cJSON_ArrayForEach(u, cJSON_GetObjectItem(j, "uses")) {
+        const char *to = cJSON_IsString(u) ? renamed(u->valuestring) : NULL;
+        if (to) cJSON_SetValuestring(u, to);
+    }
+    char *out = cJSON_PrintUnformatted(j);
+    cJSON_Delete(j);
+    if (!out) return;
+    f = fopen(p, "wb");
+    if (f) {
+        fputs(out, f);
+        fclose(f);
+    }
+    cJSON_free(out);
+}
+
+void pkg_migrate_ids(void)
+{
+    static const char *const homes[] = { FH1_APPS_DIR, FH1_INT_PATH "/assets", FH1_SD_PATH "/assets" };
+    for (size_t i = 0; i < NRENAMED; i++) {
+        const char *from = s_renamed[i].from, *to = s_renamed[i].to;
+        for (size_t k = 0; k < sizeof(homes) / sizeof(homes[0]); k++) {
+            if (!move_folder(homes[k], from, to, true)) continue;
+            char dir[160];
+            snprintf(dir, sizeof(dir), "%s/%s", homes[k], to);
+            manifest_renew(dir, to);
+        }
+        move_folder(FH1_DATA_DIR, from, to, false);                 // the unit's data (before users)
+        DIR *d = opendir(FH1_INT_PATH "/users");                    // every user's
+        struct dirent *e;
+        while (d && (e = readdir(d)) != NULL) {
+            if (e->d_name[0] == '.') continue;
+            char base[96];
+            snprintf(base, sizeof(base), FH1_INT_PATH "/users/%.40s/data", e->d_name);
+            move_folder(base, from, to, false);
+        }
+        if (d) closedir(d);
+    }
 }
