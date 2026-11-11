@@ -1,0 +1,10 @@
+# Opt-in, the Guition dev unit only (tools/build-board.sh guition OUT_DIR psram120): octal PSRAM at 120 MHz, which
+# needs the quad flash at 120 MHz too (one clock for both on N16R8). Experimental in ESP-IDF: the PSRAM's timing is
+# calibrated once at power-on (its retuning by temperature supports GD and XMC flash only; the Guition's is Boya),
+# so a large temperature change can make PSRAM accesses fail. About 20-30% faster on memory-bound work (Táticas da
+# Ilha's bench). Releases stay at 80 MHz.
+CONFIG_IDF_EXPERIMENTAL_FEATURES=y
+CONFIG_SPIRAM_SPEED_120M=y
+CONFIG_ESPTOOLPY_FLASHFREQ_120M=y
+CONFIG_SPI_FLASH_HPM_ENA=y
+CONFIG_SPI_FLASH_HPM_DC_DISABLE=y

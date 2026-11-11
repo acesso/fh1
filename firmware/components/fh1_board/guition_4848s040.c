@@ -45,7 +45,7 @@ static const char *TAG = "board";
 // No full-size frame buffer: the panel reads a quarter of the PSRAM it used to (the glitches came from
 // it starving while PSRAM was busy). The first mode is the default.
 static const fh1_display_mode_t s_modes[] = {
-    { "native", "Native 480x480 (2x)", 240, 240, 1, 2, 1 },
+    { "native", "Native 480x480 (1.5x)", 320, 320, 1, 3, 2 },     // as the FH1 mode's scale: the same proportions
     { "fh1", "FH1 320x240 (1.5x)", 320, 240, 1, 3, 2 },
 };
 static const fh1_display_mode_t *s_mode = &s_modes[0];

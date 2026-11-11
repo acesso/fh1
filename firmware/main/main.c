@@ -19,6 +19,7 @@
 #include "esp_psram.h"
 #include "esp_heap_caps.h"
 #include "esp_app_desc.h"
+#include "esp_system.h"
 #include "lvgl.h"
 #include "fh1_apps.h"
 #include "fh1_ota.h"
@@ -118,7 +119,13 @@ void app_main(void)
 {
     fh1_console_log_init();
     fh1_mem_diag_start();                      // where internal RAM goes (the console's "heap" op)
-    ESP_LOGI(TAG, "FH1 starting");
+    // Why it started: a crash, a watchdog or a brownout shows here on the next boot (the console's log has it).
+    static const char *const why[] = { "unknown", "power on", "external pin", "software restart", "crash (panic)",
+                                       "interrupt watchdog", "task watchdog", "other watchdog", "deep sleep",
+                                       "brownout", "SDIO", "USB", "JTAG", "eFuse error", "power glitch",
+                                       "CPU lockup" };
+    const esp_reset_reason_t rr = esp_reset_reason();
+    ESP_LOGI(TAG, "FH1 starting (last reset: %s)", (unsigned)rr < sizeof(why) / sizeof(why[0]) ? why[rr] : "?");
     // The boot screen: each step reports what it found (shown once the display is up).
     fh1_post_begin(7);
     esp_chip_info_t chip;
