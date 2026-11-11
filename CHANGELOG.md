@@ -2,6 +2,32 @@
 
 Releases of the FH1 firmware and its apps, newest first. Each is a tag (`vX.Y.Z`) on `main`.
 
+## 0.3.0 (2026-11-11)
+
+The simulator as a showcase: the FH1 drawn to scale, played through its own buttons.
+
+### Simulator and site
+
+- **[The simulator](https://acesso.github.io/fh1/play.html)** draws the FH1 to scale (80 × 120 mm, the layout's
+  positions) with the real screen inside. Its buttons reach the firmware as on the hardware: A, B, X, Y, Start and
+  Select through the MCP23017, the thumbstick through the ADC, Menu through GPIO0. The button lights follow the
+  firmware's LEDs, and the sound plays through Web Audio. 🛠 opens the details: speed, restart, your own firmware
+  image, the UART0 console.
+- **Landing page:** the live 3D view of the V1 build, with its own copy of three.js and the static render as a
+  fallback without WebGL; the toy FH1 to scale; Connectivity (Wi-Fi, Bluetooth LE, 2.4 GHz LoRa).
+- **esp32sim** (`simulator/esp32sim.patch`): board keys and indicator lights in the board interface, the page
+  messages `press`, `adc` and `lights`, and `press NAME` for board keys in scripts.
+
+### Firmware
+
+- **UI:** LVGL 9.6's per-flag setters and a 10 s limit on scrolling text; the console no longer fills with LVGL
+  warnings, which cost time on the device and much more in the simulator.
+
+### Builds and releases
+
+- **CI runs on release tags only:** a tag builds the firmware for both boards, the packages and the site, creates
+  the release and publishes the site.
+
 ## 0.2.0 (2026-11-10)
 
 The firmware for the FH1 board itself, and the FH1 in the browser.
