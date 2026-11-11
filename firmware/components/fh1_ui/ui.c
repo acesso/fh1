@@ -1087,7 +1087,7 @@ fh1_win_t *fh1_win_create(const char *title, int w, int h)
     lv_obj_add_style(win->box, &st_box, 0);
     // The corner balls and the title sit on the border line, half outside the box: let them draw there,
     // and grow the box's drawing area so those parts are redrawn too.
-    lv_obj_add_flag(win->box, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+    lv_obj_set_overflow_visible(win->box, true);
     lv_obj_add_event_cb(win->box, box_ext_draw, LV_EVENT_REFR_EXT_DRAW_SIZE, NULL);
     lv_obj_refresh_ext_draw_size(win->box);
     lv_obj_set_pos(win->box, x, y);
@@ -1273,7 +1273,7 @@ static void slide_style(lv_obj_t *l)
         lv_anim_set_delay(&s_slide, 2000);       // starts after a rest too
     }
     lv_obj_set_style_anim(l, &s_slide, 0);
-    lv_obj_set_style_anim_duration(l, lv_anim_speed_clamped(U(16), 500, 30000), 0);
+    lv_obj_set_style_anim_duration(l, lv_anim_speed_clamped(U(16), 500, 10000), 0);   // LVGL's longest
 }
 
 static lv_obj_t *line_label(lv_obj_t *parent)
@@ -1335,7 +1335,7 @@ lv_obj_t *fh1_ui_button(fh1_win_t *win, lv_obj_t *parent, const char *text, void
     bc->cb = cb;
     bc->user = user;
     lv_obj_add_event_cb(b, btn_event, LV_EVENT_ALL, bc);
-    lv_obj_add_flag(b, LV_OBJ_FLAG_USER_1);        // focusable: found again when a view is shown
+    lv_obj_set_state_user_1(b, true);        // focusable: found again when a view is shown (a marker; no style uses it)
     lv_group_add_obj(win->group, b);
     restyle();
     return b;
@@ -1832,7 +1832,7 @@ static bool slider_key(fh1_win_t *w, int key)
 {
     if (key != FH1_KEY_LEFT && key != FH1_KEY_RIGHT) return false;
     lv_obj_t *f = lv_group_get_focused(w->group);
-    if (!f || !lv_obj_has_flag(f, LV_OBJ_FLAG_USER_3)) return false;
+    if (!f || !lv_obj_has_state(f, LV_STATE_USER_3)) return false;
     ui_slider_t *sl = lv_obj_get_user_data(f);
     int v = sl->value + (key == FH1_KEY_RIGHT ? sl->step : -sl->step);
     v = v < sl->min ? sl->min : v > sl->max ? sl->max : v;
@@ -1854,11 +1854,11 @@ lv_obj_t *fh1_ui_slider(fh1_win_t *win, lv_obj_t *parent, const char *name, cons
     ui_slider_t *sl = calloc(1, sizeof(*sl));
     if (!sl) return NULL;
     lv_obj_t *b = fh1_ui_button(win, parent, name, NULL, NULL);
-    lv_obj_add_flag(b, LV_OBJ_FLAG_USER_3);
+    lv_obj_set_state_user_3(b, true);
     lv_obj_set_user_data(b, sl);
     lv_obj_add_event_cb(b, slider_event, LV_EVENT_DELETE, sl);
     // A row: the name in the meters' column, then the bar.
-    lv_obj_add_flag(lv_obj_get_child(b, 0), LV_OBJ_FLAG_IGNORE_LAYOUT);       // the cursor keeps its place
+    lv_obj_set_ignore_layout(lv_obj_get_child(b, 0), true);       // the cursor keeps its place
     lv_obj_set_flex_flow(b, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(b, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(b, U(3), 0);
@@ -1922,7 +1922,7 @@ static void views_focus_add(fh1_win_t *win, lv_obj_t *o)
 {
     for (uint32_t i = 0; i < lv_obj_get_child_count(o); i++) {
         lv_obj_t *c = lv_obj_get_child(o, i);
-        if (lv_obj_has_flag(c, LV_OBJ_FLAG_USER_1)) lv_group_add_obj(win->group, c);
+        if (lv_obj_has_state(c, LV_STATE_USER_1)) lv_group_add_obj(win->group, c);
         else views_focus_add(win, c);
     }
 }
@@ -2376,18 +2376,18 @@ static void ov_dress(void)
     const int edge = -U(8);                         // the box's edge, in its content's coordinates
     lv_obj_t *inset = plain(s_ov.box);
     lv_obj_add_style(inset, &st_inset, 0);
-    lv_obj_add_flag(inset, LV_OBJ_FLAG_IGNORE_LAYOUT);
+    lv_obj_set_ignore_layout(inset, true);
     lv_obj_set_pos(inset, edge + U(3), edge + U(3));
     lv_obj_set_size(inset, w - U(6), h - U(6));
     lv_obj_move_to_index(inset, 0);
-    lv_obj_add_flag(s_ov.box, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+    lv_obj_set_overflow_visible(s_ov.box, true);
     lv_obj_add_event_cb(s_ov.box, box_ext_draw, LV_EVENT_REFR_EXT_DRAW_SIZE, NULL);
     lv_obj_refresh_ext_draw_size(s_ov.box);
     const int d = sp_ball.dsc.header.w;
     for (int i = 0; i < 4; i++) {
         lv_obj_t *b = lv_image_create(s_ov.box);
         lv_image_set_src(b, &sp_ball.dsc);
-        lv_obj_add_flag(b, LV_OBJ_FLAG_IGNORE_LAYOUT);
+        lv_obj_set_ignore_layout(b, true);
         lv_obj_set_pos(b, edge + ((i & 1) ? w - U(2) : U(2)) - d / 2, edge + ((i & 2) ? h - U(2) : U(2)) - d / 2);
     }
 }
