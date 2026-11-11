@@ -1,0 +1,12 @@
+menu "FH1 board"
+    choice FH1_BOARD
+        prompt "Board"
+        default FH1_BOARD_GUITION
+        help
+            The hardware the firmware is built for (components/fh1_board).
+        config FH1_BOARD_GUITION
+            bool "Guition ESP32-4848S040 (the dev board)"
+        config FH1_BOARD_FH1
+            bool "FH1 (ST7789 320x240, buttons on MCP23017, ES8311)"
+    endchoice
+endmenu

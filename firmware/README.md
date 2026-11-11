@@ -25,6 +25,16 @@ idf.py -p /dev/ttyUSB0 -b 460800 flash      # the dev board's CH340 is unreliabl
 
 `flash` keeps the settings (NVS) and the installed apps (the `apps` partition). Do not use `app-flash` alone: it writes ota_0 while the device may boot ota_1.
 
+The board is chosen at build time (`components/fh1_board`, Kconfig "FH1 board"). `idf.py build` builds for the
+Guition dev board. For the FH1 itself (ST7789 320x240 over SPI, buttons and their lights on MCP23017 #1, the stick
+on the ADC, Menu on GPIO0; `components/fh1_board/fh1.c`), in its own build folder:
+
+```sh
+idf.py -B build-fh1 -D SDKCONFIG=build-fh1/sdkconfig -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.fh1" build
+```
+
+The FH1 board does not yet set up the ES8311's registers or read the micro-SD card, the battery or the IMU.
+
 ## First start
 
 1. Set the Wi-Fi network over the serial console. Either type in a serial terminal at 115200 baud, or run `tools/keys.py` and type `!`:

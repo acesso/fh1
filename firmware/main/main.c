@@ -57,6 +57,9 @@ static void on_command(const char *line)
 {
     char ssid[33], pass[65];
     int pct;
+    // An empty command ("!" then Enter) does nothing: scripts end a line of keys with '!' so the newline
+    // after it is not taken as Start (the emulator's UART0 lines, tools/keys.py).
+    if (!line[0]) return;
     if (sscanf(line, "wifi %32s %64s", ssid, pass) == 2) {
         fh1_wifi_set_credentials(ssid, pass);
     } else if (sscanf(line, "bl %d", &pct) == 1) {

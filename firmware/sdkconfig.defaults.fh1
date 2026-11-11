@@ -1,0 +1,3 @@
+# The FH1 itself (components/fh1_board/fh1.c), on top of sdkconfig.defaults:
+#   idf.py -B build-fh1 -D SDKCONFIG=build-fh1/sdkconfig -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.fh1" build
+CONFIG_FH1_BOARD_FH1=y
