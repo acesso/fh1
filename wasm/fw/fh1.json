@@ -1,0 +1,2 @@
+{ "board": "fh1", "flash_mb": 16, "psram_mb": 8,
+  "files": { "rom": "esp32s3_rev0_rom.elf", "flash": "fh1.bin" } }
