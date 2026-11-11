@@ -73,6 +73,36 @@ static uint16_t *s_band[2];                     // DMA bands, internal RAM
 static SemaphoreHandle_t s_band_free[2];
 static volatile uint32_t st_frames, st_fills, st_late, st_max_fill_us;
 static int s_sending;                           // the band whose transfer completes next
+#define BANDS (LCD_H / BAND)
+// What changed since it was last sent, as one rectangle per band (x1 > x2: nothing): only that rectangle goes to
+// the panel, so a blinking cursor costs its own pixels, not a band of 320 x 20. While a full-screen program draws
+// into the framebuffer directly (s_direct), every band goes whole each frame.
+typedef struct { int16_t x1, y1, x2, y2; } rect_t;
+static rect_t s_dirty[BANDS] = { [0 ... BANDS - 1] = { 1, 0, 0, 0 } };   // empty: x1 > x2
+static portMUX_TYPE s_dirty_mux = portMUX_INITIALIZER_UNLOCKED;
+static volatile bool s_direct;
+
+static void mark(int x1, int y1, int x2, int y2)
+{
+    if (x1 < 0) x1 = 0;
+    if (y1 < 0) y1 = 0;
+    if (x2 >= LCD_W) x2 = LCD_W - 1;
+    if (y2 >= LCD_H) y2 = LCD_H - 1;
+    if (x1 > x2 || y1 > y2) return;
+    taskENTER_CRITICAL(&s_dirty_mux);
+    for (int b = y1 / BAND; b <= y2 / BAND; b++) {
+        rect_t *r = &s_dirty[b];
+        const int by1 = y1 > b * BAND ? y1 : b * BAND, by2 = y2 < b * BAND + BAND - 1 ? y2 : b * BAND + BAND - 1;
+        if (r->x1 > r->x2) *r = (rect_t){ x1, by1, x2, by2 };
+        else {
+            if (x1 < r->x1) r->x1 = x1;
+            if (x2 > r->x2) r->x2 = x2;
+            if (by1 < r->y1) r->y1 = by1;
+            if (by2 > r->y2) r->y2 = by2;
+        }
+    }
+    taskEXIT_CRITICAL(&s_dirty_mux);
+}
 
 static bool on_band_sent(esp_lcd_panel_io_handle_t io, esp_lcd_panel_io_event_data_t *ed, void *ctx)
 {
@@ -85,22 +115,46 @@ static bool on_band_sent(esp_lcd_panel_io_handle_t io, esp_lcd_panel_io_event_da
 static void push_task(void *arg)
 {
     TickType_t last = xTaskGetTickCount();
+    int k = 0;
+    rect_t todo[BANDS];
     for (;;) {
-        for (int y = 0, k = 0; y < LCD_H; y += BAND, k ^= 1) {
+        bool any = false;
+        if (s_direct) {
+            for (int b = 0; b < BANDS; b++) todo[b] = (rect_t){ 0, b * BAND, LCD_W - 1, b * BAND + BAND - 1 };
+            any = true;
+        } else {
+            taskENTER_CRITICAL(&s_dirty_mux);
+            for (int b = 0; b < BANDS; b++) {
+                todo[b] = s_dirty[b];
+                if (todo[b].x1 <= todo[b].x2) any = true;
+                s_dirty[b] = (rect_t){ 1, 0, 0, 0 };
+            }
+            taskEXIT_CRITICAL(&s_dirty_mux);
+        }
+        for (int b = 0; b < BANDS && any; b++) {
+            rect_t r = todo[b];
+            if (r.x1 > r.x2) continue;
+            // never more than the band: the DMA buffer holds one
+            if (r.y1 < b * BAND) r.y1 = b * BAND;
+            if (r.y2 > b * BAND + BAND - 1) r.y2 = b * BAND + BAND - 1;
+            const int w = r.x2 - r.x1 + 1, h = r.y2 - r.y1 + 1;
             xSemaphoreTake(s_band_free[k], portMAX_DELAY);
             const int64_t t0 = esp_timer_get_time();
-            const uint16_t *src = s_src + y * LCD_W;
             uint16_t *dst = s_band[k];
-            for (int i = 0; i < BAND * LCD_W; i++) dst[i] = (uint16_t)((src[i] >> 8) | (src[i] << 8));
+            for (int y = 0; y < h; y++) {
+                const uint16_t *src = s_src + (r.y1 + y) * LCD_W + r.x1;
+                for (int x = 0; x < w; x++) *dst++ = (uint16_t)((src[x] >> 8) | (src[x] << 8));
+            }
             const uint32_t us = (uint32_t)(esp_timer_get_time() - t0);
             st_fills++;
             if (us > st_max_fill_us) st_max_fill_us = us;
-            if (esp_lcd_panel_draw_bitmap(s_panel, 0, y, LCD_W, y + BAND, dst) != ESP_OK) {
+            if (esp_lcd_panel_draw_bitmap(s_panel, r.x1, r.y1, r.x2 + 1, r.y2 + 1, s_band[k]) != ESP_OK) {
                 xSemaphoreGive(s_band_free[k]);
                 st_late++;
             }
+            k ^= 1;
         }
-        st_frames++;
+        if (any) st_frames++;
         vTaskDelayUntil(&last, pdMS_TO_TICKS(FRAME_MS));
     }
 }
@@ -132,6 +186,7 @@ static esp_err_t lcd_init(void)
     esp_lcd_panel_swap_xy(s_panel, true);                // the 240 x 320 module, landscape
     esp_lcd_panel_mirror(s_panel, false, true);
     esp_lcd_panel_disp_on_off(s_panel, true);
+    mark(0, 0, LCD_W - 1, LCD_H - 1);                    // the first frame: all of it
     xTaskCreatePinnedToCore(push_task, "lcd_push", 3072, NULL, 4, NULL, 0);
     return ESP_OK;
 }
@@ -147,6 +202,15 @@ void fh1_board_flush(int x1, int y1, int x2, int y2, const uint16_t *px)
 {
     const int w = x2 - x1 + 1;
     for (int y = y1; y <= y2; y++) memcpy(s_src + y * LCD_W + x1, px + (y - y1) * w, w * 2);
+    mark(x1, y1, x2, y2);            // after the copy: an area the push task is sending meanwhile goes again next frame
+}
+
+void fh1_board_changed(int y1, int y2) { mark(0, y1, LCD_W - 1, y2); }
+
+void fh1_board_direct(bool on)
+{
+    s_direct = on;
+    if (!on) mark(0, 0, LCD_W - 1, LCD_H - 1);       // the program's last picture, once more
 }
 
 void fh1_board_display_stats(fh1_display_stats_t *out, bool reset)

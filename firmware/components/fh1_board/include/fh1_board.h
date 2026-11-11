@@ -28,6 +28,12 @@ void fh1_board_display_set_mode(const char *id);
 // The screen as the UI sees it (RGB565, the mode's logical size). Full-screen programs (the emulator)
 // may draw into it directly; the screenshot reads it.
 uint16_t *fh1_board_framebuffer(int *w, int *h);
+// Whether a full-screen program draws into the framebuffer itself (true) or every change comes through
+// fh1_board_flush or fh1_board_changed (false, the start: the UI, the POST screen). A panel fed over SPI then sends
+// only what changed; one that scans the framebuffer by itself ignores both. fh1_ui_pause switches it.
+void fh1_board_direct(bool on);
+// Rows y1..y2 of the framebuffer were drawn directly (the POST screen).
+void fh1_board_changed(int y1, int y2);
 
 // How well the panel is being fed (for the dev console and the stress test).
 typedef struct {

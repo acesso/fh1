@@ -406,6 +406,10 @@ uint16_t *fh1_board_framebuffer(int *w, int *h)
     return s_src;
 }
 
+// The RGB panel scans the framebuffer by itself: nothing to send.
+void fh1_board_direct(bool on) {}
+void fh1_board_changed(int y1, int y2) {}
+
 void fh1_board_flush(int x1, int y1, int x2, int y2, const uint16_t *px)
 {
     // The panel reads the screen through the CPU cache (bounce_fill), so a plain copy is enough.

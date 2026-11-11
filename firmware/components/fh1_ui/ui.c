@@ -821,7 +821,7 @@ static void fps_tick(lv_timer_t *t)
 {
     static uint32_t last;
     uint32_t n = s_ui_frames;
-    lv_label_set_text_fmt(s_fps, "%lu fps", (unsigned long)(n - last));
+    if (!lv_obj_is_hidden(s_fps)) lv_label_set_text_fmt(s_fps, "%lu fps", (unsigned long)(n - last));
     last = n;
 }
 
@@ -3036,6 +3036,7 @@ void fh1_ui_pause(bool paused, bool repaint_all)
         s_drawbuf_retry = true;
     }
     s_paused = paused;
+    fh1_board_direct(paused);        // the program draws into the framebuffer itself; the UI flushes what it draws
     if (paused) {
         // Give the internal RAM back now when called from the UI task; otherwise the UI task does it on its
         // next pass, and the caller waits for that, so what it allocates next can have it.
@@ -3047,28 +3048,37 @@ void fh1_ui_pause(bool paused, bool repaint_all)
     if (!paused && repaint_all) fh1_ui_async(repaint, NULL);
 }
 
+// Each status element is touched only when its value changes: in LVGL a restyle redraws the object, and the
+// bars would otherwise be redrawn (and sent to an SPI panel) twice a second for nothing.
 static void status_tick(lv_timer_t *t)
 {
+    static int last_bars = -1, last_sd = -1, last_pads = -1, last_sound = -1, last_batt = -2, last_colon = -1;
     fh1_ui_status_t st = { 0 };
     if (s_status_fn) s_status_fn(&st);
     int bars = !st.wifi_up ? 0 : st.wifi_rssi > -55 ? 4 : st.wifi_rssi > -65 ? 3 : st.wifi_rssi > -75 ? 2 : 1;
-    for (int i = 0; i < 4; i++) {
-        icon_on(s_wifi[i], i < bars);
-        if (i < bars) lv_obj_set_style_bg_color(s_wifi[i], lv_color_hex(level_colour(bars, 4)), 0);
+    if (bars != last_bars) {
+        last_bars = bars;
+        for (int i = 0; i < 4; i++) {
+            icon_on(s_wifi[i], i < bars);
+            if (i < bars) lv_obj_set_style_bg_color(s_wifi[i], lv_color_hex(level_colour(bars, 4)), 0);
+        }
     }
-    lv_obj_set_style_image_opa(s_sd, st.sd ? LV_OPA_COVER : LV_OPA_30, 0);
-    for (int i = 0; i < 4; i++) {
-        const bool on = i < st.pads;
-        lv_obj_set_hidden(s_tray[i].img, !on);
-        if (on) tray_pad(&s_tray[i], st.pad[i].kind, st.pad[i].rgb, st.pad[i].battery);
+    if (st.sd != last_sd) { last_sd = st.sd; lv_obj_set_style_image_opa(s_sd, st.sd ? LV_OPA_COVER : LV_OPA_30, 0); }
+    if (st.pads != last_pads) {
+        last_pads = st.pads;
+        for (int i = 0; i < 4; i++) lv_obj_set_hidden(s_tray[i].img, i >= st.pads);
     }
-    lv_obj_set_hidden(s_tray[4].img, !st.sound);
-    if (st.sound) tray_sound(&s_tray[4], st.volume);
-    lv_obj_set_hidden(s_batt, !st.battery);
-    if (st.battery) {
-        int pct = st.battery_pct < 0 ? 0 : st.battery_pct > 100 ? 100 : st.battery_pct;
-        lv_obj_set_width(s_batt_fill, (U(10) - U(2)) * pct / 100);
-        lv_obj_set_style_bg_color(s_batt_fill, lv_color_hex(level_colour(pct, 100)), 0);
+    for (int i = 0; i < st.pads; i++) tray_pad(&s_tray[i], st.pad[i].kind, st.pad[i].rgb, st.pad[i].battery);   // redraws only on change
+    if (st.sound != last_sound) { last_sound = st.sound; lv_obj_set_hidden(s_tray[4].img, !st.sound); }
+    if (st.sound) tray_sound(&s_tray[4], st.volume);                                                               // likewise
+    const int batt = !st.battery ? -1 : st.battery_pct < 0 ? 0 : st.battery_pct > 100 ? 100 : st.battery_pct;
+    if (batt != last_batt) {
+        last_batt = batt;
+        lv_obj_set_hidden(s_batt, batt < 0);
+        if (batt >= 0) {
+            lv_obj_set_width(s_batt_fill, (U(10) - U(2)) * batt / 100);
+            lv_obj_set_style_bg_color(s_batt_fill, lv_color_hex(level_colour(batt, 100)), 0);
+        }
     }
     // The colon follows the seconds: shown on even ones, hidden on odd ones, so it changes once a second
     // however often this runs.
@@ -3084,7 +3094,7 @@ static void status_tick(lv_timer_t *t)
     }
     if (strcmp(lv_label_get_text(s_clk_h), hh) != 0) lv_label_set_text(s_clk_h, hh);
     if (strcmp(lv_label_get_text(s_clk_m), mm) != 0) lv_label_set_text(s_clk_m, mm);
-    lv_obj_set_style_text_opa(s_clk_colon, colon ? LV_OPA_COVER : LV_OPA_TRANSP, 0);
+    if (colon != last_colon) { last_colon = colon; lv_obj_set_style_text_opa(s_clk_colon, colon ? LV_OPA_COVER : LV_OPA_TRANSP, 0); }
 }
 
 void fh1_ui_set_tabs(const char *const *labels, const int *icons, int n, int current)

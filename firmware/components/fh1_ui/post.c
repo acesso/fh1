@@ -39,6 +39,7 @@ static void put_char(int col, int row, uint32_t cp, uint16_t fg)
         uint16_t *p = s_fb + (row * 8 + y) * s_w + col * 8;
         for (int x = 0; x < 8; x++) p[x] = (g[y] & (0x80 >> x)) ? fg : C_BG;
     }
+    fh1_board_changed(row * 8, row * 8 + 7);
 }
 
 // UTF-8 text (Latin-1 range), clipped to the row's end. Returns the next column.
@@ -90,6 +91,7 @@ static void draw_line(int i)
 static void redraw_all(void)
 {
     for (int i = 0; i < s_w * s_h; i++) s_fb[i] = C_BG;
+    fh1_board_changed(0, s_h - 1);
     for (int i = 0; i < s_n; i++) draw_line(i);
 }
 
@@ -105,6 +107,7 @@ static void draw_bar(void)
             p[x] = edge ? C_LABEL : (x < fill ? C_OK : C_BG);
         }
     }
+    fh1_board_changed(y0, y0 + 4);
 }
 
 void fh1_post_begin(int steps)
