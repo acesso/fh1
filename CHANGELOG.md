@@ -2,6 +2,47 @@
 
 Releases of the FH1 firmware and its apps, newest first. Each is a tag (`vX.Y.Z`) on `main`.
 
+## 0.5.0 (2026-11-11)
+
+Táticas da Ilha 0.9: a map that spins and changes, bosses that arrive, grander spells; an SDK guide and an
+end-to-end test suite for games.
+
+### Táticas da Ilha
+
+- **The map spins:** Select (or R1) turns the battlefield a quarter round the cursor, L1 the other way; the cursor
+  stays in place and the D-pad keeps moving it as on screen.
+- **Water and lava ripple**, a wave rolling across the sea.
+- **Bosses arrive** once their minions are down: a rumble and a growing shadow, then the Alpha drops from the sky
+  and the ground cracks round it, the King Slime lands and bounces, an Elemental descends in a swirl of its element.
+- **Spells grow with their caster** (tiers at levels 5 and 10): bigger bursts, heat and water waves over the
+  screen, lightning's negative flash, shakes; Rocha drops rocks that shatter, more of them and cracking the ground
+  at higher tiers.
+- **Creatures stand out** from their realm's ground, in their element's colours.
+- **Fixed:** the heroes on the title and the party card no longer stop on a still frame before they turn.
+
+### Interface
+
+- **Temas** is also in the System menu, before About.
+
+### Simulator
+
+- **Keys:** I J K L are the face buttons, laid out as on screen: I is X (top), J is Y (left), L is A (right), K is
+  B (bottom). Suggested in issue #1.
+
+### For developers
+
+- **The SDK guide**, `firmware/docs/sdk.md`: how apps are built, packed and run, the API by version, the example
+  apps, the isometric engine, testing, debugging, rules, known issues, limits and how to change the SDK.
+- **The isometric engine** (in Táticas da Ilha's package): four views with a spinning turn; scenery that changes
+  with a transition (breaking, dropping, rising and sinking, fading, teleporting); floating and bobbing tiles;
+  tile animations; cracks and dropped objects that shatter (looks only); full-screen effects; a layer check.
+  `fh1art.py` makes a tile's ripple frames (`"tile_anims"`).
+- **Tests:** a test battlefield (dev `test REALM`) and `host/suite.sh`, end-to-end groups (views, water, scenery,
+  float, effects, spells, overlays, boss, colors, stress, regress) that run on the PC in seconds or on the FH1
+  with `--device`, failing on stray writes, layer mismatches and crashes.
+- **Flashing:** the full release image erases the device's settings; `firmware/README.md` shows how to update and
+  keep them.
+
 ## 0.4.0 (2026-11-11)
 
 Themes: two new looks with animated frames, a Temas app to switch them live, system sounds in each theme's voice.

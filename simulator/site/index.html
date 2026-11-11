@@ -174,7 +174,7 @@
         <span class="c tact small" style="--px:40;--py:61.27"></span><span class="silk" style="--px:40;--py:65.4">MENU</span>
       </div>
     </div>
-    <div class="hint"><span lang="pt">aperte os botões (ou J K U I e W A S D)</span><span lang="en">press the buttons (or J K U I and W A S D)</span></div>
+    <div class="hint"><span lang="pt">aperte os botões (ou I J K L e W A S D)</span><span lang="en">press the buttons (or I J K L and W A S D)</span></div>
   </div>
 </div></div>
 
@@ -324,7 +324,7 @@
     beep(notes[k]); confetti(el, colours[k]);
   }
   document.querySelectorAll('.key').forEach((el) => el.addEventListener('pointerdown', () => press(el.dataset.k)));
-  const keyMap = { j: 'A', k: 'B', u: 'X', i: 'Y' };
+  const keyMap = { i: 'X', j: 'Y', l: 'A', k: 'B' };          // the face buttons' diamond on I J K L
   const stick = document.getElementById('stick');
   const dirs = { w: [0, -8], a: [-8, 0], s: [0, 8], d: [8, 0] };
   addEventListener('keydown', (e) => {

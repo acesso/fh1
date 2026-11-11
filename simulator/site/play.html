@@ -361,8 +361,8 @@
   well.addEventListener('pointermove', (e) => { if (well.hasPointerCapture(e.pointerId)) fromPointer(e); });
   for (const ev of ['pointerup', 'pointercancel']) well.addEventListener(ev, () => stick(0, 0));
 
-  // ── input: keyboard ──
-  const keyMap = { j: 'a', k: 'b', u: 'x', i: 'y', enter: 'start', ' ': 'select', m: 'menu', escape: 'menu' };
+  // ── input: keyboard: I J K L as the face buttons' diamond (I X on top, J Y left, L A right, K B below) ──
+  const keyMap = { i: 'x', j: 'y', l: 'a', k: 'b', enter: 'start', ' ': 'select', m: 'menu', escape: 'menu' };
   const dirs = { arrowup: [0, -1], w: [0, -1], arrowdown: [0, 1], s: [0, 1], arrowleft: [-1, 0], a: [-1, 0], arrowright: [1, 0], d: [1, 0] };
   const dirHeld = new Set();
   const stickFromKeys = () => { let x = 0, y = 0; for (const k of dirHeld) { x += dirs[k][0]; y += dirs[k][1]; } stick(x, y); };
