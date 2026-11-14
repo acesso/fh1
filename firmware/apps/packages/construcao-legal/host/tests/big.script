@@ -1,0 +1,142 @@
+# Big buildings: a 3 x 3 block of houses in three colours (rows 39-41, built back to front), a U of houses; a 2 x 2
+# of one kind (a big house), an upper storey on it; a 2 x 2 of walls (a keep), a tower on its middle.
+tp 12 40
+wait 5
+key X
+tool house
+hold UP+RIGHT 2
+tp 12 40
+hold UP+RIGHT 2
+key A
+wait 25
+tp 13 40
+hold UP+RIGHT 2
+key A
+wait 25
+tp 14 40
+hold UP+RIGHT 2
+key A
+wait 25
+key R1
+tp 12 41
+hold UP+RIGHT 2
+key A
+wait 25
+tp 13 41
+hold UP+RIGHT 2
+key A
+wait 25
+tp 14 41
+hold UP+RIGHT 2
+key A
+wait 25
+key R1
+tp 12 42
+hold UP+RIGHT 2
+key A
+wait 25
+tp 13 42
+hold UP+RIGHT 2
+key A
+wait 25
+tp 14 42
+hold UP+RIGHT 2
+key A
+wait 25
+key L1
+key L1
+tp 18 40
+hold UP+RIGHT 2
+key A
+wait 25
+tp 19 40
+hold UP+RIGHT 2
+key A
+wait 25
+tp 20 40
+hold UP+RIGHT 2
+key A
+wait 25
+tp 18 41
+hold UP+RIGHT 2
+key A
+wait 25
+tp 20 41
+hold UP+RIGHT 2
+key A
+wait 25
+tp 18 42
+hold UP+RIGHT 2
+key A
+wait 25
+tp 20 42
+hold UP+RIGHT 2
+key A
+wait 25
+key X
+tp 16 44
+wait 15
+shot c00-block-u
+view 1
+wait 15
+shot c01-block-u-v1
+view 0
+key X
+tp 14 36
+hold UP+RIGHT 2
+key A
+wait 25
+tp 15 36
+hold UP+RIGHT 2
+key A
+wait 25
+tp 14 37
+hold UP+RIGHT 2
+key A
+wait 25
+tp 15 37
+hold UP+RIGHT 2
+key A
+wait 25
+tp 14 37
+hold UP+RIGHT 2
+wait 3
+shot c02-big-storey-ghost
+key A
+wait 25
+tool wall
+tp 29 40
+hold UP+RIGHT 2
+key A
+wait 25
+tp 30 40
+hold UP+RIGHT 2
+key A
+wait 25
+tp 29 41
+hold UP+RIGHT 2
+key A
+wait 25
+tp 30 41
+hold UP+RIGHT 2
+key A
+wait 25
+tool tower
+tp 29 41
+hold UP+RIGHT 2
+wait 3
+shot c03-keep-tower-ghost
+key A
+wait 25
+key X
+tp 16 39
+wait 15
+shot c04-big
+tp 27 43
+wait 15
+shot c04-keep
+view 2
+wait 15
+shot c05-big-keep-v2
+view 0
+log

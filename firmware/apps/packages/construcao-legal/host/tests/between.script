@@ -1,0 +1,29 @@
+# Walking between buildings: two houses side by side (cells 12,59 and 13,59), he walks north-east between them
+# (starting a little off the lane: eased into it), then into a forest's edge (it stays shut).
+tp 12 60
+wait 5
+key X
+tool house
+hold UP+RIGHT 2
+key A
+wait 25
+tp 13 60
+wait 5
+hold UP+RIGHT 2
+key A
+wait 25
+key X
+tp 12.45 60
+wait 5
+hold UP+RIGHT 30
+shot c00-between
+hold UP+RIGHT 30
+wait 5
+shot c01-through
+log
+tp 20 40
+log
+hold DOWN+RIGHT 60
+hold DOWN+LEFT 60
+shot c02-forest
+log

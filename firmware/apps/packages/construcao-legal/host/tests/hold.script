@@ -1,0 +1,16 @@
+# Holding A builds on: a road ahead of him as he walks (facing south-east, along his row), then a row of roads beside
+# him (facing north-east while walking south-east), the D-pad pushed a little wrong (right only) staying on the row.
+tp 12 60
+wait 10
+key X
+hold DOWN+RIGHT 2
+hold A+DOWN+RIGHT 80
+wait 10
+shot c00-road-ahead
+tp 12 66
+wait 10
+hold UP+RIGHT 2
+hold A+RIGHT 90
+wait 10
+shot c01-row-beside
+log

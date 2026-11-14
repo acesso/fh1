@@ -1,0 +1,58 @@
+# Stacking and gates on roads: a wall row (A held), a second level on two of its cells, a tower on top of one of
+# those (three levels) and on another wall (two), refused on top of the tower; a gate across a road (the road runs
+# through, he walks along the road through it); the top level removed.
+tp 12 40
+wait 5
+key X
+tool wall
+hold UP+RIGHT 2
+hold A+DOWN+RIGHT 110
+tp 13 40
+hold UP+RIGHT 2
+key A
+wait 25
+tp 14 40
+hold UP+RIGHT 2
+key A
+wait 25
+shot c00-two-levels
+tool tower
+key R1
+tp 14 40
+hold UP+RIGHT 2
+wait 3
+shot c01-tower-ghost
+key A
+wait 25
+tp 16 40
+hold UP+RIGHT 2
+key A
+wait 25
+tp 14 40
+hold UP+RIGHT 2
+wait 3
+shot c02-castle
+log
+key L1
+tool wall
+key R1
+key R1
+tp 30 65
+hold UP+RIGHT 2
+wait 3
+shot c03-gate-ghost
+key A
+wait 25
+key X
+tp 27 64
+hold DOWN+RIGHT 60
+log
+shot c04-through-gate
+key X
+tool remove
+tp 14 40
+hold UP+RIGHT 2
+key A
+wait 25
+log
+shot c05-top-removed

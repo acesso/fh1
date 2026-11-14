@@ -1,0 +1,1808 @@
+{
+ "out": "assets/art.fart",
+ "smooth": true,
+ "aa": true,
+ "painted": [
+  {
+   "kind": "road",
+   "base": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/grass.png",
+   "face": [
+    47.5,
+    28,
+    47.5,
+    28
+   ],
+   "anchor": [
+    47.5,
+    28
+   ],
+   "scale": 0.505,
+   "fill": "#e58f4d",
+   "width": 0.16,
+   "flat": true
+  },
+  {
+   "kind": "river",
+   "base": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/grass.png",
+   "face": [
+    47.5,
+    28,
+    47.5,
+    28
+   ],
+   "anchor": [
+    47.5,
+    28
+   ],
+   "scale": 0.505,
+   "fill": "#96d0f3",
+   "width": 0.27,
+   "flat": true
+  },
+  {
+   "kind": "bridge",
+   "base": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/grass.png",
+   "face": [
+    47.5,
+    28,
+    47.5,
+    28
+   ],
+   "anchor": [
+    47.5,
+    28
+   ],
+   "scale": 0.505,
+   "width": 0.17,
+   "water_width": 0.27,
+   "flat": true
+  }
+ ],
+ "buildings": {
+  "walls": {
+   "o": [
+    "#e6904e",
+    "#cc693c"
+   ],
+   "w": [
+    "#ffffff",
+    "#c8dcd1"
+   ]
+  },
+  "roofs": {
+   "b": [
+    "#4d9be6",
+    "#3a78b8"
+   ],
+   "g": [
+    "#1ebc73",
+    "#178f58"
+   ],
+   "r": [
+    "#e73b3c",
+    "#b52e30"
+   ],
+   "o": [
+    "#f9b855",
+    "#d4943c"
+   ]
+  },
+  "door": [
+   "#a55739",
+   "#8a4430"
+  ],
+  "window": [
+   "#5c3e37",
+   "#5c3e37"
+  ],
+  "stone": [
+   "#a5a5a4",
+   "#848f8e"
+  ],
+  "inset": 0.1,
+  "wall": 13,
+  "rise": 12,
+  "over": 0.05,
+  "chimney": 36,
+  "icons": {
+   "cu000.": "ic.house."
+  },
+  "castle": [
+   "#9babb2",
+   "#7f708a",
+   "#c7dcd0"
+  ],
+  "big_wall": 19,
+  "big_rise": 17,
+  "keep_h": 34,
+  "parapet": 0.2,
+  "castle_h": 25,
+  "flags": [
+   {
+    "name": "flag",
+    "frames": 8,
+    "pole": 22,
+    "width": 0.55,
+    "height": 10,
+    "wave": 0.09,
+    "cloth": [
+     "#e73b3c",
+     "#b52e30"
+    ],
+    "pole_c": [
+     "#5c3e37",
+     "#3b2b31"
+    ]
+   }
+  ]
+ },
+ "images": [
+  {
+   "name": "g.grass",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/grass.png",
+   "anchor": [
+    47.5,
+    28
+   ],
+   "scale": 0.505,
+   "seamless": [
+    47.5,
+    28,
+    47.5,
+    28
+   ],
+   "flat": true
+  },
+  {
+   "name": "g.dirt.1",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/ground(1).png",
+   "anchor": [
+    47.5,
+    28
+   ],
+   "scale": 0.505,
+   "seamless": [
+    47.5,
+    28,
+    47.5,
+    28
+   ]
+  },
+  {
+   "name": "g.dirt.2",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/ground(2).png",
+   "anchor": [
+    47.5,
+    28
+   ],
+   "scale": 0.505,
+   "seamless": [
+    47.5,
+    28,
+    47.5,
+    28
+   ]
+  },
+  {
+   "name": "g.wheat.1",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Buildings/wheat/wheat(1).png",
+   "anchor": [
+    47.5,
+    28
+   ],
+   "scale": 0.505,
+   "seamless": [
+    47.5,
+    28,
+    47.5,
+    28
+   ]
+  },
+  {
+   "name": "g.wheat.2",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Buildings/wheat/wheat(2).png",
+   "anchor": [
+    47.5,
+    28
+   ],
+   "scale": 0.505,
+   "seamless": [
+    47.5,
+    28,
+    47.5,
+    28
+   ]
+  },
+  {
+   "name": "g.corn.1",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Buildings/corn/corn(1).png",
+   "anchor": [
+    47.5,
+    28
+   ],
+   "scale": 0.505,
+   "seamless": [
+    47.5,
+    28,
+    47.5,
+    28
+   ]
+  },
+  {
+   "name": "g.corn.2",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Buildings/corn/corn(2).png",
+   "anchor": [
+    47.5,
+    28
+   ],
+   "scale": 0.505,
+   "seamless": [
+    47.5,
+    28,
+    47.5,
+    28
+   ]
+  },
+  {
+   "name": "tuft.1",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/grass_detail(1).png",
+   "anchor": [
+    9.0,
+    8.4
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tuft.2",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/grass_detail(2).png",
+   "anchor": [
+    9.0,
+    8.4
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tuft.3",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/grass_detail(3).png",
+   "anchor": [
+    10.0,
+    7.1
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tuft.4",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/grass_detail(4).png",
+   "anchor": [
+    10.0,
+    7.1
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tuft.5",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/grass_detail(5).png",
+   "anchor": [
+    7.5,
+    7.8
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tuft.6",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/grass_detail(6).png",
+   "anchor": [
+    7.5,
+    7.8
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tuft.7",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/grass_detail(7).png",
+   "anchor": [
+    5.5,
+    7.4
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tuft.8",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/grass_detail(8).png",
+   "anchor": [
+    9.0,
+    5.4
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tuft.9",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/grass_detail(9).png",
+   "anchor": [
+    8.5,
+    6.5
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tree.1",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/trees/tree(1).png",
+   "anchor": [
+    27.0,
+    67.1
+   ],
+   "scale": 0.657
+  },
+  {
+   "name": "tree.2",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/trees/tree(2).png",
+   "anchor": [
+    17.5,
+    42.9
+   ],
+   "scale": 0.657
+  },
+  {
+   "name": "tree.3",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/trees/tree(3).png",
+   "anchor": [
+    20.0,
+    68.1
+   ],
+   "scale": 0.657
+  },
+  {
+   "name": "tree.4",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/trees/tree(4).png",
+   "anchor": [
+    14.0,
+    41.9
+   ],
+   "scale": 0.657
+  },
+  {
+   "name": "stone.1",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/stones/stone(1).png",
+   "anchor": [
+    11.0,
+    15.8
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "stone.2",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/stones/stone(2).png",
+   "anchor": [
+    18.5,
+    26.6
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "stone.3",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/stones/stone(3).png",
+   "anchor": [
+    22.0,
+    32.5
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "stone.4",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/stones/stone(4).png",
+   "anchor": [
+    27.0,
+    31.1
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "mill.1",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Buildings/mill/mill_blue.png",
+   "anchor": [
+    24.5,
+    77.5
+   ],
+   "scale": 0.707
+  },
+  {
+   "name": "mill.2",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Buildings/mill/mill_green.png",
+   "anchor": [
+    24.5,
+    77.5
+   ],
+   "scale": 0.707
+  },
+  {
+   "name": "mill.3",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Buildings/mill/mill_red.png",
+   "anchor": [
+    24.5,
+    77.5
+   ],
+   "scale": 0.707
+  },
+  {
+   "name": "mill.4",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Buildings/mill/mill_wood.png",
+   "anchor": [
+    24.5,
+    77.5
+   ],
+   "scale": 0.707
+  },
+  {
+   "name": "ic.mill.blue",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Buildings/mill/mill_blue.png",
+   "anchor": [
+    20,
+    38
+   ],
+   "scale": 0.259,
+   "over": [
+    [
+     "../../../../assets/packs/isometric-medieval/Sprites/Buildings/mill/mill(1).png",
+     -9,
+     -16
+    ]
+   ]
+  },
+  {
+   "name": "ic.mill.green",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Buildings/mill/mill_green.png",
+   "anchor": [
+    20,
+    38
+   ],
+   "scale": 0.259,
+   "over": [
+    [
+     "../../../../assets/packs/isometric-medieval/Sprites/Buildings/mill/mill(1).png",
+     -9,
+     -16
+    ]
+   ]
+  },
+  {
+   "name": "ic.mill.red",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Buildings/mill/mill_red.png",
+   "anchor": [
+    20,
+    38
+   ],
+   "scale": 0.259,
+   "over": [
+    [
+     "../../../../assets/packs/isometric-medieval/Sprites/Buildings/mill/mill(1).png",
+     -9,
+     -16
+    ]
+   ]
+  },
+  {
+   "name": "ic.mill.wood",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Buildings/mill/mill_wood.png",
+   "anchor": [
+    20,
+    38
+   ],
+   "scale": 0.259,
+   "over": [
+    [
+     "../../../../assets/packs/isometric-medieval/Sprites/Buildings/mill/mill(1).png",
+     -9,
+     -16
+    ]
+   ]
+  },
+  {
+   "name": "ic.tree.1",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/trees/tree(1).png",
+   "anchor": [
+    27.0,
+    37.5
+   ],
+   "scale": 0.347
+  },
+  {
+   "name": "ic.tree.2",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/trees/tree(2).png",
+   "anchor": [
+    17.5,
+    23.5
+   ],
+   "scale": 0.553
+  },
+  {
+   "name": "ic.tree.3",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/trees/tree(3).png",
+   "anchor": [
+    20.0,
+    37.0
+   ],
+   "scale": 0.351
+  },
+  {
+   "name": "ic.tree.4",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Enviroument/Spring/trees/tree(4).png",
+   "anchor": [
+    14.0,
+    23.0
+   ],
+   "scale": 0.565
+  },
+  {
+   "name": "sails.a",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Buildings/mill/mill(1).png",
+   "anchor": [
+    33.5,
+    93.5
+   ],
+   "scale": 0.707,
+   "spin": {
+    "hub": [
+     26,
+     40
+    ],
+    "plane": [
+     0.75,
+     0.4
+    ],
+    "frames": 8,
+    "turn": 90
+   }
+  },
+  {
+   "name": "sails.b",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Buildings/mill/mill(2).png",
+   "anchor": [
+    19.5,
+    93.5
+   ],
+   "scale": 0.707,
+   "spin": {
+    "hub": [
+     27,
+     40
+    ],
+    "plane": [
+     0.75,
+     -0.4
+    ],
+    "frames": 8,
+    "turn": 90
+   }
+  },
+  {
+   "name": "smoke.0",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Buildings/smoke.png",
+   "anchor": [
+    18,
+    17.5
+   ],
+   "scale": 0.28
+  },
+  {
+   "name": "smoke.1",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Buildings/smoke.png",
+   "anchor": [
+    18,
+    17.5
+   ],
+   "scale": 0.4
+  },
+  {
+   "name": "smoke.2",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Buildings/smoke.png",
+   "anchor": [
+    18,
+    17.5
+   ],
+   "scale": 0.52
+  },
+  {
+   "name": "tower.blue.1",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Blue towers/castle_tower_blue(1).png",
+   "anchor": [
+    47.0,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.blue.2",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Blue towers/castle_tower_blue(2).png",
+   "anchor": [
+    47.5,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.blue.3",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Blue towers/castle_tower_blue(3).png",
+   "anchor": [
+    47.5,
+    104
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.blue.4",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Blue towers/castle_tower_blue(4).png",
+   "anchor": [
+    47.0,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.blue.5",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Blue towers/castle_tower_blue(5).png",
+   "anchor": [
+    47.0,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.blue.6",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Blue towers/castle_tower_blue(6).png",
+   "anchor": [
+    47.5,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.blue.7",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Blue towers/castle_tower_blue(7).png",
+   "anchor": [
+    47.5,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.blue.8",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Blue towers/castle_tower_blue(8).png",
+   "anchor": [
+    47.0,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.blue.9",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Blue towers/castle_tower_blue(9).png",
+   "anchor": [
+    47.0,
+    104
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.green.1",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Green towers/castle_tower_green(1).png",
+   "anchor": [
+    47.5,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.green.2",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Green towers/castle_tower_green(2).png",
+   "anchor": [
+    47.0,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.green.3",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Green towers/castle_tower_green(3).png",
+   "anchor": [
+    47.0,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.green.4",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Green towers/castle_tower_green(4).png",
+   "anchor": [
+    47.5,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.green.5",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Green towers/castle_tower_green(5).png",
+   "anchor": [
+    47.5,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.green.6",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Green towers/castle_tower_green(6).png",
+   "anchor": [
+    47.0,
+    104
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.green.7",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Green towers/castle_tower_green(7).png",
+   "anchor": [
+    47.0,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.green.8",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Green towers/castle_tower_green(8).png",
+   "anchor": [
+    47.5,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.green.9",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Green towers/castle_tower_green(9).png",
+   "anchor": [
+    47.0,
+    104
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.red.1",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Red tower/castle_tower_red(1).png",
+   "anchor": [
+    47.0,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.red.2",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Red tower/castle_tower_red(2).png",
+   "anchor": [
+    47.0,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.red.3",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Red tower/castle_tower_red(3).png",
+   "anchor": [
+    47.5,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.red.4",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Red tower/castle_tower_red(4).png",
+   "anchor": [
+    47.5,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.red.5",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Red tower/castle_tower_red(5).png",
+   "anchor": [
+    47.0,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.red.6",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Red tower/castle_tower_red(6).png",
+   "anchor": [
+    47.5,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.red.7",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Red tower/castle_tower_red(7).png",
+   "anchor": [
+    47.5,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.red.8",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Red tower/castle_tower_red(8).png",
+   "anchor": [
+    47.5,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.red.9",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Red tower/castle_tower_red(9).png",
+   "anchor": [
+    47.5,
+    104
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.wood.1",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Wood towers/castle_tower_wood(1).png",
+   "anchor": [
+    47.0,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.wood.2",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Wood towers/castle_tower_wood(2).png",
+   "anchor": [
+    47.0,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.wood.3",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Wood towers/castle_tower_wood(3).png",
+   "anchor": [
+    47.5,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.wood.4",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Wood towers/castle_tower_wood(4).png",
+   "anchor": [
+    47.5,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.wood.5",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Wood towers/castle_tower_wood(5).png",
+   "anchor": [
+    47.0,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.wood.6",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Wood towers/castle_tower_wood(6).png",
+   "anchor": [
+    47.5,
+    104
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.wood.7",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Wood towers/castle_tower_wood(7).png",
+   "anchor": [
+    47.5,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.wood.8",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Wood towers/castle_tower_wood(8).png",
+   "anchor": [
+    47.0,
+    103
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "tower.wood.9",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Wood towers/castle_tower_wood(9).png",
+   "anchor": [
+    47.5,
+    104
+   ],
+   "scale": 0.505
+  },
+  {
+   "name": "ic.wall.plain",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Castle walls/castle_wall(2).png",
+   "anchor": [
+    47.0,
+    56.0
+   ],
+   "scale": 0.232
+  },
+  {
+   "name": "ic.wall.win",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Castle walls/castle_wall(4).png",
+   "anchor": [
+    47.0,
+    56.0
+   ],
+   "scale": 0.232
+  },
+  {
+   "name": "ic.wall.gate",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Castle walls/castle_wall(5).png",
+   "anchor": [
+    48.0,
+    56.0
+   ],
+   "scale": 0.232
+  },
+  {
+   "name": "ic.tower.blue.1",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Blue towers/castle_tower_blue(1).png",
+   "anchor": [
+    47.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.blue.2",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Blue towers/castle_tower_blue(2).png",
+   "anchor": [
+    47.5,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.blue.3",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Blue towers/castle_tower_blue(3).png",
+   "anchor": [
+    48.0,
+    66.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.blue.4",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Blue towers/castle_tower_blue(4).png",
+   "anchor": [
+    47.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.blue.5",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Blue towers/castle_tower_blue(5).png",
+   "anchor": [
+    47.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.blue.6",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Blue towers/castle_tower_blue(6).png",
+   "anchor": [
+    48.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.blue.7",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Blue towers/castle_tower_blue(7).png",
+   "anchor": [
+    48.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.blue.8",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Blue towers/castle_tower_blue(8).png",
+   "anchor": [
+    47.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.blue.9",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Blue towers/castle_tower_blue(9).png",
+   "anchor": [
+    47.0,
+    66.0
+   ],
+   "scale": 0.205
+  },
+  {
+   "name": "ic.tower.green.1",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Green towers/castle_tower_green(1).png",
+   "anchor": [
+    48.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.green.2",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Green towers/castle_tower_green(2).png",
+   "anchor": [
+    47.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.green.3",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Green towers/castle_tower_green(3).png",
+   "anchor": [
+    47.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.green.4",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Green towers/castle_tower_green(4).png",
+   "anchor": [
+    47.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.green.5",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Green towers/castle_tower_green(5).png",
+   "anchor": [
+    47.5,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.green.6",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Green towers/castle_tower_green(6).png",
+   "anchor": [
+    47.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.green.7",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Green towers/castle_tower_green(7).png",
+   "anchor": [
+    47.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.green.8",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Green towers/castle_tower_green(8).png",
+   "anchor": [
+    47.5,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.green.9",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Green towers/castle_tower_green(9).png",
+   "anchor": [
+    47.0,
+    66.0
+   ],
+   "scale": 0.205
+  },
+  {
+   "name": "ic.tower.red.1",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Red tower/castle_tower_red(1).png",
+   "anchor": [
+    47.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.red.2",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Red tower/castle_tower_red(2).png",
+   "anchor": [
+    47.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.red.3",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Red tower/castle_tower_red(3).png",
+   "anchor": [
+    47.5,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.red.4",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Red tower/castle_tower_red(4).png",
+   "anchor": [
+    47.5,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.red.5",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Red tower/castle_tower_red(5).png",
+   "anchor": [
+    47.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.red.6",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Red tower/castle_tower_red(6).png",
+   "anchor": [
+    47.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.red.7",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Red tower/castle_tower_red(7).png",
+   "anchor": [
+    47.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.red.8",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Red tower/castle_tower_red(8).png",
+   "anchor": [
+    48.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.red.9",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Red tower/castle_tower_red(9).png",
+   "anchor": [
+    47.5,
+    66.0
+   ],
+   "scale": 0.205
+  },
+  {
+   "name": "ic.tower.wood.1",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Wood towers/castle_tower_wood(1).png",
+   "anchor": [
+    47.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.wood.2",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Wood towers/castle_tower_wood(2).png",
+   "anchor": [
+    47.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.wood.3",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Wood towers/castle_tower_wood(3).png",
+   "anchor": [
+    47.5,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.wood.4",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Wood towers/castle_tower_wood(4).png",
+   "anchor": [
+    47.5,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.wood.5",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Wood towers/castle_tower_wood(5).png",
+   "anchor": [
+    47.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.wood.6",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Wood towers/castle_tower_wood(6).png",
+   "anchor": [
+    47.5,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.wood.7",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Wood towers/castle_tower_wood(7).png",
+   "anchor": [
+    47.5,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.wood.8",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Wood towers/castle_tower_wood(8).png",
+   "anchor": [
+    47.0,
+    65.5
+   ],
+   "scale": 0.206
+  },
+  {
+   "name": "ic.tower.wood.9",
+   "png": "../../../../assets/packs/isometric-medieval/Sprites/Towers/Wood towers/castle_tower_wood(9).png",
+   "anchor": [
+    47.5,
+    66.0
+   ],
+   "scale": 0.205
+  },
+  {
+   "name": "in.wall",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    624,
+    32,
+    16,
+    48
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.wall.post",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    608,
+    32,
+    8,
+    48
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.door",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    720,
+    96,
+    64,
+    48
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.window",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    577,
+    179,
+    30,
+    24
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.window2",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    644,
+    181,
+    24,
+    23
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.floor",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    582,
+    102,
+    16,
+    16
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.bed",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    405,
+    120,
+    40,
+    49
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.fire",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    408,
+    34,
+    32,
+    42
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.oven",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    454,
+    25,
+    45,
+    52
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.table",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    245,
+    179,
+    37,
+    28
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.chair",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    466,
+    183,
+    12,
+    24
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.chair2",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    498,
+    181,
+    12,
+    26
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.desk",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    449,
+    93,
+    46,
+    35
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.dresser",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    272,
+    36,
+    32,
+    26
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.cabinet",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    256,
+    62,
+    32,
+    34
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.pantry",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    321,
+    76,
+    46,
+    52
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.books",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    367,
+    76,
+    32,
+    52
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.chest",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    16,
+    96,
+    32,
+    16
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.barrel",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    113,
+    45,
+    14,
+    19
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.carpet",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    176,
+    33,
+    64,
+    47
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.rug",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    144,
+    40,
+    30,
+    26
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.bench",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    502,
+    101,
+    37,
+    26
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.cauldron",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    177,
+    100,
+    30,
+    27
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "in.pots",
+   "png": "../../../../assets/packs/interior-medieval/Medieval Free Pack ( Dev Essentials ).png",
+   "crop": [
+    353,
+    31,
+    46,
+    24
+   ],
+   "anchor": [
+    0,
+    0
+   ]
+  }
+ ],
+ "anims": [
+  {
+   "name": "hero.idle",
+   "png": "../../../../assets/packs/isometric-character/Character0_Idle.png",
+   "grid": [
+    460,
+    460
+   ],
+   "rows": {
+    "s": 0,
+    "sw": 1,
+    "w": 2,
+    "nw": 3,
+    "n": 4
+   },
+   "anchor": [
+    230,
+    440
+   ],
+   "scale": 0.077,
+   "ms": 130,
+   "tint": [
+    [
+     90,
+     262,
+     "#f0c8a8"
+    ],
+    [
+     262,
+     382,
+     "#4678dc"
+    ],
+    [
+     382,
+     460,
+     "#5a463c"
+    ]
+   ]
+  },
+  {
+   "name": "hero.walk",
+   "png": "../../../../assets/packs/isometric-character/Character0_Walk.png",
+   "grid": [
+    460,
+    460
+   ],
+   "rows": {
+    "s": 0,
+    "sw": 1,
+    "w": 2,
+    "nw": 3,
+    "n": 4
+   },
+   "anchor": [
+    230,
+    440
+   ],
+   "scale": 0.077,
+   "ms": 100,
+   "tint": [
+    [
+     90,
+     262,
+     "#f0c8a8"
+    ],
+    [
+     262,
+     382,
+     "#4678dc"
+    ],
+    [
+     382,
+     460,
+     "#5a463c"
+    ]
+   ]
+  },
+  {
+   "name": "hero.run",
+   "png": "../../../../assets/packs/isometric-character/Character0_Run.png",
+   "grid": [
+    460,
+    460
+   ],
+   "rows": {
+    "s": 0,
+    "sw": 1,
+    "w": 2,
+    "nw": 3,
+    "n": 4
+   },
+   "anchor": [
+    230,
+    440
+   ],
+   "scale": 0.077,
+   "ms": 90,
+   "tint": [
+    [
+     90,
+     262,
+     "#f0c8a8"
+    ],
+    [
+     262,
+     382,
+     "#4678dc"
+    ],
+    [
+     382,
+     460,
+     "#5a463c"
+    ]
+   ]
+  },
+  {
+   "name": "hero.swing",
+   "png": "../../../../assets/packs/isometric-character/Character0_Swing_Hammer.png",
+   "grid": [
+    460,
+    460
+   ],
+   "rows": {
+    "s": 0,
+    "sw": 1,
+    "w": 2,
+    "nw": 3,
+    "n": 4
+   },
+   "anchor": [
+    230,
+    440
+   ],
+   "scale": 0.077,
+   "ms": 90,
+   "tint": [
+    [
+     90,
+     262,
+     "#f0c8a8"
+    ],
+    [
+     262,
+     382,
+     "#4678dc"
+    ],
+    [
+     382,
+     460,
+     "#5a463c"
+    ]
+   ]
+  },
+  {
+   "name": "hero.use",
+   "png": "../../../../assets/packs/isometric-character/Character0_Interact.png",
+   "grid": [
+    460,
+    460
+   ],
+   "rows": {
+    "s": 0,
+    "sw": 1,
+    "w": 2,
+    "nw": 3,
+    "n": 4
+   },
+   "anchor": [
+    230,
+    440
+   ],
+   "scale": 0.077,
+   "ms": 120,
+   "tint": [
+    [
+     90,
+     262,
+     "#f0c8a8"
+    ],
+    [
+     262,
+     382,
+     "#4678dc"
+    ],
+    [
+     382,
+     460,
+     "#5a463c"
+    ]
+   ]
+  }
+ ]
+}

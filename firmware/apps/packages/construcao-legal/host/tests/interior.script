@@ -1,0 +1,139 @@
+# Inside: a house built facing him: A in front of it goes in (its room furnished), he walks a little and leaves by
+# the door; an L of three houses (three rooms in an L, doorways between them) gone into from its side, the view
+# turned (half way through the turn); a 2 x 2 house with its storey (the bedroom up the stairs); a smithy; a keep
+# with its tower (two floors).
+tp 12 40
+wait 5
+key X
+tool house
+hold UP+RIGHT 2
+key A
+wait 25
+key X
+wait 3
+shot c00-door-hint
+key A
+wait 5
+shot c01-inside
+hold DOWN 12
+shot c02-walked
+hold UP 20
+wait 5
+shot c03-out
+log
+key X
+tool house
+tp 12 46
+hold UP+RIGHT 2
+key A
+wait 25
+tp 13 46
+hold UP+RIGHT 2
+key A
+wait 25
+tp 12 45
+hold UP+RIGHT 2
+key A
+wait 25
+key X
+tp 14 44
+hold LEFT 2
+wait 3
+shot c03a-L-side
+key A
+wait 5
+shot c03b-L-inside
+hold RIGHT 25
+hold DOWN 10
+shot c03c-L-walked
+leave
+wait 3
+key SELECT
+wait 5
+shot c03d-turning
+wait 10
+shot c03e-turned
+key SELECT
+key SELECT
+key SELECT
+wait 15
+key X
+tool house
+tp 14 36
+hold UP+RIGHT 2
+key A
+wait 25
+tp 15 36
+hold UP+RIGHT 2
+key A
+wait 25
+tp 14 37
+hold UP+RIGHT 2
+key A
+wait 25
+tp 15 37
+hold UP+RIGHT 2
+key A
+wait 25
+tp 15 37
+hold UP+RIGHT 2
+key A
+wait 25
+tool smithy
+tp 19 36
+hold UP+RIGHT 2
+key A
+wait 25
+key X
+tp 15 37
+hold UP+RIGHT 2
+wait 3
+enter
+wait 5
+shot c04-big
+floor 1
+wait 3
+shot c05-upstairs
+leave
+tp 19 36
+hold UP+RIGHT 2
+wait 3
+enter
+wait 5
+shot c06-smithy
+leave
+key X
+tool wall
+tp 20 40
+hold UP+RIGHT 2
+key A
+wait 25
+tp 21 40
+hold UP+RIGHT 2
+key A
+wait 25
+tp 20 41
+hold UP+RIGHT 2
+key A
+wait 25
+tp 21 41
+hold UP+RIGHT 2
+key A
+wait 25
+tool tower
+tp 21 41
+hold UP+RIGHT 2
+key A
+wait 25
+key X
+tp 21 41
+hold UP+RIGHT 2
+wait 3
+enter
+wait 5
+shot c07-keep
+floor 1
+wait 3
+shot c08-tower-room
+leave
+log

@@ -1,0 +1,32 @@
+# The ghost: what the tool would make at the target, see-through; a house turned with Select (and R2, L2), a mill,
+# a road joining the main road, then a house red where it may not go (on the road).
+tp 12 61
+wait 10
+key X
+hold DOWN+RIGHT 2
+tool house
+wait 3
+shot c00-house
+key SELECT
+wait 3
+shot c01-house-turned
+key R2
+wait 3
+shot c02-house-turned2
+key L2
+key L2
+key L2
+wait 3
+shot c03-house-back
+tool mill
+wait 3
+shot c04-mill
+tool road
+hold DOWN+LEFT 2
+wait 3
+shot c05-road-joins
+tool house
+hold DOWN+LEFT 2
+hold DOWN 2
+wait 3
+shot c06-house-refused

@@ -1,0 +1,106 @@
+# Joining buildings: two wooden blue houses side by side become one long house; a third joins one of them (an L,
+# the pair kept), a fourth completes a square (two long houses side by side); a white house beside them stays alone; a wooden blue house and a
+# blue smithy join into a long smithy; one piece of the square removed (the rest split and re-join); a white
+# green house and a wooden red one join, each keeping its colours, and a square of four colours.
+tp 12 40
+wait 5
+key X
+tool house
+hold UP+RIGHT 2
+key A
+wait 25
+tp 13 40
+hold UP+RIGHT 2
+wait 3
+shot c00-pair-ghost
+key A
+wait 25
+shot c01-pair
+tp 12 39
+hold UP+RIGHT 2
+wait 3
+shot c01a-L-ghost
+key A
+wait 25
+shot c01b-L
+tp 13 39
+hold UP+RIGHT 2
+wait 3
+shot c02-square-ghost
+key A
+wait 25
+shot c03-square
+tp 14 39
+key R1
+key R1
+key R1
+key R1
+hold UP+RIGHT 2
+key A
+wait 25
+key L1
+key L1
+key L1
+key L1
+tp 12 43
+hold UP+RIGHT 2
+key A
+wait 25
+tool smithy
+tp 13 43
+hold UP+RIGHT 2
+wait 3
+shot c04-smithy-ghost
+key A
+wait 25
+shot c05-smithy
+log
+tool remove
+tp 13 39
+hold UP+RIGHT 2
+key A
+wait 25
+key X
+tp 13 36
+wait 15
+shot c06-removed
+log
+key X
+tool house
+key R1
+key R1
+key R1
+key R1
+key R1
+tp 20 40
+wait 3
+hold UP+RIGHT 2
+key A
+wait 25
+key L1
+key L1
+key L1
+tp 21 40
+hold UP+RIGHT 2
+wait 3
+shot c07-two-colours-ghost
+key A
+wait 25
+key R1
+tp 20 39
+hold UP+RIGHT 2
+key A
+wait 25
+key R1
+key R1
+key R1
+key R1
+tp 21 39
+hold UP+RIGHT 2
+key A
+wait 25
+key X
+tp 22 41
+wait 15
+shot c08-colours
+log

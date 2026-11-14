@@ -25,7 +25,7 @@ cat > "$out/wasm/fw/fh1.json" <<'EOF'
   "files": { "rom": "esp32s3_rev0_rom.elf", "flash": "fh1.bin" } }
 EOF
 cat > "$out/wasm/fw/demos.json" <<'EOF'
-[ { "fw": "fh1", "title": "FH1 handheld", "note": "the FH1 firmware built for the FH1 board, with Táticas da Ilha and Duelo installed" } ]
+[ { "fw": "fh1", "title": "FH1 handheld", "note": "the FH1 firmware built for the FH1 board, with Táticas da Ilha, Construção Legal and Duelo installed" } ]
 EOF
 cp "$sim/LICENSE" "$out/esp32sim-LICENSE.txt"
 

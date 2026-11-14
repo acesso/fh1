@@ -1,0 +1,23 @@
+# Walking the world: the start at the main road's west end, a diagonal walk, the bridge, the village, a forest
+# edge, walking up and diagonally (info: the frame time and his cell on screen).
+info
+wait 10
+shot c00-start
+hold RIGHT+DOWN 45
+shot c01-walk-east
+tp 37 63
+wait 15
+shot c02-bridge
+tp 78 58
+wait 15
+shot c03-village
+tp 84 63
+wait 15
+shot c04-mill
+tp 20 40
+wait 15
+shot c05-forest
+hold UP 30
+shot c06-up
+hold LEFT+UP 30
+shot c07-diag

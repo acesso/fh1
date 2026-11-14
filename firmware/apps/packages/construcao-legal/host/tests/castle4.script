@@ -1,0 +1,103 @@
+# A castle: a 4 x 4 floor of walls (rows 39-42), walls stacked on its middle 2 x 2 (a keep on the floor), a tower on
+# the keep's middle (three levels); seen from two views.
+tp 12 44
+wait 5
+key X
+tool wall
+hold UP+RIGHT 2
+tp 12 40
+hold UP+RIGHT 2
+key A
+wait 25
+tp 13 40
+hold UP+RIGHT 2
+key A
+wait 25
+tp 14 40
+hold UP+RIGHT 2
+key A
+wait 25
+tp 15 40
+hold UP+RIGHT 2
+key A
+wait 25
+tp 12 41
+hold UP+RIGHT 2
+key A
+wait 25
+tp 13 41
+hold UP+RIGHT 2
+key A
+wait 25
+tp 14 41
+hold UP+RIGHT 2
+key A
+wait 25
+tp 15 41
+hold UP+RIGHT 2
+key A
+wait 25
+tp 12 42
+hold UP+RIGHT 2
+key A
+wait 25
+tp 13 42
+hold UP+RIGHT 2
+key A
+wait 25
+tp 14 42
+hold UP+RIGHT 2
+key A
+wait 25
+tp 15 42
+hold UP+RIGHT 2
+key A
+wait 25
+tp 12 43
+hold UP+RIGHT 2
+key A
+wait 25
+tp 13 43
+hold UP+RIGHT 2
+key A
+wait 25
+tp 14 43
+hold UP+RIGHT 2
+key A
+wait 25
+tp 15 43
+hold UP+RIGHT 2
+key A
+wait 25
+shot c00-floor
+tp 13 41
+hold UP+RIGHT 2
+key A
+wait 25
+tp 14 41
+hold UP+RIGHT 2
+key A
+wait 25
+tp 13 42
+hold UP+RIGHT 2
+key A
+wait 25
+tp 14 42
+hold UP+RIGHT 2
+key A
+wait 25
+shot c01-keep
+tool tower
+tp 13 41
+hold UP+RIGHT 2
+key A
+wait 25
+key X
+tp 13 46
+wait 20
+shot c02-castle
+view 1
+wait 15
+shot c03-castle-v1
+view 0
+log

@@ -1,0 +1,38 @@
+# Stairs up a wall: a wall along row 39 (cells 12-16), stairs at 14,40 climbing to it; he climbs, walks along the
+# walkway both ways, cannot step off its edge, comes back down the stairs; a ghost of stairs where no wall is (red).
+tp 12 40
+wait 5
+key X
+tool wall
+hold UP+RIGHT 2
+hold A+DOWN+RIGHT 140
+tool stair
+tp 14 41
+hold UP+RIGHT 2
+wait 3
+shot c00-stair-ghost
+key A
+wait 25
+key X
+tp 14 41
+wait 10
+shot c01-at-foot
+hold UP+RIGHT 25
+log
+shot c02-climbed
+hold DOWN+RIGHT 30
+log
+shot c03-along
+hold UP+RIGHT 20
+hold DOWN+LEFT 20
+log
+hold UP+LEFT 30
+hold DOWN+LEFT 40
+log
+shot c04-down
+key X
+tool stair
+tp 20 44
+hold UP+RIGHT 2
+wait 3
+shot c05-no-wall

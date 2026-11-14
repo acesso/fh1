@@ -1,0 +1,53 @@
+# Castle pieces: a wall along row 39 (A held, walking south-east), a wall down column 17 (A held, walking
+# south-west) one cell joining them (a corner), a gate on the row's west end, a tower beyond it; then he walks through the
+# gate and stops at a wall.
+tp 12 40
+wait 5
+key X
+tool wall
+hold UP+RIGHT 2
+hold A+DOWN+RIGHT 100
+tp 18 39
+hold UP+LEFT 2
+hold A+DOWN+LEFT 120
+tp 16 40
+hold UP+RIGHT 2
+key A
+wait 25
+shot c00-walls
+key R1
+key R1
+tp 11 40
+hold UP+RIGHT 2
+key A
+wait 25
+tool tower
+key R1
+key R1
+key R1
+key R1
+key R1
+key R1
+key R1
+key R1
+key R1
+key R1
+key R1
+tp 10 40
+hold UP+RIGHT 2
+wait 3
+shot c01-tower-ghost
+key A
+wait 25
+shot c02-gate-tower
+key X
+tp 11 41
+hold UP+RIGHT 60
+log
+shot c03-through-gate
+tp 14 41
+hold UP+RIGHT 60
+log
+tp 19 37
+wait 20
+shot c04-overview

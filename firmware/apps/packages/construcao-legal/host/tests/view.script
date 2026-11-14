@@ -1,0 +1,62 @@
+# The view turned: the village from all four sides (Select turns it a quarter; "view N" goes to one); a pair, an L
+# and a castle built in view 0, seen from all four; walking and building in a turned view (a road ahead of him).
+tp 78 58
+wait 15
+shot c00-village-v0
+key SELECT
+wait 15
+shot c01-village-v1
+key SELECT
+wait 15
+shot c02-village-v2
+key SELECT
+wait 15
+shot c03-village-v3
+key SELECT
+wait 5
+tp 12 40
+key X
+tool house
+hold UP+RIGHT 2
+key A
+wait 25
+tp 13 40
+hold UP+RIGHT 2
+key A
+wait 25
+tp 12 39
+hold UP+RIGHT 2
+key A
+wait 25
+tool wall
+tp 16 40
+hold UP+RIGHT 2
+key A
+wait 25
+tool tower
+tp 17 40
+hold UP+RIGHT 2
+key A
+wait 25
+key X
+tp 15 42
+wait 15
+shot c04-built-v0
+view 1
+wait 15
+shot c05-built-v1
+view 2
+wait 15
+shot c06-built-v2
+view 3
+wait 15
+shot c07-built-v3
+view 1
+tp 12 46
+key X
+tool road
+hold DOWN+RIGHT 2
+hold A+DOWN+RIGHT 60
+wait 10
+shot c08-road-v1
+log

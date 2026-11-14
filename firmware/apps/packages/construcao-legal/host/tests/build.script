@@ -1,0 +1,68 @@
+# Build mode: a road three cells long (each joining the last); a house (R1 x5, L1: white walls, blue roof) facing
+# him, a smithy (L1: wooden roof), a mill (R1 x2: red roof), corn (R1); the house removed; then
+# the village refuses ("aqui não"). log prints his place and the changes kept.
+tp 12 60
+wait 10
+key X
+hold DOWN+RIGHT 2
+wait 5
+shot c00-target
+key A
+wait 4
+shot c01-swing
+wait 20
+hold DOWN+RIGHT 12
+key A
+wait 25
+hold DOWN+RIGHT 12
+key A
+wait 25
+shot c02-road3
+tool house
+key R1
+wait 2
+key R1
+wait 2
+key R1
+wait 2
+key R1
+wait 2
+key R1
+wait 2
+key L1
+wait 2
+shot c03-house-variant
+hold UP+RIGHT 2
+key A
+wait 25
+shot c03-house
+tool smithy
+key L1
+hold LEFT 2
+key A
+wait 25
+tool mill
+key R1
+wait 2
+key R1
+hold DOWN+LEFT 2
+key A
+wait 25
+shot c04-smith-mill
+tool field
+key R1
+hold UP 2
+key A
+wait 25
+shot c05-corn
+tool remove
+hold UP+RIGHT 2
+key A
+wait 25
+shot c06-removed-house
+log
+tp 80 59
+wait 10
+key A
+wait 10
+shot c07-village-refused
