@@ -19,6 +19,7 @@
 // XChaCha20-Poly1305 with the user id as associated data.
 // A backup file: "FH1U" [1][KiB u16][passes][salt 16][nonce 24][length u16] [mac 16][encrypted: seed 32, flags 1,
 // record]; key = Argon2id(passphrase, salt; 1 MB, 3 passes); the 50-byte header is the associated data.
+#include "esp_attr.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,7 +52,7 @@ static const char *TAG = "users";
 #define BACKUP_HDR 50
 #define BACKUP_MAX (BACKUP_HDR + 16 + 33 + REC_MAX)
 
-static fh1_user_t s_users[FH1_USERS_MAX];
+static EXT_RAM_BSS_ATTR fh1_user_t s_users[FH1_USERS_MAX];   // PSRAM (sdkconfig.defaults)
 static int s_n;
 static char s_owner[FH1_USER_ID_LEN + 1], s_use[FH1_USER_ID_LEN + 1], s_unit[FH1_USER_ID_LEN + 1];
 static uint8_t s_unit_raw[10];

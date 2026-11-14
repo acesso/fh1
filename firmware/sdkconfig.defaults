@@ -21,6 +21,9 @@ CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=4096
 # for good (measured), more than the network's passing use of it.
 CONFIG_SPIRAM_FETCH_INSTRUCTIONS=y
 CONFIG_SPIRAM_RODATA=y
+# Large static tables marked EXT_RAM_BSS_ATTR live in PSRAM (the package lists, bridges, users, the desktop pattern:
+# ~35 KB that internal RAM, Wi-Fi's, needs more). Only for data no interrupt, DMA or flash-cache-off code touches.
+CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY=y
 
 # RGB panel: keep the scan alive while flash is busy, and resync at the next frame if it slips
 CONFIG_LCD_RGB_ISR_IRAM_SAFE=y

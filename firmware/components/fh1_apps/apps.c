@@ -1,5 +1,6 @@
 // The launcher, the built-in apps (Devices, Storage, Installer, System) and the console hooks.
 // Everything here runs in the UI task, except the two console hooks, which hand over to it.
+#include "esp_attr.h"
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -59,9 +60,9 @@ typedef struct {
     char err[64];
 } package_t;
 
-static fh1_manifest_t s_installed[MAX_INSTALLED];
+static EXT_RAM_BSS_ATTR fh1_manifest_t s_installed[MAX_INSTALLED];   // PSRAM (sdkconfig.defaults)
 static int s_ninstalled;
-static package_t s_pkgs[MAX_PACKAGES];
+static EXT_RAM_BSS_ATTR package_t s_pkgs[MAX_PACKAGES];   // PSRAM (sdkconfig.defaults)
 static int s_npkgs;
 static SemaphoreHandle_t s_lock;       // guards the two lists for the console's reads
 

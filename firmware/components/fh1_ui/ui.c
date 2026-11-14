@@ -2,6 +2,7 @@
 // Look: text boxes in the style of handheld RPGs of the late 1990s (a light box, a double-line border
 // with rounded corners, the title set into the top border, plain text items with a ▶ cursor), drawn
 // from scratch; palettes are themes.
+#include "esp_attr.h"
 #include <string.h>
 #include <strings.h>
 #include <stdio.h>
@@ -3358,7 +3359,7 @@ static void kb_open(const char *title, const char *initial, size_t max_len, bool
 
 #define PAT_MAX_W 48
 #define PAT_MAX_H 28
-static uint16_t s_pattern[PAT_MAX_W * PAT_MAX_H];
+static EXT_RAM_BSS_ATTR uint16_t s_pattern[PAT_MAX_W * PAT_MAX_H];   // PSRAM (sdkconfig.defaults)
 static lv_image_dsc_t s_pattern_dsc;
 
 // Hex: a honeycomb of flat-topped cells, 16 x 14 units with sides of 8 (as near to regular as whole pixels go),

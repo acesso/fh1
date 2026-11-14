@@ -16,6 +16,7 @@
 // one is linked by a hello (a new one is added as over BLE: none known yet, or during a search). A bridge on
 // BLE is moved (its BLE link dropped; BLE leaves it alone while it beacons). The link drops after
 // FH1B_UDP_TIMEOUT_MS without a datagram; a BLE link after BLE_SILENT_MS without a message.
+#include "esp_attr.h"
 #include <string.h>
 #include <stdio.h>
 #include "fh1_bridge.h"
@@ -79,7 +80,7 @@ typedef struct {
 } saved_t;
 
 static portMUX_TYPE s_mux = portMUX_INITIALIZER_UNLOCKED;     // the views
-static br_t s_br[FH1_BRIDGES_KNOWN];
+static EXT_RAM_BSS_ATTR br_t s_br[FH1_BRIDGES_KNOWN];   // PSRAM (sdkconfig.defaults)
 static fh1_device_t *s_dev;
 static volatile bool s_running;
 static uint8_t s_own_addr_type;
