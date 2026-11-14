@@ -2,6 +2,58 @@
 
 Releases of the FH1 firmware and its apps, newest first. Each is a tag (`vX.Y.Z`) on `main`.
 
+## 0.7.0 (2026-11-14)
+
+A new game, Construção Legal; Táticas da Ilha in eight facings with effects and a showcase; one engine shared by
+both; more internal RAM; and a simulator about two thirds faster in the menus.
+
+### Construção Legal (new, 0.8.1)
+
+- **An isometric world to walk and build in:** a fixed 128 x 128 map with forests, a river, roads and a village;
+  the protagonist walks in eight directions, runs, climbs stairs onto castle walls and goes inside buildings.
+- **Build mode (X):** roads, houses, a smithy, a mill, castle walls, towers, stairs, trees and fields, each with its
+  variants, on the cell he faces (green where he may, red where he may not), with a ghost of what it makes. Held, A
+  builds on along a row. Buildings join into any shape: long houses, big houses with an upper storey, keeps,
+  castles of three levels. Select turns a building; the view turns too. Changes are kept and replayed on loading.
+- **Ships with the release** and is installed in the simulator. Guide: `firmware/docs/construcao-legal.md`.
+
+### Táticas da Ilha (0.10.3)
+
+- **Eight facings:** the heroes are drawn in all eight; units turn an eighth at a time and face targets off the axes.
+- **Water by its depth:** shallow next to land with a swell along the shore, deep and dark further out.
+- **Effects:** a sword's slash, an arrow's burst, claw marks and one spell effect per element, with a rune circle
+  under the caster.
+- **Knocked-out heroes** kneel, head bowed; XP goes only to the heroes standing; the summary plays each creature's
+  death and a levelling hero cheers.
+- **The cutaway:** a unit behind taller scenery shows through it.
+- **The heroes' showcase** (the Konami code on the title): each hero shows its attack and spells, with a whirling
+  portal in the realm's colour.
+
+### Engine and tools
+
+- **One shared engine:** art packs, the in-game interface, effects, flags, portals, interiors and view turns live in
+  `firmware/apps/engine`, used by both games.
+- **`fh1art.py`:** drawn art with soft edges, roads and rivers painted to meet, spun and turning frames, kneeling
+  poses; **`fh1model.py`** (new) builds simple 3D models (castle walls with brick seams) into art packs.
+- **`fh1dev.py`:** an install waits for its own package's result.
+
+### Firmware
+
+- **More internal RAM:** the firmware's large static tables live in PSRAM. On the Guition, ~58 KB stays free at idle
+  (was 30) and ~68 KB in a Táticas da Ilha battle (was 16).
+
+### Simulator
+
+- **Faster:** sound no longer makes the emulator check its devices every 256 cycles; the transmitter has a deadline
+  instead. In Firefox the menus run at about 50% of real time (was about 30%), games about 10% faster, with the same
+  sound.
+- **Scripts:** `press NAME` accepts only the board's own keys; an unknown name is an error.
+
+### Hardware
+
+- **Display speed** in `hardware/architecture.md` as built (40 MHz SPI, about 30 fps for full-screen motion), and two
+  open questions: 80 MHz SPI, and a third GPIO expander on the second board with an 8-bit parallel display.
+
 ## 0.6.0 (2026-11-11)
 
 Themed notices and livelier themes, packages named without the publisher, and a faster game in the simulator.
