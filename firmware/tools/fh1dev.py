@@ -90,11 +90,32 @@ async def main(argv):
             if len(argv) > 3:
                 msg["id"] = argv[3]
             await ws.send(json.dumps(msg))
-            while True:
-                m = json.loads(await asyncio.wait_for(ws.recv(), 10))
-                if m["t"] == "reply":
+            # An install takes ~30 s on the Guition and the console may go quiet meanwhile: its reply can be "still
+            # working" before it is done, so wait for the installer's own line in the log ("pkg: installed ...").
+            installing = argv[1] == "install"
+            deadline = asyncio.get_running_loop().time() + (120 if installing else 30)
+            replied = False
+            while asyncio.get_running_loop().time() < deadline:
+                try:
+                    m = json.loads(await asyncio.wait_for(ws.recv(), 30))
+                except asyncio.TimeoutError:
+                    continue
+                if m["t"] == "reply" and not replied:
                     print(m["msg"])
-                    break
+                    replied = True
+                    if not installing or "still working" not in str(m["msg"]):
+                        break
+                elif m["t"] == "stats" and installing:
+                    # This package's line only (an earlier install's may still be in the log): "installed ID VERSION",
+                    # the id and version from the file's name (ID_VERSION.fpk).
+                    want = os.path.basename(argv[2]).rsplit(".", 1)[0].replace("_", " ") if len(argv) > 2 else ""
+                    done = [l for l in m.get("log", "").splitlines()
+                            if ("pkg: installed" in l and want in l) or ("pkg: " in l and ("fail" in l or "refus" in l))]
+                    if done:
+                        print(done[-1].split(": ", 1)[-1])
+                        break
+            else:
+                print("no answer in time")
         else:
             print(__doc__)
     finally:
