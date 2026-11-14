@@ -36,8 +36,10 @@
 ## Buses
 
 - **Display on SPI2 (FSPI), its own bus.** MOSI, SCK, CS, DC; reset from the expander or tied to the S3's EN through an RC. No MISO.
-  - **Speed:** a 1.5× scaled Game Boy frame (240 × 216, RGB565) is 0.83 Mbit. At 40 MHz that is about 21 ms, so about 47 fps worst case before partial updates; at 80 MHz about 10 ms. Retro-Go only pushes changed lines, so 60 fps is realistic.
-  - **Why not 8-bit parallel (i80):** it is faster, but takes 11+ pins and clashes with a camera on the GPIO budget. Keep SPI unless the SPI build misses frames.
+  - **Speed:** 40 MHz on GPIO-matrix pins (18, 39, 38), 5 MB/s. A full 320 × 240 RGB565 screen is 1.23 Mbit, about 31 ms, so full-screen motion (games, emulators) runs at about 30 fps; the driver sends at most every 33 ms. A 1.5× scaled Game Boy frame alone (240 × 216) is about 21 ms.
+  - **What the panel's own memory buys:** the ST7789 refreshes itself from its frame memory, so only changed rectangles go over the bus and static screens cost nothing. The dev board's RGB panel (16-bit at 10 MHz, 20 MB/s) has no frame memory and must be streamed every frame, about 38 times a second.
+  - **No tearing sync:** the module's 9-pin header has no TE line, so fast motion can tear.
+  - **Faster options:** 80 MHz SPI (open question 22) and an 8-bit 8080 parallel bus (open question 23). The 8080 bus takes 11 pins and does not fit the current GPIO budget.
 - **micro-SD on SDMMC, 1-bit.** CLK, CMD and D0 on the SPI/SDIO breakout (`modules/micro-sd-sdio-board.md`). D1, DAT2 and D3 stay unconnected, held high by its pull-ups. It runs alongside the display without sharing a bus.
   - **4-bit later:** 3 more GPIOs (D1, DAT2, D3).
   - **Card detect (DET):** an input on the second expander.
@@ -84,7 +86,7 @@
 
 | Function | Pins | Notes |
 |---|---|---|
-| Display SPI (MOSI, SCK, CS, DC) + RST | 5 | Any GPIO via the matrix; use the IO_MUX pins for 80 MHz (FSPI: 11 MOSI, 12 SCK, 10 CS) |
+| Display SPI (MOSI, SCK, CS, DC) + RST | 5 | On GPIO-matrix pins, which ESP-IDF guarantees up to 40 MHz. SPI2's IO_MUX pins (12 SCK, 11 MOSI, 10 CS) carry I2S and the radio's MISO (open question 22) |
 | Backlight PWM | 1 | Drives a small N-MOSFET (BS170 on hand, or AO3400) |
 | SDMMC 1-bit | 3 | |
 | I2S (BCLK, WS, DOUT, DIN) | 4 | |
