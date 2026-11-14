@@ -1,0 +1,18 @@
+MIT License / Free Asset Terms of Use
+
+Copyright (c) 2026 MRPI
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Assets"), to deal
+in the Assets without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Assets, and to permit persons to persons to whom the Assets is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Assets.
+
+RESTRICTION: 
+You are NOT allowed to resell, redistribute, or repackage these raw asset files 
+as a standalone asset pack on any store or marketplace. You CAN use them freely 
+in your own personal or commercial video games.

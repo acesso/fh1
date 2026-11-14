@@ -10,7 +10,9 @@ cd "$dir"
 # fh1art.py needs Pillow: the system Python has it, the ESP-IDF one may not.
 # FH1_PYTHON: another Python with Pillow (CI, when the system's packages cannot be installed).
 if [ -f art.json ]; then "${FH1_PYTHON:-/usr/bin/python3}" "$tools/fh1art.py" build art.json; fi
-[ -f build/esp-idf/main/CMakeFiles/__idf_main.dir/build.make ] || idf.py reconfigure
+# Configured afresh when there is none yet or a CMakeLists.txt changed (make's /fast targets do not rerun CMake).
+mk=build/esp-idf/main/CMakeFiles/__idf_main.dir/build.make
+if [ ! -f "$mk" ] || [ CMakeLists.txt -nt "$mk" ] || [ main/CMakeLists.txt -nt "$mk" ]; then idf.py reconfigure; fi
 find build/esp-idf/main -name "*.obj" -delete; rm -f build/esp-idf/main/libmain.a
 idf.py elf
 python3 "$tools/elfcheck.py" build/*.app.elf
