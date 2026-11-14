@@ -1,0 +1,19 @@
+# The cutaway: a hero on low ground behind the tower's tall step, then a creature behind it in another view, seen
+# through the scenery in front of them (every other pixel in an ellipse round them); then the cutaway off, to compare.
+nosave
+test 1
+wait 70
+place 3 5 1 1
+place 0 4 1 0
+wait 30
+shot u00-hero-behind
+cutaway 0
+wait 3
+shot u01-off
+cutaway 1
+view 2
+place 0 3 8 0
+place 3 9 9 1
+wait 30
+shot u02-view2
+checklayer

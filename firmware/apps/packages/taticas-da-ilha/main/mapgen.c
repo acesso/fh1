@@ -19,6 +19,7 @@ static uint32_t rnd(void)                       // xorshift: the same map from t
 static float rndf(void) { return (rnd() & 0xffff) / 65536.0f; }
 
 static int tile(int n) { char name[24]; snprintf(name, sizeof(name), "tile.%d", n); return fart_image(&g_art, name); }
+static int prop(const char *name) { const int i = fart_image(&g_art, name); return i < 0 ? ISO_NONE : i; }
 
 typedef struct { int water, fill, tops[4], ntops, high, objs[6], nobjs, obj_chance; } theme_t;
 
@@ -235,8 +236,63 @@ void map_grade(iso_map_t *m, int realm)
     iso_grade(m, grade_px, &el);
 }
 
+// The water by its depth: next to land (the eight cells round), shallow and light, its swell rolling along the
+// shore, now and then a rock standing in it; further out, deep and dark, glinting here and there.
+static void shore(iso_map_t *m)
+{
+    const int shallow = tile(88), deep = tile(94);
+    static const int rocks[5] = { 77, 78, 79, 80, 81 };
+    for (int r = 0; r < m->rows; r++)
+        for (int c = 0; c < m->cols; c++) {
+            iso_cell_t *cell = iso_cell(m, c, r);
+            if (cell->h > 0) continue;
+            bool land = false;
+            for (int dr = -1; dr <= 1 && !land; dr++)
+                for (int dc = -1; dc <= 1 && !land; dc++)
+                    land = iso_inside(m, c + dc, r + dr) && iso_cell(m, c + dc, r + dr)->h > 0;
+            cell->top = cell->fill = land ? shallow : deep;
+            if (land && rnd() % 14 == 0) cell->top = tile(rocks[rnd() % 5]);
+        }
+}
+
+// The showcase's stage: the cells round the heroes and their creatures made flat ground, without objects.
+static void stage(iso_map_t *m, const battle_def_t *b)
+{
+    theme_t th;
+    theme_of(b->theme, &th);
+    uint8_t h[4][2], f[4][2];
+    show_spots(b, h, f);
+    for (int r = f[0][1] - 1; r <= h[0][1] + 1; r++)
+        for (int c = h[0][0] - 1; c <= h[3][0] + 1; c++)
+            if (iso_inside(m, c, r)) {
+                paint(m, &th, c, r, 2, false);
+                iso_cell(m, c, r)->base = iso_cell(m, c, r)->bob = 0;
+            }
+    // Props from the portal pack: a portal's frame behind the creatures' middle between two broken pillars (battle.c
+    // draws its vortex, the engine's portal), a campfire past each end of the heroes' row (battle.c flickers the
+    // flames and sends sparks up from them).
+    const int pc = h[0][0] + 3, pr = f[0][1] - 2;
+    const struct { int c, r; const char *name; } props[] = {
+        { pc, pr, "prop.portal.frame" }, { pc - 2, pr, "prop.pillar.broken" }, { pc + 2, pr, "prop.pillar.broken" },
+        { h[0][0] - 2, h[0][1], "prop.campfire" }, { h[3][0] + 2, h[3][1], "prop.campfire" },
+    };
+    for (unsigned k = 0; k < sizeof(props) / sizeof(props[0]); k++) {
+        if (!iso_inside(m, props[k].c, props[k].r)) continue;
+        for (int dr = -1; dr <= 0; dr++)
+            for (int dc = -1; dc <= 1; dc++)
+                if (iso_inside(m, props[k].c + dc, props[k].r + dr)) {
+                    paint(m, &th, props[k].c + dc, props[k].r + dr, 2, false);
+                    iso_cell(m, props[k].c + dc, props[k].r + dr)->base = iso_cell(m, props[k].c + dc, props[k].r + dr)->bob = 0;
+                }
+    }
+    for (unsigned k = 0; k < sizeof(props) / sizeof(props[0]); k++)
+        if (iso_inside(m, props[k].c, props[k].r)) iso_cell(m, props[k].c, props[k].r)->obj = (uint16_t)prop(props[k].name);
+}
+
 void map_build(iso_map_t *m, const battle_def_t *b, uint8_t spots[3][2], uint8_t foes[6][2])
 {
     if (b->map == MAP_FIXED) build_fixed(m, b, spots, foes);
     else build_random(m, b, spots, foes);
+    if (b->show) stage(m, b);
+    shore(m);
 }

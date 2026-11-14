@@ -4,6 +4,7 @@
 #include <math.h>
 
 #define STEP_MS 360                  // one cell's walk
+#define TURN8_MS 70                  // an eighth of a unit's turn
 
 // Blocks of up to 4 KB come from internal RAM (ESP-IDF: size <= CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL, 4096), which
 // Wi-Fi needs; the engine's own small tables ask for a little more, so they come from PSRAM.
@@ -25,6 +26,7 @@ bool iso_init(iso_map_t *m, fart_t *art, int cols, int rows)
     m->sky = rgb565(0x1a1c2c);
     m->cells = ps_calloc(cols * rows * sizeof(iso_cell_t));
     m->mark = ps_calloc(cols * rows);
+    m->cutaway = true;
     m->chg_of = ps_calloc(cols * rows);
     if (!m->cells || !m->mark || !m->chg_of) return false;
     for (int i = 0; i < cols * rows; i++) m->cells[i] = (iso_cell_t){ 0, ISO_NONE, ISO_NONE, ISO_NONE, 0, 0 };
@@ -139,6 +141,18 @@ static void grade_one(fart_t *art, uint8_t *done, int idx, uint16_t (*fn)(uint16
     fart_recolor(art, idx, fn, user);
 }
 
+void iso_lit(iso_map_t *m, int img)
+{
+    if (img >= 0 && img != ISO_NONE && m->nlit < ISO_LIT) m->lit[m->nlit++] = (uint16_t)img;
+}
+
+static bool is_lit(const iso_map_t *m, int img)
+{
+    for (int i = 0; i < m->nlit; i++)
+        if (m->lit[i] == img) return true;
+    return false;
+}
+
 void iso_grade(iso_map_t *m, uint16_t (*fn)(uint16_t v, void *user), void *user)
 {
     fart_t *art = m->art;
@@ -152,6 +166,12 @@ void iso_grade(iso_map_t *m, uint16_t (*fn)(uint16_t v, void *user), void *user)
     }
     uint8_t *done = ps_calloc(art->nimg);
     if (!done) return;
+    for (int i = 0; i < m->nlit; i++)                             // what gives off light keeps its colours
+        if (m->lit[i] < art->nimg) done[m->lit[i]] = 1;
+    for (int k = 0; k < m->ntanim; k++)
+        if (is_lit(m, m->tanim[k].base))
+            for (int f = 0; f < m->tanim[k].anim->frames; f++)
+                if (m->tanim[k].anim->idx[f] < art->nimg) done[m->tanim[k].anim->idx[f]] = 1;
     for (int i = 0; i < m->cols * m->rows; i++) {
         grade_one(art, done, m->cells[i].top, fn, user);
         grade_one(art, done, m->cells[i].fill, fn, user);
@@ -738,9 +758,18 @@ iso_unit_t *iso_add_unit(iso_map_t *m, const fart_anim_t *walk, const fart_anim_
 {
     if (m->nunits >= ISO_UNITS) return NULL;
     iso_unit_t *u = &m->units[m->nunits++];
-    *u = (iso_unit_t){ .walk = walk, .idle = idle, .c = c, .r = r, .fc = c, .fr = r, .dir = dir, .t = rand() % 1000,
-                       .wpn = -1, .wpn_angle = ISO_POSE_REST };
+    *u = (iso_unit_t){ .walk = walk, .idle = idle, .c = c, .r = r, .fc = c, .fr = r, .dir = dir, .aim = -1, .face = -1,
+                       .t = rand() % 1000, .wpn = -1, .wpn_angle = ISO_POSE_REST, .under = -1 };
     return u;
+}
+
+int iso_aim8(const iso_unit_t *u, int c, int r)
+{
+    const int dc = c - u->c, dr = r - u->r, ac = abs(dc), ar = abs(dr);
+    if (!dc && !dr) return fart_oct(u->dir);
+    if (ac * 5 > ar * 12) return dc > 0 ? FART_SE8 : FART_NW8;            // within 22.5 degrees of an axis
+    if (ar * 5 > ac * 12) return dr > 0 ? FART_SW8 : FART_NE8;
+    return dc > 0 ? (dr > 0 ? FART_S8 : FART_E8) : (dr > 0 ? FART_W8 : FART_N8);
 }
 
 iso_unit_t *iso_unit_at(iso_map_t *m, int c, int r)
@@ -754,6 +783,7 @@ bool iso_step(iso_map_t *m, iso_unit_t *u, int dir)
 {
     static const int8_t dc[FART_DIRS] = { 1, 0, -1, 0 }, dr[FART_DIRS] = { 0, 1, 0, -1 };
     u->dir = dir;
+    u->aim = -1;
     if (u->step) return false;
     const int c = u->c + dc[dir], r = u->r + dr[dir];
     if (!iso_inside(m, c, r) || iso_unit_at(m, c, r)) return false;
@@ -802,6 +832,18 @@ void iso_update(iso_map_t *m, uint32_t dt_ms)
     for (int i = 0; i < m->nunits; i++) {
         iso_unit_t *u = &m->units[i];
         u->t += dt_ms;
+        // Turning: an eighth at once, then one every TURN8_MS, the short way round; a quarter turn shows the
+        // facing between (with eight facings drawn: the heroes).
+        const int want = u->aim >= 0 ? u->aim : fart_oct(u->dir);
+        if (u->face < 0) u->face = (int8_t)want;
+        else if (u->face != want) {
+            if (u->face_ms) u->face_ms = (uint16_t)(u->face_ms + dt_ms);
+            if (!u->face_ms || u->face_ms > TURN8_MS) {
+                const int d = (want - u->face + 8) & 7;
+                u->face = (int8_t)((u->face + (d <= 4 ? 1 : 7)) & 7);
+                u->face_ms = 1;
+            }
+        } else u->face_ms = 0;
         if (u->still && u->fade < 230) {                       // a knocked-out unit's colour drains in ~0.7 s
             const int f = u->fade + (int)dt_ms * 230 / 700 + 1;
             u->fade = (uint8_t)(f > 230 ? 230 : f);
@@ -906,13 +948,32 @@ void iso_feet(iso_map_t *m, const iso_unit_t *u, int *x, int *y)
     *y += u->lunge_y;
 }
 
+static float spin_angle(const iso_map_t *m);
+
+int iso_unit_oct(const iso_map_t *m, const iso_unit_t *u)
+{
+    int o = (u->face >= 0 ? u->face : u->aim >= 0 ? u->aim : fart_oct(u->dir)) + 2 * m->view;
+    if (m->turn_ms && m->turn_style == ISO_TURN_SPIN)             // turning with the ground: the eighths between
+        o += (int)floorf(spin_angle(m) * (4 / 3.1415927f) + 0.5f);
+    return o & 7;
+}
+
+// A cardinal eighth for art with four facings: the diagonal beside it that the unit faces by the rules (its dir on
+// screen), so a creature never shows a facing its moves do not have; with eight facings, the eighth itself.
+static int art_oct(const fart_anim_t *an, int o, int sd)
+{
+    if ((o & 1) || !an || an->dirs >= 8) return o;
+    const int so = fart_oct(sd);
+    return ((o + 1) & 7) == so || ((o + 7) & 7) == so ? so : o;
+}
+
 // The frame a unit shows now (facing as it does on screen).
 static int unit_frame(const iso_map_t *m, const iso_unit_t *u, bool *mirror)
 {
-    const int d = iso_screen_dir(m, u->dir);
-    int idx = u->once ? fart_frame(u->once, d, u->once_t, mirror)
-                      : fart_frame(u->step ? u->walk : u->idle, d, u->still ? 0 : u->t, mirror);
-    if (idx < 0 && !u->step) idx = fart_frame(u->walk, d, 0, mirror);          // no idle: the walk's first frame
+    const int o = iso_unit_oct(m, u), sd = iso_screen_dir(m, u->dir);
+    const fart_anim_t *an = u->once ? u->once : u->step ? u->walk : u->idle;
+    int idx = fart_frame8(an, art_oct(an, o, sd), u->once ? u->once_t : u->still ? 0 : u->t, mirror);
+    if (idx < 0 && !u->step) idx = fart_frame8(u->walk, art_oct(u->walk, o, sd), 0, mirror);   // no idle: walk's first
     return idx;
 }
 
@@ -937,8 +998,7 @@ static void draw_weapon(iso_map_t *m, uint16_t *px, int w, const fart_clip_t *cl
     iso_hand(m, u, &x, &y);
     x += dx;
     y += dy;
-    const int sd = iso_screen_dir(m, u->dir);
-    const bool right = sd == FART_SE || sd == FART_NE;
+    const bool right = iso_oct_right(iso_unit_oct(m, u));
     const int deg = u->wpn_angle != ISO_POSE_REST ? u->wpn_angle : right ? u->wpn_rest : 180 - u->wpn_rest;
     const fart_style_t st = { .tint = tint, .shade = u->wpn_shade };
     fart_draw_style(px, w, clip, &m->art->img[iso_rot(u->wpn, deg)], x - m->camx, y - m->camy, false, &st);
@@ -953,6 +1013,10 @@ void iso_follow(iso_map_t *m, int wx, int wy, int w, int h, uint32_t dt_ms)
     m->camx += dx ? dx : (tx > m->camx) - (tx < m->camx);
     m->camy += dy ? dy : (ty > m->camy) - (ty < m->camy);
 }
+
+// The cutaway's copy of a unit's box (a boss at twice the size included); the game's static data is in PSRAM.
+#define XRAY_MAX (160 * 160)
+static uint16_t s_xray[XRAY_MAX];
 
 // One pixel, only when it is on the screen: every write outside the buffer corrupts the memory next to it.
 static inline void put(uint16_t *px, int w, int h, int x, int y, uint16_t c)
@@ -1198,13 +1262,18 @@ static void draw_change_bits(const iso_map_t *m, uint16_t *px, int w, int h, con
 // cos a]] (the projection of the map's plane turned by a), in 16.16. Before half way the old view turns from 0 toward
 // a quarter; after, the new view comes from a quarter back to 0. *px, *py: the pivot (world).
 typedef struct { int32_t a, b, c, d; } spin_t;
-static spin_t spin_now(const iso_map_t *m, int *px, int *py, bool inverse)
+static float spin_angle(const iso_map_t *m)
 {
-    iso_world(m, m->turn_c, m->turn_r, px, py);
     float p = (float)m->turn_ms / m->turn_len;
     p = p * p * (3 - 2 * p);                                              // eased in and out
     float a = m->turn_by * 1.5707963f * p;
     if (m->turned) a -= m->turn_by * 1.5707963f;
+    return a;
+}
+static spin_t spin_now(const iso_map_t *m, int *px, int *py, bool inverse)
+{
+    iso_world(m, m->turn_c, m->turn_r, px, py);
+    float a = spin_angle(m);
     if (inverse) a = -a;
     const float co = cosf(a), si = sinf(a);
     return (spin_t){ (int32_t)(co * 65536), (int32_t)(-2 * si * 65536), (int32_t)(si * 32768), (int32_t)(co * 65536) };
@@ -1254,6 +1323,7 @@ void iso_draw(iso_map_t *m, uint16_t *px, int w, int h, int cc, int cr, uint32_t
         for (; x < w; x++) line[x] = m->sky;
     }
     const fart_clip_t screen = { 0, 0, w, h };
+    if (m->on_scenery && !spinning) m->on_scenery(m, px, w, h);
 
     // Marked cells: their top face tinted (blue: walk, red: act on, orange: the area hit).
     static const uint16_t tints[4] = { 0, 0x231f, 0xf8a3, 0xfd20 };
@@ -1353,9 +1423,10 @@ void iso_draw(iso_map_t *m, uint16_t *px, int w, int h, int cc, int cr, uint32_t
         // A knocked-out unit fades instead of dimming; a hit flashes white.
         const int tint = u->flash && (u->flash / 60) % 2 ? FART_WHITE : u->dim && !u->still ? FART_DIM : FART_PLAIN;
         // Facing away, the weapon is behind the body; facing the viewer, in front of it.
-        const int sd = iso_screen_dir(m, u->dir);
-        const bool away = sd == FART_NE || sd == FART_NW;
-        const bool armed = !u->falling;                       // a fallen hero has let go of the weapon
+        const bool away = iso_oct_away(iso_unit_oct(m, u));
+        const bool armed = !u->falling && !(u->once && u->hold);   // a hero knocked out has let go of the weapon
+        if (u->under >= 0 && u->under < m->art->nimg)          // on the ground at its feet, under everything of it
+            fart_draw(px, w, &screen, &m->art->img[u->under], x - m->camx, y - m->camy, false);
         if (away && armed) draw_weapon(m, px, w, &screen, u, tint, sdx, sdy);
         const fart_style_t st = { .tint = tint, .cover = u->cover, .ramp = u->ramp, .shade = u->shade, .zoom = u->zoom,
                                   .tilt = u->tilt, .fade = u->fade };
@@ -1388,15 +1459,38 @@ void iso_draw(iso_map_t *m, uint16_t *px, int w, int h, int cc, int cr, uint32_t
         const int level = iso_cell(m, u->c, u->r)->h > iso_cell(m, u->fc, u->fr)->h ? iso_cell(m, u->c, u->r)->h
                                                                                     : iso_cell(m, u->fc, u->fr)->h;
         const int vcols = view_cols(m), vrows = view_rows(m);
+        // The cutaway: the unit's box as it is now (the unit, its weapon, the ground round it), kept before the
+        // scenery covers it, and given back through the cover in an ellipse, every other pixel: the scenery there
+        // shows half see-through, the unit plain behind it. Only when something does cover it.
+        const int cw = clip.x1 - clip.x0, ch = clip.y1 - clip.y0;
+        const bool keep = m->cutaway && cw * ch <= XRAY_MAX;
+        bool covered = false;
         for (int vr = br; vr < br + 3 && vr < vrows; vr++)
             for (int vc = bc; vc < bc + 3 && vc < vcols; vc++) {
                 int c, r;
                 from_view(m, vc, vr, &c, &r);
                 if ((c == u->c && r == u->r) || (c == u->fc && r == u->fr)) continue;
                 const iso_cell_t *cell = iso_cell(m, c, r);
-                if (cell->h > level || (cell->obj != ISO_NONE && cell->h + 1 > level))
+                if (cell->h > level || (cell->obj != ISO_NONE && cell->h + 1 > level)) {
+                    if (keep && !covered)
+                        for (int y = 0; y < ch; y++) memcpy(s_xray + y * cw, px + (clip.y0 + y) * w + clip.x0, cw * 2);
+                    covered = true;
                     draw_column(m, px, w, &clip, c, r, m->camx, m->camy);
+                }
             }
+        if (covered && keep) {
+            // The ellipse in the unit's own box (sx, sy, bw, bh), in 16.16 steps; a softer edge: every fourth pixel.
+            const int cx2 = 2 * sx + bw, cy2 = 2 * sy + bh;
+            for (int y = clip.y0; y < clip.y1; y++)
+                for (int x = clip.x0; x < clip.x1; x++) {
+                    const int64_t dx = (int64_t)(2 * x + 1 - cx2) * bh, dy = (int64_t)(2 * y + 1 - cy2) * bw;
+                    const int64_t d = dx * dx + dy * dy, r2 = (int64_t)bw * bw * bh * bh;
+                    const bool half = d <= r2 * 7 / 10, quarter = d <= r2;
+                    if (!(half ? ((x ^ y) & 1) : quarter ? !(x & 1) && !(y & 1) : false)) continue;
+                    const uint16_t was = s_xray[(y - clip.y0) * cw + (x - clip.x0)];
+                    px[y * w + x] = was;
+                }
+        }
     }
 
     for (int k = 0; k < ISO_CHANGES && !spinning; k++)

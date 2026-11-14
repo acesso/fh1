@@ -1,0 +1,38 @@
+# Facings in eighths: the spin carries the units round through the facing between two views (the heroes show it,
+# drawn in eight; the creatures keep their four), a unit turning a quarter (the knight at 7,6, facing se, strikes
+# north-east) shows the facing between on its way, and a shot at a target off the map's axes is drawn facing it (an
+# archer at 5,7 shoots the creature at 7,5: east).
+nosave
+test 1
+wait 70
+shot f00-view0
+turn 1
+wait 3
+shot f01-spin-quarter
+wait 3
+shot f02-spin-half
+wait 3
+shot f03-spin-three-quarters
+wait 12
+shot f04-view1
+checklayer
+test 1
+wait 70
+place 0 7 6 0
+wait 4
+act 0 0 0 4
+wait 1
+shot f05-turning
+wait 5
+shot f06-turned
+wait 40
+test 1
+wait 70
+gear 2 8 65
+place 2 5 7 0
+wait 4
+act 2 0 0 4
+wait 6
+shot f07-aim-east
+wait 40
+checklayer

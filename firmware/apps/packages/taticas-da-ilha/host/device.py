@@ -42,7 +42,7 @@ async def main(script, outdir, host):
                     await replies.put(m.get("msg", m))
                 elif m.get("t") == "stats":
                     for l in m.get("log", "").splitlines():
-                        if "[org." in l:
+                        if "app: [" in l:                    # an app's own lines: "app: [<id>] ..."
                             print(l.split("] ", 1)[-1])
 
         reading = asyncio.create_task(reader())
@@ -70,10 +70,15 @@ async def main(script, outdir, host):
             elif cmd == "wait":
                 await asyncio.sleep(int(rest) * 0.033)
             elif cmd == "shot":
-                data = await asyncio.to_thread(
-                    lambda: urllib.request.urlopen(f"http://{host}/shot.bmp?code={code}", timeout=20).read())
-                Image.open(io.BytesIO(data)).save(os.path.join(outdir, rest.strip() + ".png"))
-                print("shot", rest.strip())
+                # A screenshot is ~300 KB over HTTP: with internal RAM short (a battle on the Guition) the device
+                # may not send it. Say so and go on: the checks, frame times and crashes still count.
+                try:
+                    data = await asyncio.to_thread(
+                        lambda: urllib.request.urlopen(f"http://{host}/shot.bmp?code={code}", timeout=20).read())
+                    Image.open(io.BytesIO(data)).save(os.path.join(outdir, rest.strip() + ".png"))
+                    print("shot", rest.strip())
+                except Exception as e:
+                    print("shot", rest.strip(), "skipped:", type(e).__name__)
             elif cmd == "dev":
                 print("dev", rest, "->", await op("dev", rest))
             elif cmd == "op":

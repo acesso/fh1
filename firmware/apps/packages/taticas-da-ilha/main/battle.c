@@ -3,6 +3,7 @@
 // Choosing: D-pad cursor, X / Y next / previous hero, A a hero's menu, Start the battle menu.
 #include "game.h"
 #include "fx.h"
+#include "portal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +30,7 @@ typedef struct {
     bool absent;                     // a boss not on the field yet: it drops in once its minions are down
 } fighter_t;
 
-typedef enum { ST_CHOOSE, ST_MENU, ST_MOVE, ST_TARGET, ST_LIST, ST_BUSY, ST_ENEMY, ST_BATTLE, ST_OVER, ST_SUMMARY } state_t;
+typedef enum { ST_CHOOSE, ST_MENU, ST_MOVE, ST_TARGET, ST_LIST, ST_BUSY, ST_ENEMY, ST_BATTLE, ST_OVER, ST_SUMMARY, ST_SHOW } state_t;
 enum { ACT_ATTACK, ACT_SPELL, ACT_ITEM };
 enum { M_MOVE, M_ATTACK, M_MAGIC, M_ITEMS, M_EQUIP, M_COUNTER, M_WAIT, M_COUNT };
 enum { L_MAGIC, L_ITEMS, L_EQUIP, L_WEAPON, L_ARMOUR };
@@ -51,6 +52,18 @@ static struct { int unit; char text[16]; uint32_t t; uint32_t rgb; int dy; } s_p
 static int s_enemy_i;
 static uint32_t s_enemy_wait;
 static bool s_leave, s_ended;
+// The heroes' showcase (battle_show): on, and done (back to the title).
+static bool s_show, s_show_end;
+// The campfires on the map (cells), for their sparks.
+#define FIRES 6
+static uint8_t s_fires[FIRES][2];
+static int s_nfires, s_fire_light[FIRES];
+// A portal on the map (the engine's), where its frame stands.
+static portal_t s_portal;
+static int s_portal_c = -1, s_portal_r;
+static void draw_portal(iso_map_t *m, uint16_t *px, int w, int h);
+static int s_show_i, s_show_step, s_show_k;
+static uint32_t s_show_t;
 static bool s_cam_fixed;                        // the PC host holds the camera still
 static int s_boss_in = -1;                      // a boss arriving (its unit), and how far along
 static uint32_t s_boss_t;
@@ -136,14 +149,16 @@ bool battle_enter(void)
 {
     const battle_def_t *b = &g_battle;
     if (!iso_init(&s_map, &g_art, b->cols, b->rows)) return false;
-    uint8_t spots[3][2], foes[6][2];
+    uint8_t spots[3][2], foes[6][2], show_h[4][2], show_f[4][2];
     map_build(&s_map, b, spots, foes);
+    if (b->show) show_spots(b, show_h, show_f);               // the showcase: all four heroes on its stage
     memset(&g_result, 0, sizeof(g_result));
     int slot = 0;
-    for (int i = 0; i < ROSTER && slot < PARTY_MAX; i++) {
+    for (int i = 0; i < ROSTER && slot < (b->show ? ROSTER : PARTY_MAX); i++) {
         hero_t *h = &g_save.heroes[i];
-        if (!h->in_party) continue;
-        fighter_t *f = add_unit(g_classes[h->cls].art, false, spots[slot][0], spots[slot][1], FART_NE);
+        if (!h->in_party && !b->show) continue;
+        const uint8_t *at = b->show ? show_h[slot] : spots[slot];
+        fighter_t *f = add_unit(g_classes[h->cls].art, false, at[0], at[1], FART_NE);
         if (!f) break;
         f->name = h->name;
         f->hero = true;
@@ -151,15 +166,19 @@ bool battle_enter(void)
         f->hp = f->hp_max = hero_hp_max(h);
         f->mp = f->mp_max = hero_mp_max(h);
         f->slot = slot;
+        char an[32];                                             // knocked out: kneeling, head bowed (fh1art "kneel")
+        snprintf(an, sizeof(an), "%s.down", g_classes[h->cls].art);
+        f->death = fart_anim(&g_art, an);
         dress(unit_index(&s_map.units[s_map.nunits - 1]));
-        g_result.hero[slot] = i;
+        if (slot < PARTY_MAX) g_result.hero[slot] = i;
         slot++;
     }
-    g_result.nparty = slot;
+    g_result.nparty = slot < PARTY_MAX ? slot : PARTY_MAX;
     for (int k = 0; k < b->n; k++) {
         foe_t foe;
         foe_make(b->foes[k].type, b->realm, b->foes[k].level, b->foes[k].caster, &foe);
-        fighter_t *f = add_unit(foe.art, true, foes[k][0], foes[k][1], FART_SW);
+        const uint8_t *at = b->show && k < 4 ? show_f[k] : foes[k];
+        fighter_t *f = add_unit(foe.art, true, at[0], at[1], FART_SW);
         if (!f) break;
         iso_unit_t *u = &s_map.units[s_map.nunits - 1];
         char an[32];
@@ -188,12 +207,38 @@ bool battle_enter(void)
             s_f[i].absent = s_f[i].down = true;
             s_map.units[i].hidden = true;
         }
-    // Water ripples, a wave rolling across the map (lava in the fire realm: the grade turns its frames too).
-    iso_tile_anim(&s_map, fart_image(&g_art, "tile.90"), fart_anim(&g_art, "tile.90"), ISO_TA_WAVE);
+    // The water: a swell rolling along the shore, glints here and there on the deep water (lava in the fire realm:
+    // the grade turns their frames too).
+    iso_tile_anim(&s_map, fart_image(&g_art, "tile.88"), fart_anim(&g_art, "water.shallow"), ISO_TA_WAVE);
+    iso_tile_anim(&s_map, fart_image(&g_art, "tile.94"), fart_anim(&g_art, "water.deep"), ISO_TA_SCATTER);
+    // Props that move: a campfire's flames, a portal's vortex turning (the showcase's stage has them).
+    iso_tile_anim(&s_map, fart_image(&g_art, "prop.campfire"), fart_anim(&g_art, "fire.flicker"), ISO_TA_SYNC);
+
+    // A fire gives off light: the realm's grade leaves it in its own colours.
+    iso_lit(&s_map, fart_image(&g_art, "prop.campfire"));
+
+    // A portal's frame on the map: the engine's portal in it, in the realm's colour (opened by the showcase).
+    s_portal_c = -1;
+    const int frame = fart_image(&g_art, "prop.portal.frame");
+    for (int r = 0; r < s_map.rows; r++)
+        for (int c = 0; c < s_map.cols; c++)
+            if (frame >= 0 && iso_cell(&s_map, c, r)->obj == frame) s_portal_c = c, s_portal_r = r;
+    if (s_portal_c >= 0 && portal_load(&s_portal, &g_art, "portal.whirl")) {
+        portal_colour(&s_portal, g_elements[g_realms[b->realm].element].rgb);
+        portal_glow(&s_portal, fart_image(&g_art, "prop.portal.glow"));
+        s_map.on_scenery = draw_portal;
+    } else s_portal_c = -1;
+    // The campfires, for their sparks and their light.
+    s_nfires = 0;
+    const int fire = fart_image(&g_art, "prop.campfire");
+    for (int r = 0; r < s_map.rows; r++)
+        for (int c = 0; c < s_map.cols && s_nfires < FIRES; c++)
+            if (fire >= 0 && iso_cell(&s_map, c, r)->obj == fire) s_fires[s_nfires][0] = (uint8_t)c, s_fires[s_nfires++][1] = (uint8_t)r;
     map_grade(&s_map, b->realm);
     if (!iso_build_layer(&s_map)) return false;
     memset(s_pop, 0, sizeof(s_pop));
     fx_reset();
+    for (int i = 0; i < s_nfires; i++) s_fire_light[i] = fx_light(0, 0, 40, 0xfc40, 120, true);   // placed each frame
     s_sel = -1;
     s_leave = s_ended = false;
     s_cc = s_map.units[0].c;
@@ -203,6 +248,16 @@ bool battle_enter(void)
     }
     s_st = ST_CHOOSE;
     banner("Sua vez", 1200);
+    s_show = b->show;
+    s_show_end = false;
+    if (s_show) {
+        s_tier_force = 0;
+        s_st = ST_SHOW;
+        s_show_i = s_show_step = s_show_k = 0;
+        s_show_t = 0;
+        banner("Mostra dos Heróis", 1800);
+        if (s_portal_c >= 0) portal_open(&s_portal);
+    }
     s_map.on_step = footstep;
     s_map.on_change = scenery_sound;
     snd_play(S_ENCOUNTER, 200);
@@ -259,6 +314,13 @@ static void hurt(int by, int target, int amount)
         popup(target, t, 0x80ff90);
         return;
     }
+    if (s_show && !f->hero) {                                      // the showcase: every look of a hit, no damage
+        s_map.units[target].flash = 360;
+        snprintf(t, sizeof(t), "%d", amount);
+        popup(target, t, 0xffffff);
+        if (f->hit) iso_play(&s_map.units[target], f->hit, false);
+        return;
+    }
     f->hp -= amount;
     s_map.units[target].flash = 360;
     snprintf(t, sizeof(t), "%d", amount);
@@ -267,7 +329,7 @@ static void hurt(int by, int target, int amount)
         f->hp = 0;
         f->down = true;
         snd_play(S_DEATH, 220);
-        // Its own death if it has one (wolves, slimes), else it falls over; either way it stays down.
+        // Its own death if it has one (wolves, slimes, the heroes' kneel), else it falls over; either way it stays down.
         if (f->death) iso_play(&s_map.units[target], f->death, true);
         else iso_fall(&s_map.units[target]);
         s_map.units[target].dim = true;
@@ -379,7 +441,10 @@ static bool start_action(int a, int act, int what, int c, int r, bool counter)
     const int amount = e.lo + (e.hi > e.lo ? rand() % (e.hi - e.lo + 1) : 0);
     *q = (action_t){ .actor = a, .target = b, .act = act, .what = what, .amount = amount, .mp = e.mp, .proj = -1,
                      .counter = counter, .weak = e.weak, .resist = e.resist, .strong = e.strong, .element = e.element };
-    if (b != a) u->dir = face_toward(u, c, r);
+    if (b != a) {
+        u->dir = face_toward(u, c, r);
+        u->aim = (int8_t)iso_aim8(u, c, r);                      // drawn facing the target, off the axes too
+    }
     if (act == ACT_ATTACK) {
         if (shoots(f)) {                                         // an archer: an arrow, a counter too
             q->kind = K_SHOT;
@@ -407,7 +472,7 @@ static bool start_action(int a, int act, int what, int c, int r, bool counter)
         }
     } else {
         q->kind = K_THROW;
-        g_save.bag[what]--;
+        if (!s_show) g_save.bag[what]--;                         // the showcase's Elixirs cost nothing
         q->impact = 0xFFFFFFFF;
         q->len = 0xFFFFFFFF;
     }
@@ -416,6 +481,7 @@ static bool start_action(int a, int act, int what, int c, int r, bool counter)
 
 static void rest_pose(iso_unit_t *u)
 {
+    u->under = -1;
     u->wpn_angle = ISO_POSE_REST;
     u->hand_dx = u->hand_dy = 0;
     u->lunge_x = u->lunge_y = 0;
@@ -479,14 +545,18 @@ static void cast_visual(int tc, int tr, int seed, int el, int tier, float tx, fl
         if (tier >= 2) fx_screen(FX_SCREEN_NEGATIVE, 140 + 90 * tier, tier);
         if (tier >= 3) fx_screen(FX_SCREEN_SHAKE, 360, 2);
     } else fx_sparkle(tx, ty + 10, 0x87f0, 20 + 14 * tier);
+    // The effect pack's animation over it, in the element's colours: a flame pillar, an ice burst, dust when the
+    // rock lands, lightning crackling out, a lotus growing (rising from the feet, or round the chest).
+    static const char *const anim[EL_COUNT] = { "fx.heal", "fx.fire", "fx.water", "fx.earth", "fx.air" };
+    static const bool feet[EL_COUNT] = { true, true, false, true, false };
+    fx_play(fart_anim(&g_art, anim[el]), tx, feet[el] ? ty + 16 : ty, false, el == EL_EARTH ? 300 : 0);
 }
 
 static void play_action(action_t *q, uint32_t dt)
 {
     iso_unit_t *u = &s_map.units[q->actor];
     q->t += dt;
-    const int sd = iso_screen_dir(&s_map, u->dir);                // swings go by how it faces on screen
-    const bool right = sd == FART_SE || sd == FART_NE;
+    const bool right = iso_oct_right(iso_unit_oct(&s_map, u));    // swings go by how it faces on screen
     int hx, hy;
     float tx, ty;
     chest(q->target, &tx, &ty);
@@ -572,6 +642,12 @@ static void play_action(action_t *q, uint32_t dt)
         iso_hand(&s_map, u, &hx, &hy);
         const int el = g_spells[q->what].element;
         if (q->t < 700 && (q->t / 30) % 2) fx_glow(hx, hy - 12, el ? el_565(el, false) : 0x87f0);
+        {                                                        // a circle in the element's colours at its feet
+            static const char *const circle[EL_COUNT] = { "fx.circle.0", "fx.circle.1", "fx.circle.2", "fx.circle.3", "fx.circle.4" };
+            const fart_anim_t *c = fart_anim(&g_art, circle[el]);
+            const uint32_t f = c && c->ms ? q->t / c->ms : 0;
+            u->under = c && f < c->frames ? (int16_t)c->idx[f] : -1;
+        }
         if (q->t >= 650 && q->t - dt < 650) {
             static const snd_t sound[EL_COUNT] = { S_HEAL, S_FIRE, S_WATER, S_EARTH, S_THUNDER };
             snd_play(sound[el], 230);
@@ -596,6 +672,7 @@ static void play_action(action_t *q, uint32_t dt)
             static const uint16_t c[3] = { 0xf9a6, 0x5f3f, 0x87f0 };
             const int k = !strcmp(g_goods[q->what].name, "Éter") ? 1 : !strcmp(g_goods[q->what].name, "Elixir") ? 2 : 0;
             fx_sparkle(tx, ty + 10, c[k], 22);
+            fx_play(fart_anim(&g_art, "fx.heal"), tx, ty + 16, false, 0);
             snd_play(g_goods[q->what].revive && s_f[q->target].down ? S_REVIVE : S_HEAL, 210);
         }
         break;
@@ -621,11 +698,14 @@ static void impact(action_t *q)
     }
     if (q->act == ACT_ATTACK) {
         snd_play(S_HIT, 230);
-        if (q->kind == K_MELEE && q->element) {
-            float x, y;
-            chest(q->target, &x, &y);
-            el_burst(q->element, x, y, 18);
-        }
+        float x, y;
+        chest(q->target, &x, &y);
+        if (q->kind == K_MELEE && q->element) el_burst(q->element, x, y, 18);
+        // The effect pack's hit: a blade's slash (the way it swung), an arrow's burst, a creature's claw marks.
+        const bool left = !iso_oct_right(iso_unit_oct(&s_map, &s_map.units[q->actor]));
+        if (q->kind == K_MELEE) fx_play(fart_anim(&g_art, "fx.slash"), x, y, left, 0);
+        else if (q->kind == K_SHOT && !q->element) fx_play(fart_anim(&g_art, "fx.burst"), x, y, false, 0);
+        else if (q->kind == K_BITE) fx_play(fart_anim(&g_art, "fx.claw"), x, y, left, 0);
     }
     if (q->weak) popup_at(q->target, "Fraco!", 0xffb040, -11);
     if (q->resist || q->strong) popup_at(q->target, "Resiste", 0x9fd8ff, -11);
@@ -679,8 +759,15 @@ static void finish(bool won)
         (*done)++;
         g_result.cleared = *done >= g_tier_len[g_battle.tier];
     }
-    // Every hero in the party learns from every creature down; less from creatures below its level (a quarter less
-    // a level, down to a quarter), and half after a defeat.
+    // The heroes standing at the end learn from every creature down; less from creatures below its level (a quarter
+    // less a level, down to a quarter). A knocked-out hero learns nothing: its share goes to the ones standing (each
+    // gets party / standing times its own), so a defeat with every hero down teaches nothing; leaving, half.
+    int standing = 0;
+    for (int i = 0; i < s_map.nunits; i++)
+        if (s_f[i].hero && s_f[i].slot < g_result.nparty) {
+            g_result.down[s_f[i].slot] = s_f[i].down;
+            standing += !s_f[i].down;
+        }
     for (int s = 0; s < g_result.nparty; s++) {
         hero_t *h = &g_save.heroes[g_result.hero[s]];
         int xp = g_result.xp[s];                                  // (0, or what a dev command added)
@@ -688,7 +775,8 @@ static void finish(bool won)
             const int gap = h->level - g_result.kills[k].level, quarters = gap <= 0 ? 4 : gap >= 3 ? 1 : 4 - gap;
             xp += g_result.kills[k].xp * quarters / 4;
         }
-        g_result.xp[s] = won ? xp : xp / 2;
+        if (!won) xp /= 2;                                        // a defeat with heroes standing (leaving): half
+        g_result.xp[s] = g_result.down[s] || !standing ? 0 : xp * g_result.nparty / standing;
         g_result.level_before[s] = h->level;
         g_result.xp_before[s] = h->xp;
         g_result.levelled[s] = hero_gain(h, g_result.xp[s]);
@@ -966,14 +1054,17 @@ static void enemy_step(void)
 
 // ── Input ──
 
-static void move_cursor(int dir)
+// One cell along a map facing. Choosing where to move (reach), only onto the cells the hero can reach: past one it
+// cannot, on to the next it can that way, else nowhere.
+static void move_cursor(int dir, bool reach)
 {
     static const int8_t dc[4] = { 1, 0, -1, 0 }, dr[4] = { 0, 1, 0, -1 };
-    const int c = s_cc + dc[dir], r = s_cr + dr[dir];
-    if (iso_inside(&s_map, c, r)) {
-        s_cc = c;
-        s_cr = r;
-    }
+    for (int c = s_cc + dc[dir], r = s_cr + dr[dir]; iso_inside(&s_map, c, r); c += dc[dir], r += dr[dir])
+        if (!reach || s_dist[r * COLS + c] != 255) {
+            s_cc = c;
+            s_cr = r;
+            return;
+        }
 }
 
 static void input(void)
@@ -981,7 +1072,7 @@ static void input(void)
     const int dir = g_keys.dir;
     switch (s_st) {
     case ST_CHOOSE: {
-        if (dir >= 0) move_cursor(iso_map_dir(&s_map, dir));      // the D-pad as on screen, whatever the view
+        if (dir >= 0) move_cursor(iso_map_dir(&s_map, dir), false);      // the D-pad as on screen, whatever the view
         if (g_keys.turn) iso_turn(&s_map, g_keys.turn, s_cc, s_cr);
         const int n = key(FH1_KEY_X) ? next_hero(1) : key(FH1_KEY_Y) ? next_hero(-1) : -1;
         if (n >= 0) cursor_to(n);
@@ -1003,8 +1094,28 @@ static void input(void)
         }
         break;
     }
+    case ST_SHOW:                                                // only the menu: the show plays itself
+        if (key(FH1_KEY_START) || key(FH1_KEY_MENU) || key(FH1_KEY_B)) {
+            memset(&s_battle, 0, sizeof(s_battle));
+            s_battle.title = "Mostra";
+            s_battle.items[0] = "Continuar";
+            s_battle.items[1] = "Voltar ao título";
+            s_battle.items[2] = "Sair do jogo";
+            s_battle.n = 3;
+            s_st = ST_BATTLE;
+            snd_play(S_PAUSE, 200);
+        }
+        break;
     case ST_BATTLE: {
         const int r = ui_menu_key(&s_battle, menu_key());
+        if (s_show) {
+            if (r == 0 || r == UI_BACK) {
+                s_st = ST_SHOW;
+                snd_play(S_UNPAUSE, 200);
+            } else if (r == 1) s_show_end = true;
+            else if (r == 2) s_leave = true;
+            break;
+        }
         if (r == 0) {
             for (int i = 0; i < s_map.nunits; i++)
                 if (s_f[i].hero) s_f[i].done = true;
@@ -1063,7 +1174,7 @@ static void input(void)
         break;
     }
     case ST_MOVE:
-        if (dir >= 0) move_cursor(iso_map_dir(&s_map, dir));      // the D-pad as on screen, whatever the view
+        if (dir >= 0) move_cursor(iso_map_dir(&s_map, dir), true);      // the D-pad as on screen, whatever the view
         if (g_keys.turn) iso_turn(&s_map, g_keys.turn, s_cc, s_cr);
         if (key(FH1_KEY_A)) {
             uint8_t path[ISO_PATH];
@@ -1229,8 +1340,176 @@ static void boss_shadow(const ui_t *ui)
         }
 }
 
+// ── The heroes' showcase: each hero in turn steps up to the creature facing it and shows every skill it has (its
+// attack, then each spell its class knows; the creatures take no damage, everything else plays: effects, numbers),
+// takes one hit and kneels, is revived with an Elixir by the hero beside it, cheers, and steps back into line. Then
+// victory, and back to the title. Heroes are units 0..3, the creature facing hero i is unit 4 + i.
+
+enum { SH_IN, SH_ACTS, SH_HIT, SH_REVIVE, SH_CHEER, SH_BACK, SH_NEXT, SH_END };
+
+// The spells hero i knows; the mage shows them at each tier in turn (1, 2, 3), the others once, at their own.
+static int show_spells(int i)
+{
+    int n = 0;
+    for (int s = 0; s < g_nspells; s++) n += (g_classes[s_f[i].h->cls].spells >> s) & 1;
+    return n;
+}
+static int show_tiers(int i) { return s_f[i].h->cls == CLS_MAGE ? 3 : 1; }
+static int show_acts(int i) { return 1 + show_spells(i) * show_tiers(i); }
+
+static void show_act(int i, int k)
+{
+    fighter_t *f = &s_f[i];
+    const iso_unit_t *foe = &s_map.units[4 + i];
+    s_tier_force = 0;
+    if (k == 0) {
+        start_action(i, ACT_ATTACK, 0, foe->c, foe->r, false);
+        return;
+    }
+    const int n = show_spells(i), at = (k - 1) % n;
+    if (show_tiers(i) > 1) {                                      // the mage: every spell at tier 1, then 2, then 3
+        s_tier_force = 1 + (k - 1) / n;
+        if (at == 0) {
+            static const char *const tier[3] = { "Magias: nível 1", "Magias: nível 2", "Magias: nível 3" };
+            banner(tier[s_tier_force - 1], 1200);
+        }
+    }
+    for (int s = 0, m = 0; s < g_nspells; s++)
+        if (((g_classes[f->h->cls].spells >> s) & 1) && m++ == at) {
+            f->mp = f->mp_max;                                    // the show never runs out of PM
+            const iso_unit_t *t = g_spells[s].heal ? &s_map.units[i] : foe;
+            start_action(i, ACT_SPELL, s, t->c, t->r, false);
+            return;
+        }
+}
+
+static void show_update(uint32_t dt)
+{
+    const int i = s_show_i < 4 ? s_show_i : 3, j = i < 3 ? i + 1 : i - 1;   // j: the hero beside it, who revives it
+    iso_unit_t *u = &s_map.units[i];
+    s_show_t += dt;
+    if (s_show_step != SH_CHEER && s_show_step != SH_END) {      // each step once everything before it is done
+        bool busy = s_nq > 0 || fx_busy();
+        for (int k = 0; k < s_map.nunits; k++) busy |= iso_busy(&s_map.units[k]);
+        if (busy) {
+            s_show_t = 0;
+            return;
+        }
+    }
+    s_cc = u->c;                                                  // the camera on the hero showing
+    s_cr = u->r;
+    static const uint8_t ahead[2] = { FART_NE, FART_NE }, back[2] = { FART_SW, FART_SW };
+    switch (s_show_step) {
+    case SH_IN:
+        if (s_show_t < 500) return;
+        banner(s_f[i].name, 1400);
+        iso_walk(u, ahead, 2);
+        s_show_step = SH_ACTS;
+        s_show_k = 0;
+        break;
+    case SH_ACTS:
+        if (s_show_t < (s_show_k ? 900u : 300u)) return;        // a breath between skills
+        if (s_show_k < show_acts(i)) show_act(i, s_show_k++);
+        else s_show_step = SH_HIT;
+        break;
+    case SH_HIT:                                                  // one hit, as much as it has: it kneels
+        s_tier_force = 0;
+        if (s_show_t < 700) return;
+        if (start_action(4 + i, ACT_ATTACK, 0, u->c, u->r, false)) s_q[s_nq - 1].amount = s_f[i].hp;
+        s_show_step = SH_REVIVE;
+        break;
+    case SH_REVIVE: {
+        if (s_show_t < 900) return;
+        const int elixir = item_named("Elixir");
+        if (elixir >= 0) start_action(j, ACT_ITEM, elixir, u->c, u->r, false);
+        s_show_step = SH_CHEER;
+        break;
+    }
+    case SH_CHEER: {                                              // two hops, sparks at the top of each
+        if (s_nq > 0) {                                           // the Elixir still on its way
+            s_show_t = 0;
+            return;
+        }
+        const int p = (int)(s_show_t % 600);
+        u->lunge_y = (int8_t)(p < 300 ? -(p * (300 - p)) / 1800 : 0);   // up to 12 px
+        if (p >= 150 && p - (int)dt < 150) {
+            int x, y;
+            iso_feet(&s_map, u, &x, &y);
+            fx_sparkle((float)x, (float)y - 30, 0xffe0, 14);
+            snd_play(S_CONFIRM, 160);
+        }
+        if (s_show_t < 1200) return;
+        u->lunge_y = 0;
+        s_map.units[j].dir = FART_NE;                             // the helper faces the creatures again
+        s_map.units[j].aim = -1;
+        s_show_step = SH_BACK;
+        break;
+    }
+    case SH_BACK:
+        iso_walk(u, back, 2);
+        s_show_step = SH_NEXT;
+        break;
+    case SH_NEXT:
+        u->dir = FART_NE;                                         // back in line, turning to face its creature
+        u->aim = -1;
+        if (s_show_t < 400) return;
+        if (++s_show_i < 4) {
+            s_show_step = SH_IN;
+            break;
+        }
+        banner("Vitória!", 2800);
+        snd_play(S_ENCOUNTER, 200);
+        s_show_step = SH_END;
+        if (s_portal_c >= 0) portal_close(&s_portal);
+        break;
+    case SH_END:
+        if (s_show_t >= 3000) s_show_end = true;
+        return;
+    }
+    s_show_t = 0;
+}
+
+// Sparks rising from the campfires, a few at a time (decoration: the battle does not wait for them).
+// The portal (on the layer, under the units): its vortex where its frame stands, the frame's front bits over it.
+static void draw_portal(iso_map_t *m, uint16_t *px, int w, int h)
+{
+    if (s_portal_c < 0) return;
+    int x, y;
+    iso_world(m, s_portal_c, s_portal_r, &x, &y);
+    x -= m->camx;
+    y -= m->camy + ISO_STEP;                                     // objects stand one level up
+    const fart_clip_t clip = { 0, 0, w, h };
+    const bool mirror = m->view & 1;
+    portal_draw(&s_portal, &g_art, px, w, &clip, x, y, mirror);
+    const int front = fart_image(&g_art, "prop.portal.front");
+    if (front >= 0 && portal_shown(&s_portal)) fart_draw(px, w, &clip, &g_art.img[front], x, y, mirror);
+}
+
+static void fire_sparks(uint32_t dt)
+{
+    static uint32_t acc;
+    if (s_portal_c >= 0) portal_update(&s_portal, dt);
+    for (int i = 0; i < s_nfires; i++) {                         // their light, where the view puts them
+        int x, y;
+        iso_world(&s_map, s_fires[i][0], s_fires[i][1], &x, &y);
+        fx_light_move(s_fire_light[i], (float)x, (float)y - ISO_STEP);
+    }
+    if ((acc += dt) < 70) return;
+    acc = 0;
+    for (int i = 0; i < s_nfires; i++) {
+        int x, y;
+        iso_world(&s_map, s_fires[i][0], s_fires[i][1], &x, &y);
+        fx_aura((float)x, (float)y - ISO_STEP - 8, 4, 0xfb00, 0xffe0, FX_RISE);
+    }
+}
+
 static void update(uint32_t dt)
 {
+    fire_sparks(dt);
+    if (s_st == ST_SHOW) {
+        show_update(dt);
+        return;
+    }
     if (s_boss_in >= 0) {
         boss_step(dt);
         return;
@@ -1404,6 +1683,11 @@ screen_t battle_frame(const ui_t *u, uint32_t dt)
         battle_leave();
         return SCR_PARTY;                                         // back to the party (the shop is there)
     }
+    if (s_show_end) {                                             // the showcase over or left: the title, no summary
+        s_tier_force = 0;
+        battle_leave();
+        return SCR_TITLE;
+    }
     if (s_leave) return SCR_QUIT;                                 // the loop's closing frees the battle
     if (s_st == ST_SUMMARY) s_summary_t += dt;
     actions_update(dt);
@@ -1479,6 +1763,10 @@ screen_t battle_frame(const ui_t *u, uint32_t dt)
         const int hw = ui_hints_width("{s} girar");
         ui_box(u, u->w - hw - 16, 4, hw + 12, 22);
         ui_hints(u, u->w - hw - 10, 11, "{s} girar", 0xf0f0f0);
+    } else if (s_st == ST_SHOW) {
+        const int hw = ui_hints_width("{B} menu");
+        ui_box(u, u->w - hw - 16, 4, hw + 12, 22);
+        ui_hints(u, u->w - hw - 10, 11, "{B} menu", 0xf0f0f0);
     } else if (s_st == ST_MOVE || s_st == ST_TARGET) {
         ui_box(u, u->w - 172, 4, 168, 22);
         if (s_st == ST_MOVE) ui_hints(u, u->w - 166, 11, "Mover para onde? {A}", 0xf0f0f0);
@@ -1512,6 +1800,7 @@ void battle_host_place(int i, int c, int r, int dir)
     s_map.units[i].c = s_map.units[i].fc = c;
     s_map.units[i].r = s_map.units[i].fr = r;
     s_map.units[i].dir = dir;
+    s_map.units[i].aim = s_map.units[i].face = -1;
     s_cc = c;
     s_cr = r;
 }
@@ -1554,6 +1843,8 @@ void battle_host_xp(int slot, int xp) { if (slot >= 0 && slot < PARTY_MAX) g_res
 // Turns the view a quarter (by: +1 / -1) round the cursor, as Select does; view: one of the four at once.
 void battle_host_turn(int by) { iso_turn(&s_map, by, s_cc, s_cr); }
 void battle_host_view(int view) { iso_set_view(&s_map, view); }
+// The cutaway (units seen through the scenery in front of them) on or off, to compare.
+void battle_host_cutaway(bool on) { s_map.cutaway = on; }
 // What the view and the scenery animations cost here: a layer rebuild (a turn's half way) and every animated cell
 // redrawn at once (the most a frame change can ask), in ms, to the log.
 // Scenery changes (dev commands obj, height, top): a tile by its number in the pack (tile.N; -1 none), fx ISO_FX_*.

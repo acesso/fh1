@@ -1,6 +1,7 @@
 // The rules' numbers: elements, the catalogue, classes, realms and their creatures, the battles of each fase,
 // levels and saving. firmware/docs/taticas-da-ilha.md says the same in words.
 #include "game.h"
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -169,7 +170,7 @@ static int goods_find(int kind, int family, int level, int element)
             return g;
     return 0;
 }
-static int item_named(const char *n)
+int item_named(const char *n)
 {
     for (int g = 0; g < g_ngoods; g++)
         if (!strcmp(g_goods[g].name, n)) return g;
@@ -434,6 +435,38 @@ void battle_test(int realm, battle_def_t *b)
         b->foes[k].level = 5;
         b->foes[k].c = spots[k][0];
         b->foes[k].r = spots[k][1];
+    }
+}
+
+void battle_show(battle_def_t *b)
+{
+    const int realm = rand() % REALMS;
+    const realm_t *rm = &g_realms[realm];
+    memset(b, 0, sizeof(*b));
+    snprintf(b->name, sizeof(b->name), "Mostra dos Heróis");
+    b->about = "Cada herói mostra o que sabe.";
+    b->realm = (uint8_t)realm;
+    b->theme = rm->theme;
+    b->map = MAP_RANDOM;
+    b->cols = b->rows = 13;
+    b->seed = (uint16_t)(1 + rand() % 60000);
+    b->n = 4;
+    for (int k = 0; k < 4; k++) {
+        b->foes[k].type = rm->foes[k % rm->nfoes];
+        b->foes[k].level = 3;
+    }
+    b->show = true;
+}
+
+// The heroes in a row (two cells apart) near the bottom of the map's middle, each creature three cells ahead of its
+// hero: two steps bring a hero next to it.
+void show_spots(const battle_def_t *b, uint8_t heroes[4][2], uint8_t foes[4][2])
+{
+    const int cx = b->cols / 2, rh = b->rows / 2 + 2;
+    for (int k = 0; k < 4; k++) {
+        heroes[k][0] = foes[k][0] = (uint8_t)(cx - 3 + 2 * k);
+        heroes[k][1] = (uint8_t)rh;
+        foes[k][1] = (uint8_t)(rh - 3);
     }
 }
 

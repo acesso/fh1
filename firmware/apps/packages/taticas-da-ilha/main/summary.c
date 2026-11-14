@@ -1,6 +1,7 @@
-// The end of a battle, over the battlefield: the box opens, each enemy knocked out pops in with its coins and XP,
-// the coins count up, then each hero's XP bar fills, level by level; a hero that levels up cheers (hops, with
-// sparks) under "Subiu de nível!" and what it gained. A win that clears its fase says what it opened.
+// The end of a battle, over the battlefield: the box opens, each enemy knocked out pops in with its coins and XP
+// (standing through its idle once, then its death), the coins count up, then each hero's XP bar fills, level by
+// level; a hero that levels up cheers twice (hops, with sparks) under "Subiu de nível!" and what it gained; a hero
+// knocked out stands through one idle and kneels, with no XP. A win that clears its fase says what it opened.
 #include "game.h"
 #include <stdio.h>
 #include <string.h>
@@ -30,15 +31,45 @@ static float progress(uint32_t t, uint32_t start, uint32_t len)
     return (float)(t - start) / len;
 }
 
-static void sprite(const ui_t *u, const char *art, const uint16_t *shade, int x, int y, int dir, uint32_t t)
+#define STAND_MAX 1600                // one idle loop at most, before falling
+#define FALL_MS 380
+
+// Falling over, ms into it: slow at first, like a body tipping (degrees; sign: away from where it faces).
+static int fall_tilt(uint32_t ms, int sign)
+{
+    const uint32_t m = ms < FALL_MS ? ms : FALL_MS;
+    return sign * (int)(90 * m * m / (FALL_MS * FALL_MS));
+}
+
+// An enemy knocked out, t ms after it showed: its idle once, then its death held on its last frame (with no death
+// of its own it falls over). In its realm's colours: not greyed as in a battle.
+static void foe_down(const ui_t *u, const foe_t *e, int x, int y, uint32_t t)
 {
     char n[32];
-    snprintf(n, sizeof(n), "%s.idle", art);
+    snprintf(n, sizeof(n), "%s.idle", e->art);
+    const fart_anim_t *idle = fart_anim(&g_art, n);
+    snprintf(n, sizeof(n), "%s.death", e->art);
+    const fart_anim_t *death = fart_anim(&g_art, n);
+    uint32_t stand = idle ? (uint32_t)idle->frames * idle->ms : 800;
+    if (stand > STAND_MAX) stand = STAND_MAX;
+    const fart_anim_t *a = idle ? idle : death;
+    uint32_t at = t;
+    int tilt = 0;
+    if (t >= stand) {
+        if (death) {
+            const uint32_t len = (uint32_t)death->frames * death->ms;
+            a = death;
+            at = t - stand < len ? t - stand : len - 1;
+        } else {
+            at = 0;
+            tilt = fall_tilt(t - stand, 1);                      // facing the viewer's left: over to the right
+        }
+    }
     bool mirror;
-    const int idx = fart_frame(fart_anim(&g_art, n), dir, t, &mirror);
+    const int idx = fart_frame(a, FART_SW, at, &mirror);
     if (idx < 0) return;
     const fart_clip_t clip = { 0, 0, u->w, u->h };
-    const fart_style_t st = { .shade = shade };
+    const fart_style_t st = { .shade = e->shade, .tilt = (int16_t)tilt };
     fart_draw_style(u->px, u->w, &clip, &g_art.img[idx], x, y, mirror, &st);
 }
 
@@ -60,6 +91,17 @@ static void sparks(const ui_t *u, int x, int y, uint32_t t)
             if (sx >= 0 && sx < u->w && sy + d >= 0 && sy + d < u->h) u->px[(sy + d) * u->w + sx] = c;
         }
     }
+}
+
+#define CHEERS 2
+
+// When a hero's bar reaches its next level (its cheer starts), or UINT32_MAX if it does not level up. The bar of the
+// hero in slot s starts filling at `fill` and takes `len`.
+static uint32_t level_up_at(int s, uint32_t fill, uint32_t len)
+{
+    const int need = xp_next(g_result.level_before[s]) - g_result.xp_before[s];
+    if (g_result.xp[s] <= 0 || g_result.xp[s] < need) return UINT32_MAX;
+    return fill + len * (uint32_t)(need > 0 ? need : 0) / (uint32_t)g_result.xp[s];   // 32-bit: no __udivdi3
 }
 
 // What a hero shows after `gained` of its XP: its level and XP within that level.
@@ -110,7 +152,7 @@ void summary_draw(const ui_t *u, uint32_t t)
         const int slot = n > 1 ? (fw - 40) / n : 0;
         const int cx = n > 1 ? x0 + 20 + slot * i + slot / 2 : u->w / 2;
         const float pop = progress(t, at, 160);
-        sprite(u, e.art, e.shade, cx, fy - (int)(6 * (1.0f - pop)), FART_SW, t);
+        foe_down(u, &e, cx, fy - (int)(6 * (1.0f - pop)), t - at);
         snprintf(l, sizeof(l), "+%d", g_result.kills[i].coins);
         coin_icon(u, cx - 14, fy + 4);
         ui_text(u, cx, fy + 5, l, 0xf8d870);
@@ -140,16 +182,21 @@ void summary_draw(const ui_t *u, uint32_t t)
         const float p = progress(t, at + 150, T_HERO - 300);
         int lv, xp;
         xp_at(g_result.level_before[s], g_result.xp_before[s], (int)(g_result.xp[s] * p), &lv, &xp);
-        // Facing the viewer; once its level has gone up, it cheers.
+        // Facing the viewer; when its level goes up, it cheers twice. Knocked out: it stands through one idle, then
+        // kneels (its knock-out), not greyed.
         const bool up = lv > g_result.level_before[s];
-        const int hop = up ? cheer_hop(t) : 0;
-        hero_draw(u, h, x0 + 24, ry + 32 - hop, up ? FART_SW : FART_SE, false, t);
-        if (up && hop > 14) sparks(u, x0 + 24, ry + 2 - hop, t);
+        const uint32_t t_up = level_up_at(s, at + 150, T_HERO - 300);
+        const bool cheering = t >= t_up && t - t_up < CHEERS * 600;
+        const int hop = cheering ? cheer_hop(t - t_up) : 0;
+        const int down = g_result.down[s] ? (t - at >= 800 ? (int)(t - at - 800) : -1) : -1;
+        hero_draw(u, h, x0 + 24, ry + 32 - hop, up ? FART_SW8 : FART_SE8, false, t, down);
+        if (hop > 14) sparks(u, x0 + 24, ry + 2 - hop, t);
         ui_text(u, x0 + 46, ry + 4, h->name, 0x9fd8ff);
         snprintf(l, sizeof(l), "Nv %d", lv);
         ui_text(u, x0 + 46 + 80, ry + 4, l, lv > g_result.level_before[s] ? 0x80ff90 : 0xe0e0e8);
-        snprintf(l, sizeof(l), "+%d XP", (int)(g_result.xp[s] * p + 0.5f));
-        ui_text(u, u->w - 16 - len8(l), ry + 4, l, 0x9fd8ff);
+        if (g_result.down[s]) snprintf(l, sizeof(l), "sem XP");          // knocked out: its share went to the others
+        else snprintf(l, sizeof(l), "+%d XP", (int)(g_result.xp[s] * p + 0.5f));
+        ui_text(u, u->w - 16 - len8(l), ry + 4, l, g_result.down[s] ? 0xc07070 : 0x9fd8ff);
         ui_bar(u, x0 + 46, ry + 15, u->w - 16 - (x0 + 46), xp, xp_next(lv), 0xe0b040);
         const int ups = lv - g_result.level_before[s];
         if (ups > 0) {

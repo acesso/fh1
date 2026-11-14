@@ -35,6 +35,10 @@ typedef struct {
     int c, r;                        // the cell it stands on (the one it walks to, while walking)
     int fc, fr;                      // the cell it walks from
     int dir;                         // FART_SE...
+    int8_t aim;                      // an eighth on the map (FART_E8..., as on screen in view 0) it faces instead of
+                                     // dir, toward a target off the axes; -1: none (a step clears it)
+    int8_t face;                     // the eighth shown (map): it turns toward aim / dir an eighth at a time; -1: snap
+    uint16_t face_ms;                // ms since its last eighth of a turn
     uint32_t t;                      // its animation clock
     uint32_t step;                   // ms into the current step; 0 when standing
     uint8_t path[ISO_PATH];          // facings still to walk
@@ -61,8 +65,12 @@ typedef struct {
     bool falling;                    // knocked out without an animation for it: it falls over and stays down
     int16_t tilt;                    // how far over it is (degrees, 90: lying)
     bool counter;                    // ready to strike back (drawn with a mark)
+    int16_t under;                   // an image drawn on the ground at its feet, before it (a casting circle), or -1
 } iso_unit_t;
 #define ISO_POSE_REST (-1000)
+// Which way an eighth on screen holds things: to the right (e, se, s, ne) or the left; facing away (nw, n, ne).
+static inline bool iso_oct_right(int o) { o &= 7; return o <= FART_S8 || o == FART_NE8; }
+static inline bool iso_oct_away(int o) { o &= 7; return o >= FART_NW8; }
 // The rotation image for an angle (degrees).
 static inline int iso_rot(int base, int deg) { return base + (((deg % 360 + 360) * 16 + 180) / 360) % 16; }
 
@@ -72,6 +80,7 @@ static inline int iso_rot(int base, int deg) { return base + (((deg % 360 + 360)
 // cell: shimmer), or a wave rolling across the map (half a frame later per cell, down and right).
 enum { ISO_TA_SYNC, ISO_TA_SCATTER, ISO_TA_WAVE };
 #define ISO_TANIMS 8
+#define ISO_LIT 8
 typedef struct {
     uint16_t base;                   // the still image a cell names (the animation's first frame)
     uint8_t mode;
@@ -133,6 +142,10 @@ typedef struct iso_map {
     int nunits;
     int camx, camy;                  // the screen's top-left in world pixels
     uint8_t *mark;                   // per cell: ISO_MARK_*, drawn over the ground
+    bool cutaway;                    // units behind taller scenery show through it (a see-through ellipse round them)
+    // Called after the static layer is drawn, before marks and units: moving scenery a game draws itself, under the
+    // units (a portal's vortex).
+    void (*on_scenery)(struct iso_map *m, uint16_t *px, int w, int h);
     // Told when a unit starts a step (from_h, to_h: the levels it leaves and reaches): footsteps.
     void (*on_step)(const struct iso_map *m, const iso_unit_t *u, int from_h, int to_h);
     uint8_t view;                    // 0..3: quarter turns of the view
@@ -141,6 +154,8 @@ typedef struct iso_map {
     int ntanim;
     uint8_t *tanim_of;               // per image: 1 + its animation, 0: none (NULL: no animations)
     uint16_t *acells;                // the cells with an animated part (index r * cols + c)
+    uint16_t lit[ISO_LIT];           // images that give off light (iso_lit): never graded
+    uint8_t nlit;
     uint8_t *aframe;                 // per such cell, 3 bytes: the frame the layer shows of its top, fill and object
     int nacells;
     uint32_t now;                    // the scenery animations' clock (iso_draw's now_ms)
@@ -175,6 +190,9 @@ bool iso_build_layer(iso_map_t *m);
 // Animates a tile: cells naming image base show a's frames (its se facing), timed by mode (ISO_TA_*). Before
 // iso_build_layer. false: no room (ISO_TANIMS) or memory.
 bool iso_tile_anim(iso_map_t *m, int base, const fart_anim_t *a, int mode);
+// An image that gives off light (a fire, a portal): a grade leaves it, and its animation's frames, in their own
+// colours. Before iso_grade; ISO_LIT at most.
+void iso_lit(iso_map_t *m, int img);
 // Recolours the images the map's cells show (and their animations' frames) through fn, from their original
 // colours; fn NULL puts them back (iso_free does). Before iso_build_layer; the art is shared, so a map that grades
 // it undoes that when it goes.
@@ -211,6 +229,11 @@ static inline int iso_map_dir(const iso_map_t *m, int screen_dir) { return (scre
 static inline int iso_screen_dir(const iso_map_t *m, int dir) { return (dir + m->view) % 4; }
 
 iso_unit_t *iso_add_unit(iso_map_t *m, const fart_anim_t *walk, const fart_anim_t *idle, int c, int r, int dir);
+// The eighth (map) from u's cell toward (c, r): an axis when the target lies mostly along it, else the diagonal
+// between two axes. For iso_unit_t.aim.
+int iso_aim8(const iso_unit_t *u, int c, int r);
+// The eighth a unit shows on screen now (FART_E8...): its facing in the view, carried round by a spin.
+int iso_unit_oct(const iso_map_t *m, const iso_unit_t *u);
 // Starts a step to a neighbouring cell (one of the four facings); false if one is under way or it is outside.
 bool iso_step(iso_map_t *m, iso_unit_t *u, int dir);
 void iso_update(iso_map_t *m, uint32_t dt_ms);

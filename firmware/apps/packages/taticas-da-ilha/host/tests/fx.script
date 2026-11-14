@@ -1,0 +1,42 @@
+# The effect pack's animations over the actions: a sword's slash (the way it swings), an arrow's burst, a creature's
+# claw marks, a spell's circle at the caster's feet and its element's animation on the target (the paladin's Cura on the
+# ninja).
+nosave
+test 1
+wait 70
+place 0 7 6 0
+act 0 0 0 4
+wait 11
+shot x00-slash
+wait 30
+test 1
+wait 70
+place 2 5 7 0
+act 2 0 0 4
+wait 22
+shot x01-arrow-a
+wait 4
+shot x02-arrow-b
+wait 40
+test 1
+wait 70
+place 0 7 6 3
+act 4 0 0 0
+wait 14
+shot x03-claws-a
+wait 4
+shot x04-claws-b
+wait 4
+shot x05-claws-c
+wait 40
+test 1
+wait 70
+act 0 1 4 1
+wait 10
+shot x06-circle
+wait 16
+shot x07-heal
+wait 8
+shot x08-heal-on
+wait 60
+checklayer

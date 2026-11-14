@@ -1,0 +1,28 @@
+# The score screen: the creatures knocked out stand through their idle once and then die (in their colours, not
+# greyed); hero 0 levels up and cheers twice; hero 1, knocked out, stands, kneels and gets no XP ("sem XP"),
+# its share going to the heroes standing.
+nosave
+go 0 0 1
+wait 70
+xp 0 400
+kill 1
+wait 40
+win
+wait 40
+key A
+wait 20
+shot m00-foes-idle
+wait 30
+shot m01-foes-dying
+wait 30
+shot m02-coins
+wait 25
+shot m03-hero0-filling
+wait 12
+shot m04-hero0-cheer
+wait 20
+shot m05-hero1-standing
+wait 20
+shot m06-hero1-kneeling
+wait 60
+shot m07-end

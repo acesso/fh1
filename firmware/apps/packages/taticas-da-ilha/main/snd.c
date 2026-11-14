@@ -81,7 +81,8 @@ float snd_load_step(uint32_t max_bytes)
     for (int k = 0; k < S_COUNT; k++) {
         if (!(s_def[k].set & s_loading) || !s_snd[k].frames) continue;
         want += s_snd[k].frames;
-        if (!s_snd[k].pcm) s_snd[k].pcm = malloc(s_snd[k].frames * 2);      // large: PSRAM
+        // At least 4160 bytes: PSRAM even for a short sound (ESP-IDF serves smaller blocks from internal RAM).
+        if (!s_snd[k].pcm) s_snd[k].pcm = malloc(s_snd[k].frames * 2 < 4160 ? 4160 : s_snd[k].frames * 2);
         if (!s_snd[k].pcm) continue;
         if (s_snd[k].got < s_snd[k].frames && max_bytes >= 2) {
             if (!f) f = fopen(s_path, "rb");

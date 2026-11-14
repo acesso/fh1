@@ -40,6 +40,137 @@
     0,
     0
    ]
+  },
+  {
+   "name": "prop.campfire",
+   "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Campfire_Torch/prop_campfire_wood.png",
+   "anchor": [
+    9.0,
+    10
+   ]
+  },
+  {
+   "name": "prop.campfire.rocks",
+   "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Campfire_Torch/prop_campfire_rocks.png",
+   "anchor": [
+    9.0,
+    7
+   ]
+  },
+  {
+   "name": "prop.portal",
+   "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/prop_portal_complete_front.png",
+   "anchor": [
+    21.0,
+    36
+   ]
+  },
+  {
+   "name": "prop.portal.back",
+   "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/prop_portal_complete_back.png",
+   "anchor": [
+    21.0,
+    36
+   ]
+  },
+  {
+   "name": "prop.pillar",
+   "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Pillars/prop_ruin_pillar_full.png",
+   "anchor": [
+    9.0,
+    28
+   ]
+  },
+  {
+   "name": "prop.pillar.broken",
+   "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Pillars/prop_ruin_pillar_broken.png",
+   "anchor": [
+    9.0,
+    15
+   ]
+  },
+  {
+   "name": "prop.log",
+   "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Wood Tree/prop_wood_log_horizontal.png",
+   "anchor": [
+    7.5,
+    2
+   ]
+  },
+  {
+   "name": "prop.stump",
+   "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Wood Tree/prop_wood_tree_stump.png",
+   "anchor": [
+    6.5,
+    -1
+   ]
+  },
+  {
+   "name": "prop.rock.moss",
+   "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Stone/prop_rock_mossy_bush.png",
+   "anchor": [
+    7.5,
+    -2
+   ]
+  },
+  {
+   "name": "prop.rock.smooth",
+   "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Stone/prop_rock_smooth.png",
+   "anchor": [
+    5.5,
+    -2
+   ]
+  },
+  {
+   "name": "prop.portal.frame",
+   "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/prop_portal_complete_front.png",
+   "anchor": [
+    21.0,
+    36
+   ],
+   "cut": {
+    "part": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/fx_portal_vortex_right.png",
+    "keep": "rest"
+   }
+  },
+  {
+   "name": "prop.portal.front",
+   "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/prop_portal_complete_front.png",
+   "anchor": [
+    21.0,
+    36
+   ],
+   "cut": {
+    "part": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/fx_portal_vortex_right.png",
+    "keep": "front"
+   }
+  },
+  {
+   "name": "prop.portal.glow",
+   "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/prop_portal_complete_front.png",
+   "anchor": [
+    21.0,
+    36
+   ],
+   "cut": {
+    "part": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/fx_portal_vortex_right.png",
+    "keep": "glow"
+   }
+  },
+  {
+   "name": "portal.vortex",
+   "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/fx_portal_vortex_right.png",
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_in": {
+    "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/prop_portal_complete_front.png",
+    "anchor": [
+     21.0,
+     36
+    ]
+   }
   }
  ],
  "anims": [
@@ -50,7 +181,11 @@
     "se": "Se",
     "sw": "SW",
     "nw": "NW",
-    "ne": "NE"
+    "ne": "NE",
+    "s": "S",
+    "w": "W",
+    "n": "N",
+    "e": "E"
    },
    "anchor": [
     32,
@@ -72,13 +207,50 @@
    }
   },
   {
+   "name": "knight.down",
+   "aseprite": "../../../../assets/packs/banado-isometric-walk/units/KnightWalking.aseprite",
+   "tags": {
+    "se": "Se",
+    "sw": "SW",
+    "nw": "NW",
+    "ne": "NE",
+    "s": "S",
+    "w": "W",
+    "n": "N",
+    "e": "E"
+   },
+   "anchor": [
+    32,
+    48
+   ],
+   "body": {
+    "hand": "frontArm",
+    "torso": [
+     "body"
+    ],
+    "arms": [
+     "frontArm",
+     "backArm"
+    ],
+    "legs": [
+     "frontleg",
+     "backLeg"
+    ]
+   },
+   "kneel": true,
+   "ms": 120
+  },
+  {
    "name": "knight.idle",
    "aseprite": "../../../../assets/packs/banado-isometric-walk/units/KnightWalking.aseprite",
    "tags": {
     "se": "Se#",
     "sw": "Sw#",
     "nw": "Nw#",
-    "ne": "Ne#"
+    "ne": "Ne#",
+    "s": "S#",
+    "n": "N#",
+    "e": "E#"
    },
    "anchor": [
     32,
@@ -106,7 +278,11 @@
     "se": "Se",
     "sw": "SW",
     "nw": "NW",
-    "ne": "NE"
+    "ne": "NE",
+    "s": "S",
+    "w": "W",
+    "n": "N",
+    "e": "E"
    },
    "anchor": [
     32,
@@ -128,13 +304,50 @@
    }
   },
   {
+   "name": "warrior.down",
+   "aseprite": "../../../../assets/packs/banado-isometric-walk/units/WarriorWalk.aseprite",
+   "tags": {
+    "se": "Se",
+    "sw": "SW",
+    "nw": "NW",
+    "ne": "NE",
+    "s": "S",
+    "w": "W",
+    "n": "N",
+    "e": "E"
+   },
+   "anchor": [
+    32,
+    48
+   ],
+   "body": {
+    "hand": "frontArm",
+    "torso": [
+     "body"
+    ],
+    "arms": [
+     "frontArm",
+     "backArm"
+    ],
+    "legs": [
+     "frontleg",
+     "backLeg"
+    ]
+   },
+   "kneel": true,
+   "ms": 120
+  },
+  {
    "name": "warrior.idle",
    "aseprite": "../../../../assets/packs/banado-isometric-walk/units/WarriorWalk.aseprite",
    "tags": {
     "se": "Se#",
     "sw": "Sw#",
     "nw": "Nw#",
-    "ne": "Ne#"
+    "ne": "Ne#",
+    "s": "S#",
+    "n": "N#",
+    "e": "E#"
    },
    "anchor": [
     32,
@@ -162,7 +375,11 @@
     "se": "Se",
     "sw": "SW",
     "nw": "NW",
-    "ne": "NE"
+    "ne": "NE",
+    "s": "S",
+    "w": "W",
+    "n": "N",
+    "e": "E"
    },
    "anchor": [
     32,
@@ -184,13 +401,50 @@
    }
   },
   {
+   "name": "adventurer.down",
+   "aseprite": "../../../../assets/packs/banado-isometric-walk/units/AdventurerWalk.aseprite",
+   "tags": {
+    "se": "Se",
+    "sw": "SW",
+    "nw": "NW",
+    "ne": "NE",
+    "s": "S",
+    "w": "W",
+    "n": "N",
+    "e": "E"
+   },
+   "anchor": [
+    32,
+    48
+   ],
+   "body": {
+    "hand": "frontArm",
+    "torso": [
+     "body"
+    ],
+    "arms": [
+     "frontArm",
+     "backArm"
+    ],
+    "legs": [
+     "frontleg",
+     "backLeg"
+    ]
+   },
+   "kneel": true,
+   "ms": 120
+  },
+  {
    "name": "adventurer.idle",
    "aseprite": "../../../../assets/packs/banado-isometric-walk/units/AdventurerWalk.aseprite",
    "tags": {
     "se": "Se#",
     "sw": "Sw#",
     "nw": "Nw#",
-    "ne": "Ne#"
+    "ne": "Ne#",
+    "s": "S#",
+    "n": "N#",
+    "e": "E#"
    },
    "anchor": [
     32,
@@ -218,7 +472,11 @@
     "se": "Se",
     "sw": "SW",
     "nw": "NW",
-    "ne": "NE"
+    "ne": "NE",
+    "s": "S",
+    "w": "W",
+    "n": "N",
+    "e": "E"
    },
    "anchor": [
     32,
@@ -240,13 +498,50 @@
    }
   },
   {
+   "name": "mage.down",
+   "aseprite": "../../../../assets/packs/banado-isometric-walk/units/BlackMageWalk.aseprite",
+   "tags": {
+    "se": "Se",
+    "sw": "SW",
+    "nw": "NW",
+    "ne": "NE",
+    "s": "S",
+    "w": "W",
+    "n": "N",
+    "e": "E"
+   },
+   "anchor": [
+    32,
+    48
+   ],
+   "body": {
+    "hand": "frontArm",
+    "torso": [
+     "body"
+    ],
+    "arms": [
+     "frontArm",
+     "backArm"
+    ],
+    "legs": [
+     "frontleg",
+     "backLeg"
+    ]
+   },
+   "kneel": true,
+   "ms": 120
+  },
+  {
    "name": "mage.idle",
    "aseprite": "../../../../assets/packs/banado-isometric-walk/units/BlackMageWalk.aseprite",
    "tags": {
     "se": "Se#",
     "sw": "Sw#",
     "nw": "Nw#",
-    "ne": "Ne#"
+    "ne": "Ne#",
+    "s": "S#",
+    "n": "N#",
+    "e": "E#"
    },
    "anchor": [
     32,
@@ -1525,6 +1820,232 @@
     50
    ],
    "ms": 120
+  },
+  {
+   "name": "fx.slash",
+   "png": "../../../../assets/packs/effect-fx-pixel/Part 9/438.png",
+   "grid": [
+    64,
+    64
+   ],
+   "rows": {
+    "se": 5
+   },
+   "anchor": [
+    32,
+    32
+   ],
+   "scale": 0.5,
+   "ms": 45
+  },
+  {
+   "name": "fx.burst",
+   "png": "../../../../assets/packs/effect-fx-pixel/Part 10/485.png",
+   "grid": [
+    64,
+    64
+   ],
+   "rows": {
+    "se": 5
+   },
+   "anchor": [
+    32,
+    32
+   ],
+   "scale": 0.5,
+   "ms": 50
+  },
+  {
+   "name": "fx.claw",
+   "png": "../../../../assets/packs/effect-fx-pixel/Part 9/447.png",
+   "grid": [
+    64,
+    64
+   ],
+   "rows": {
+    "se": 7
+   },
+   "anchor": [
+    32,
+    32
+   ],
+   "scale": 0.75,
+   "ms": 55
+  },
+  {
+   "name": "fx.fire",
+   "png": "../../../../assets/packs/effect-fx-pixel/Part 11/529.png",
+   "grid": [
+    64,
+    64
+   ],
+   "rows": {
+    "se": 0
+   },
+   "anchor": [
+    32,
+    60
+   ],
+   "scale": 0.75,
+   "ms": 60
+  },
+  {
+   "name": "fx.water",
+   "png": "../../../../assets/packs/effect-fx-pixel/Part 14/652.png",
+   "grid": [
+    64,
+    64
+   ],
+   "rows": {
+    "se": 2
+   },
+   "anchor": [
+    32,
+    32
+   ],
+   "scale": 0.75,
+   "ms": 50
+  },
+  {
+   "name": "fx.earth",
+   "png": "../../../../assets/packs/effect-fx-pixel/Part 11/527.png",
+   "grid": [
+    64,
+    64
+   ],
+   "rows": {
+    "se": 4
+   },
+   "anchor": [
+    32,
+    50
+   ],
+   "scale": 0.75,
+   "ms": 55
+  },
+  {
+   "name": "fx.air",
+   "png": "../../../../assets/packs/effect-fx-pixel/Part 13/615.png",
+   "grid": [
+    64,
+    64
+   ],
+   "rows": {
+    "se": 1
+   },
+   "anchor": [
+    32,
+    32
+   ],
+   "scale": 0.75,
+   "ms": 50
+  },
+  {
+   "name": "fx.heal",
+   "png": "../../../../assets/packs/effect-fx-pixel/Part 14/655.png",
+   "grid": [
+    64,
+    64
+   ],
+   "rows": {
+    "se": 3
+   },
+   "anchor": [
+    32,
+    60
+   ],
+   "scale": 0.75,
+   "ms": 60
+  },
+  {
+   "name": "fx.circle.0",
+   "png": "../../../../assets/packs/effect-fx-pixel/Part 4/185.png",
+   "grid": [
+    64,
+    64
+   ],
+   "rows": {
+    "se": 3
+   },
+   "anchor": [
+    32,
+    32
+   ],
+   "scale": 0.75,
+   "ms": 55,
+   "squash": 0.5
+  },
+  {
+   "name": "fx.circle.1",
+   "png": "../../../../assets/packs/effect-fx-pixel/Part 4/185.png",
+   "grid": [
+    64,
+    64
+   ],
+   "rows": {
+    "se": 0
+   },
+   "anchor": [
+    32,
+    32
+   ],
+   "scale": 0.75,
+   "ms": 55,
+   "squash": 0.5
+  },
+  {
+   "name": "fx.circle.2",
+   "png": "../../../../assets/packs/effect-fx-pixel/Part 4/185.png",
+   "grid": [
+    64,
+    64
+   ],
+   "rows": {
+    "se": 2
+   },
+   "anchor": [
+    32,
+    32
+   ],
+   "scale": 0.75,
+   "ms": 55,
+   "squash": 0.5
+  },
+  {
+   "name": "fx.circle.3",
+   "png": "../../../../assets/packs/effect-fx-pixel/Part 4/185.png",
+   "grid": [
+    64,
+    64
+   ],
+   "rows": {
+    "se": 4
+   },
+   "anchor": [
+    32,
+    32
+   ],
+   "scale": 0.75,
+   "ms": 55,
+   "squash": 0.5
+  },
+  {
+   "name": "fx.circle.4",
+   "png": "../../../../assets/packs/effect-fx-pixel/Part 4/185.png",
+   "grid": [
+    64,
+    64
+   ],
+   "rows": {
+    "se": 1
+   },
+   "anchor": [
+    32,
+    32
+   ],
+   "scale": 0.75,
+   "ms": 55,
+   "squash": 0.5
   }
  ],
  "rotated": [
@@ -1701,13 +2222,63 @@
  ],
  "tile_anims": [
   {
-   "name": "tile.90",
-   "from": "tile.90",
+   "name": "water.shallow",
+   "from": "tile.88",
+   "frames": [
+    "tile.88",
+    "tile.88",
+    "tile.91",
+    "tile.89",
+    "tile.91",
+    "tile.88"
+   ],
+   "ms": 260
+  },
+  {
+   "name": "water.deep",
+   "from": "tile.94",
+   "frames": [
+    "tile.93",
+    "tile.93",
+    "tile.93",
+    "tile.94",
+    "tile.95",
+    "tile.96",
+    "tile.95",
+    "tile.93",
+    "tile.93",
+    "tile.94"
+   ],
+   "ms": 280
+  },
+  {
+   "name": "fire.flicker",
+   "from": "prop.campfire",
    "ripple": {
     "frames": 6,
-    "ms": 170,
-    "period": 12,
-    "keep": 2
+    "ms": 110,
+    "period": 7,
+    "keep": 2,
+    "rows": [
+     0,
+     13
+    ]
+   }
+  },
+  {
+   "name": "portal.whirl",
+   "from": "portal.vortex",
+   "whirl": {
+    "part": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/fx_portal_vortex_right.png",
+    "plane": [
+     0.55,
+     0
+    ],
+    "frames": 12,
+    "arms": 2,
+    "twist": 2.2,
+    "rim": 2,
+    "ms": 80
    }
   }
  ]

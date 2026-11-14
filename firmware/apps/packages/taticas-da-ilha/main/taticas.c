@@ -104,16 +104,20 @@ void hero_sprite(const ui_t *u, int cls, int x, int y, int dir)
     fart_draw(u->px, u->w, &clip, &g_art.img[idx], x, y, mirror);
 }
 
-void hero_draw(const ui_t *u, const hero_t *h, int x, int y, int dir, bool walking, uint32_t t)
+void hero_draw(const ui_t *u, const hero_t *h, int x, int y, int oct, bool walking, uint32_t t, int down)
 {
     char n[24];
-    snprintf(n, sizeof(n), "%s.%s", g_classes[h->cls].art, walking ? "walk" : "idle");
+    snprintf(n, sizeof(n), "%s.%s", g_classes[h->cls].art, down >= 0 ? "down" : walking ? "walk" : "idle");
     const fart_anim_t *a = fart_anim(&g_art, n);
+    if (a && down >= 0) {                                      // knocked out: its kneel, held on the last frame
+        const int len = a->frames * a->ms;
+        t = (uint32_t)(down < len ? down : len - 1);
+    }
     bool mirror;
-    int idx = a ? fart_frame(a, dir, t, &mirror) : -1;
+    int idx = a ? fart_frame8(a, oct, t, &mirror) : -1;
     if (idx < 0) {                                             // no idle: the walk's first frame
         snprintf(n, sizeof(n), "%s.walk", g_classes[h->cls].art);
-        idx = fart_frame(fart_anim(&g_art, n), dir, 0, &mirror);
+        idx = fart_frame8(fart_anim(&g_art, n), oct, 0, &mirror);
     }
     if (idx < 0) return;
     const fart_img_t *im = &g_art.img[idx];
@@ -127,13 +131,13 @@ void hero_draw(const ui_t *u, const hero_t *h, int x, int y, int dir, bool walki
         snprintf(n, sizeof(n), "%s.0", wart);
         wimg = fart_image(&g_art, n);
     }
-    const bool right = dir == FART_SE || dir == FART_NE, away = dir == FART_NE || dir == FART_NW;
+    const bool right = iso_oct_right(oct), away = iso_oct_away(oct);
     const int hx = im->hx != FART_NO_HAND ? x + (mirror ? -im->hx : im->hx) : x;
     const int hy = im->hx != FART_NO_HAND ? y + im->hy : y - 16;
     const fart_style_t ws = { .shade = wshade };
     for (int pass = 0; pass < 2; pass++) {
-        // Facing away, the weapon is behind the body; facing the viewer, in front of it.
-        if (wimg >= 0 && pass == (away ? 0 : 1))
+        // Facing away, the weapon is behind the body; facing the viewer, in front of it. Knocked out, it let go.
+        if (wimg >= 0 && down < 0 && pass == (away ? 0 : 1))
             fart_draw_style(u->px, u->w, &clip, &g_art.img[iso_rot(wimg, right ? rest : 180 - rest)], hx, hy, false, &ws);
         if (pass == 0) {
             const fart_style_t st = { .cover = cover, .ramp = ramp };
@@ -142,12 +146,11 @@ void hero_draw(const ui_t *u, const hero_t *h, int x, int y, int dir, bool walki
     }
 }
 
-void hero_pose(uint32_t t, int *dir, bool *walking)
+void hero_pose(uint32_t t, int *oct, bool *walking)
 {
-    // Round, a quarter at a time, walking all along: the heroes' art has no idle (one standing frame at most), so
-    // a pause would hold one frame still. A turn every 1.6 s (two loops of the walk).
-    static const int turn[4] = { FART_SE, FART_SW, FART_NW, FART_NE };
-    *dir = turn[(t / 1600) % 4];
+    // Round, an eighth at a time, walking all along: the heroes' art has no idle (one standing frame at most), so
+    // a pause would hold one frame still. An eighth every 0.8 s (a loop of the walk), clockwise from se.
+    *oct = (FART_SE8 + (int)(t / 800)) % 8;
     *walking = true;
 }
 
@@ -209,6 +212,7 @@ void battle_host_counter(int i);
 void battle_host_target(int a, int act, int what, int c, int r);
 void battle_host_gear(int i, int weapon, int armour);
 void battle_host_end(bool won);
+void battle_host_cutaway(bool on);
 void battle_host_ranged(int i, int range);
 void battle_host_cam(int x, int y);
 void battle_host_turn(int by);
@@ -258,6 +262,11 @@ bool dev_command(const char *line)
         s_dev_next = SCR_LOAD;
         return true;
     }
+    if (!strcmp(cmd, "show")) {                                  // the heroes' showcase (the title's Konami code)
+        battle_show(&g_battle);
+        s_dev_next = SCR_LOAD;
+        return true;
+    }
     if (!strcmp(cmd, "test")) {
         battle_test(sscanf(line, "%*s %d", &n[0]) == 1 ? n[0] : 1, &g_battle);
         s_dev_next = SCR_LOAD;
@@ -296,6 +305,7 @@ bool dev_command(const char *line)
     else if (!strcmp(cmd, "cam") && sscanf(line, "%*s %d %d", &n[0], &n[1]) == 2) battle_host_cam(n[0], n[1]);
     else if (!strcmp(cmd, "turn") && sscanf(line, "%*s %d", &n[0]) == 1) battle_host_turn(n[0]);
     else if (!strcmp(cmd, "view") && sscanf(line, "%*s %d", &n[0]) == 1) battle_host_view(n[0]);
+    else if (!strcmp(cmd, "cutaway") && sscanf(line, "%*s %d", &n[0]) == 1) battle_host_cutaway(n[0] != 0);
     else if (!strcmp(cmd, "bench")) battle_host_bench();
     else if (!strcmp(cmd, "relayer")) battle_host_relayer();
     else if (!strcmp(cmd, "checklayer")) battle_host_checklayer();
@@ -325,7 +335,7 @@ bool dev_command(const char *line)
 static void enter(screen_t s)
 {
     switch (s) {
-    case SCR_TITLE: title_enter(); break;
+    case SCR_TITLE: snd_unload(SND_SET_BATTLE); title_enter(); break;   // (back from the showcase: its sounds go)
     case SCR_PARTY: snd_unload(SND_SET_BATTLE); party_enter(); break;
     case SCR_REALM: realm_enter(); break;
     case SCR_PICK: pick_enter(); break;

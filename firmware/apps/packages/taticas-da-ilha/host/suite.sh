@@ -4,12 +4,12 @@
 #
 #   host/suite.sh [--device] [GROUP...]      from the package's folder; no group: quick; "all": every group
 #
-# Groups: views water scenery float effects spells overlays boss colors stress (host/tests/GROUP.script), and
-# regress (the older host scripts). Sets: quick = views scenery float effects; engine = views water scenery float
-# effects stress; game = spells overlays boss colors regress. Each group writes its screenshots and a contact sheet
-# (sheet.png) to host/out/suite/GROUP/ and fails on a write outside the frame (guard), a command the game did not
-# take, a layer that differs from a full build ("check: layer differs"), a layer check that never reported, or a
-# crash.
+# Groups: views water scenery float facing cutaway effects fx spells overlays boss colors summary show stress
+# (host/tests/GROUP.script), and regress (the older host scripts). Sets: quick = views scenery float facing
+# effects; engine = views water scenery float facing effects stress; game = fx spells overlays boss colors summary
+# show regress. Each group writes its screenshots and a contact sheet (sheet.png) to host/out/suite/GROUP/ and fails on
+# a write outside the frame (guard), a command the game did not take, a layer that differs from a full build
+# ("check: layer differs"), a layer check that never reported, or a crash.
 # --device runs the group scripts on the FH1 (FH1_CODE, FH1_HOST; host/device.py), saving off, with the frame times
 # and the bench lines from its log.
 cd "$(dirname "$0")/.." || exit 1
@@ -20,10 +20,10 @@ groups="$*"
 expand() {
     for g in "$@"; do
         case $g in
-        all) echo views water scenery float effects spells overlays boss colors stress regress ;;
-        quick) echo views scenery float effects ;;
-        engine) echo views water scenery float effects stress ;;
-        game) echo spells overlays boss colors regress ;;
+        all) echo views water scenery float facing cutaway effects fx spells overlays boss colors summary show stress regress ;;
+        quick) echo views scenery float facing effects ;;
+        engine) echo views water scenery float facing cutaway effects stress ;;
+        game) echo fx spells overlays boss colors summary show regress ;;
         *) echo "$g" ;;
         esac
     done

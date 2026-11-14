@@ -86,8 +86,31 @@ void title_enter(void)
     s_story = -1;
 }
 
+// The Konami code on the title (Up Up Down Down Left Right Left Right B A): the heroes' showcase.
+static bool konami(void)
+{
+    static const int code[10] = { FH1_KEY_UP, FH1_KEY_UP, FH1_KEY_DOWN, FH1_KEY_DOWN, FH1_KEY_LEFT, FH1_KEY_RIGHT,
+                                  FH1_KEY_LEFT, FH1_KEY_RIGHT, FH1_KEY_B, FH1_KEY_A };
+    static int at;
+    for (int k = 0; k <= FH1_KEY_MENU; k++) {
+        if (!key(k)) continue;
+        at = k == code[at] ? at + 1 : k == code[0] ? 1 : 0;
+        if (at == 10) {
+            at = 0;
+            g_keys.edge &= ~(1u << FH1_KEY_A);                   // the A that ends it is not the menu's
+            return true;
+        }
+    }
+    return false;
+}
+
 screen_t title_frame(const ui_t *u, uint32_t dt)
 {
+    if (s_story < 0 && konami()) {
+        snd_play(S_CONFIRM, 220);
+        battle_show(&g_battle);
+        return SCR_LOAD;
+    }
     draw_back(u);
     text_centre(u, u->h / 4 - 10, "Táticas da Ilha", 0xf8d870, 2);
     text_centre(u, u->h / 4 + 12, "Os Quatro Reinos", 0x9fb0d0, 1);
@@ -96,7 +119,7 @@ screen_t title_frame(const ui_t *u, uint32_t dt)
         int dir;
         bool walking;
         hero_pose(g_t + (uint32_t)i * 550, &dir, &walking);
-        hero_draw(u, &g_save.heroes[i], u->w / 2 - 54 + i * 36, u->h / 2 + 22, dir, walking, g_t);
+        hero_draw(u, &g_save.heroes[i], u->w / 2 - 54 + i * 36, u->h / 2 + 22, dir, walking, g_t, -1);
     }
     if (s_story >= 0) {                                    // the story: a page at a time
         const int bw = 296, bh = 92, x = (u->w - bw) / 2, y = (u->h - bh) / 2 + 30;
@@ -356,10 +379,10 @@ static void card(const ui_t *u, int i, int x, int y, int cw, int ch, bool on)
         }
     }
     // The chosen card's hero walks and turns; the others stand facing the viewer. All in their gear.
-    int dir = FART_SE;
+    int dir = FART_SE8;
     bool walking = false;
     if (on) hero_pose(g_t, &dir, &walking);
-    hero_draw(u, h, x + cw / 2, y + 52, dir, walking, on ? g_t : 0);
+    hero_draw(u, h, x + cw / 2, y + 52, dir, walking, on ? g_t : 0, -1);
     ui_text(u, x + 4, y + 56, h->name, h->in_party ? 0x9fd8ff : 0xc0c0c8);
     ui_text(u, x + 4, y + 66, g_classes[h->cls].name, 0x8a96b0);
     snprintf(l, sizeof(l), "Nv %d", h->level);

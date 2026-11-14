@@ -174,10 +174,16 @@ typedef struct {
                                                                   // unused); caster: casts its realm's element
     uint8_t heroes[3][2];                            // fixed maps: where the heroes start
     bool boss;
+    bool show;                                       // the heroes' showcase (battle_show): a scripted show, no save
 } battle_def_t;
 void battle_make(int realm, int tier, int index, battle_def_t *b);
 // The test field in a realm's colours (its creatures, its first boss): the engine's tests and showcase.
 void battle_test(int realm, battle_def_t *b);
+// The heroes' showcase (the Konami code on the title): a random realm and map, the four heroes side by side on a
+// flat stage facing four of its creatures. show_spots: where they stand (heroes, then the creature facing each).
+void battle_show(battle_def_t *b);
+void show_spots(const battle_def_t *b, uint8_t heroes[4][2], uint8_t foes[4][2]);
+int item_named(const char *n);       // a good by its name (-1: none)
 extern battle_def_t g_battle;        // the battle chosen (the loading screen, the battle, its summary)
 // Builds the battle's map into m (initialised to its size); spots: the heroes' starting cells, foes: the enemies'.
 void map_build(iso_map_t *m, const battle_def_t *b, uint8_t spots[3][2], uint8_t foes[6][2]);
@@ -194,6 +200,7 @@ typedef struct {
     int xp[PARTY_MAX];               // per party member
     int hero[PARTY_MAX];             // roster index per party member
     bool levelled[PARTY_MAX];
+    bool down[PARTY_MAX];            // knocked out at the end: no XP (its share went to the ones standing)
     int level_before[PARTY_MAX], xp_before[PARTY_MAX];
     int nparty;
     bool cleared;                    // this win cleared its fase
@@ -207,10 +214,10 @@ extern bool g_info;
 void draw_back(const ui_t *u);       // the menu screens' background
 void hero_sprite(const ui_t *u, int cls, int x, int y, int dir);   // a hero standing, feet at (x, y)
 // A hero as it is equipped (armour over its body, its weapon in hand), feet at (x, y): walking in place or
-// standing, facing dir.
-void hero_draw(const ui_t *u, const hero_t *h, int x, int y, int dir, bool walking, uint32_t t);
-// Walking in place, then turning to the next facing: the facing and whether it walks, at time t.
-void hero_pose(uint32_t t, int *dir, bool *walking);
+// standing, facing an eighth (FART_E8...); down: ms into its knock-out (kneeling, held at the end; no weapon), -1.
+void hero_draw(const ui_t *u, const hero_t *h, int x, int y, int oct, bool walking, uint32_t t, int down);
+// Walking in place, then turning an eighth further: the eighth and whether it walks, at time t.
+void hero_pose(uint32_t t, int *oct, bool *walking);
 // Player 1's user changed while the game runs: their own progress is loaded (g_owner: whose it is).
 extern char g_owner[24];
 bool game_owner_now(char *now, size_t n);           // true while player 1's user is still g_owner

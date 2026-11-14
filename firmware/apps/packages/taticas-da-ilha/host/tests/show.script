@@ -1,0 +1,53 @@
+# The heroes' showcase: the Konami code on the title (Up Up Down Down Left Right Left Right B A), then each hero
+# steps up, shows its skills on its creature (no damage taken), takes a hit and kneels, is revived with an Elixir,
+# cheers and steps back; victory, and back to the title.
+nosave
+wait 30
+key UP
+key UP
+key DOWN
+key DOWN
+key LEFT
+key RIGHT
+key LEFT
+key RIGHT
+key B
+key A
+wait 60
+shot h00-stage
+wait 40
+shot h01
+wait 40
+shot h02
+wait 50
+shot h03
+wait 60
+shot h04
+wait 60
+shot h05
+wait 60
+shot h06
+wait 80
+shot h07
+wait 80
+shot h08
+wait 100
+shot h09
+wait 100
+shot h10
+wait 120
+shot h11
+wait 120
+shot h12
+wait 150
+shot h13
+wait 150
+shot h14
+wait 150
+shot h15
+wait 150
+shot h16
+wait 150
+shot h17
+wait 200
+shot h99-title
