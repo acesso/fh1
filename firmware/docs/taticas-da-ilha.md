@@ -41,9 +41,11 @@ crosses each realm's fases and faces its Elemental. The title screen's "Históri
 | Arqueiro | 18, +4 | 0 | 4, 2 | bows (range 4, then 5) | light | |
 | Mago | 15, +3 | 14, +3 | 4, 1 | staffs | robes (+PM) | Fogo, Onda, Rocha, Trovão, Cura |
 
-- **Levels** 1 to 15. XP to the next level: 20 + 14 × level. Every hero in the party learns from every creature
-  knocked out: its XP (6 + 3 × its level; bosses 4×, 6×, 10×), a quarter less for each level the hero is above
-  it (down to a quarter); half after a defeat. One realm's three fases bring a party to about level 4, 10 and 15;
+- **Levels** 1 to 15. XP to the next level: 20 + 14 × level. Every hero standing at the end learns from every
+  creature knocked out: its XP (6 + 3 × its level; bosses 4×, 6×, 10×), a quarter less for each level the hero
+  is above it (down to a quarter). A hero knocked out learns nothing; its share goes to the heroes standing (each
+  gets the party's size over how many stand, times its own: two of three standing get 1.5×). Leaving a battle,
+  half; a defeat (every hero down), nothing. One realm's three fases bring a party to about level 4, 10 and 15;
   a second realm's first fase adds little.
 - **Gear levels:** every 5 levels a hero can use the next level of its class's gear: level 0 from the start,
   level 1 from hero level 5, level 2 from 10, level 3 from 15. The party's and the battle's equip lists show the
@@ -107,20 +109,41 @@ crosses each realm's fases and faces its Elemental. The title screen's "Históri
 Title (Começar, História, Sair) → Equipe (the party; Loja, the shop, from there) → Reinos (a card per realm: its slime, each fase's
 progress, its Elemental; the chosen realm's story) → the realm's path (its fases as tabs, Up/Down; its battles
 along a path, Left/Right; the chosen battle's creatures by kind and level and what it may pay) → loading (the
-battle's sounds) → the battle → the summary (each creature with its coins and XP, the coins counting up, each
-hero's XP bar; a hero that levels up cheers, and a new gear level is announced; a cleared fase says what the shop
-opened) → the party.
+battle's sounds) → the battle → the summary (each creature with its coins and XP, standing through its idle once
+and then dying, in its colours; the coins counting up; each hero's XP bar; a hero that levels up cheers twice, and
+a new gear level is announced; a hero knocked out stands, then kneels and shows "sem XP"; a cleared fase says what
+the shop opened) → the party.
 
 In battle, a unit knocked out plays its own death (wolves, slimes) or falls over (heroes, the boar, badger and
 stag), once, and lies still, its colour draining to a dim grey in under a second (back on a revive).
 
-- **Heroes as equipped:** on the title the roster walks in place and turns, in its armour and with its weapons;
-  on the party screen the chosen card's hero does, the others stand.
+- **Heroes as equipped:** on the title the roster walks in place and turns through eight facings, in its armour
+  and with its weapons; on the party screen the chosen card's hero does, the others stand.
+- **Eight facings:** the heroes turn an eighth at a time, turn with the map when it spins, and face a target off
+  the map's lines (an arrow or a spell sent askew).
 - **The shop** is on the party screen (Loja, beside Pronto); a battle's end goes back to the party.
+- **The heroes' showcase** (a secret: the Konami code on the title, Up Up Down Down Left Right Left Right B A):
+  a random realm and map with a flat stage, the four heroes side by side facing four of its creatures. In turn,
+  each hero steps two cells up to its creature and shows every skill it has (its attack, then each spell its class
+  knows; the creatures take no damage, but every effect and number plays), takes one hit and kneels, is revived
+  with an Elixir by the hero beside it, cheers and steps back into line. Then "Vitória!" and back to the title. No
+  save, no summary; the menu (B, Start) continues, goes back to the title or quits. The stage has the portal pack's
+  props: a portal behind the creatures between two broken pillars and a campfire past each end of the heroes'
+  row. The portal is the engine's (`portal.h`): its frame is scenery (`prop.portal.frame`), its vortex whirls in
+  the realm's colour (its light on the frame too), opens from its middle as the show starts and closes into it at
+  the end, a few motes of light drifting round it; the map engine's `on_scenery` hook draws it over the layer,
+  under the units. The campfire's flames flicker, sparks rise (`fx_aura`'s rising kind) and a warm light flickers
+  on the ground round it (`fx_light`); fire gives off light, so the realm's grade leaves it in its own colours
+  (`iso_lit`). The props are in the pack for any battle (`prop.*`, `fire.flicker`, `portal.whirl`).
+- **Seen through the scenery:** a hero or creature behind a taller column, a rock or a tree shows through it,
+  the cover half see-through round it.
+- **Moving:** choosing where to move, the cursor keeps to the cells the hero can reach; a press toward a cell it
+  cannot reach jumps on to the next one it can that way.
 - **Turning the map:** Select (or R1) spins the battlefield a quarter round the cursor, L1 the other way;
   "girar" shows in the corner while choosing. The cursor stays where it is on screen and the D-pad keeps moving
   it as on screen.
-- **Water** ripples, a wave rolling across the sea; in the fire realm the lava does.
+- **Water** by its depth: next to land it is shallow and light, a swell rolling along the shore and now and then
+  a rock standing in it; further out it is deep and dark, glinting here and there. In the fire realm it is lava.
 - **Bosses arrive:** in a boss battle with minions, the boss is off the field until they are all down. Then the
   ground rumbles ("Algo se aproxima..."), its shadow grows on its cell (or the nearest free one), and it comes: the
   Alpha drops from the sky and lands with a shake, the ground cracking round it (looks only); the King Slime lands
@@ -130,6 +153,10 @@ stag), once, and lies still, its colour draining to a dim grey in under a second
   then flames rising and the air waving with heat, then a shake. Onda: more splash and drops, then the screen
   waving. Rocha: a rock drops onto the target and shatters, then more round it with the ground cracking and
   shaking. Trovão: the bolt, then a negative flash, then a shake. Cura: more sparkles.
+- **Effects on every blow:** a sword or dagger leaves a slash the way it swings, an arrow bursts in a star, a
+  creature's bite leaves claw marks. A caster stands in a rune circle of the spell's element, then the spell plays
+  on its target: a flame pillar (Fogo), an ice burst (Onda), rubble as the rock lands (Rocha), purple lightning
+  (Trovão), a lotus growing (Cura and the items).
 - **Creatures stand out from their ground:** each realm tints its creatures with its element apart from its
   scenery: fire charcoal to flame gold over red rock, water navy to ice, earth umber to sandstone over grass and
   dirt, air ochre to pale gold.
@@ -153,25 +180,26 @@ goes back to each class's level 0, and the old weapons and armour in the bag are
 
 - **Anywhere:** `nosave` (the saved game stays as it was until the game closes), `info` (the frame time on
   screen), `go REALM FASE BATTLE` (straight to its loading screen; realms 0 Fogo, 1 Água, 2 Terra, 3 Ar; fases and
-  battles from 0), `test REALM` (the test field in a realm's colours); a battle under way is left.
+  battles from 0), `test REALM` (the test field in a realm's colours), `show` (the heroes' showcase); a battle under way is
+  left.
 - **Outside a battle:** `won REALM FASE N`, `level HERO N`, `coins N`, `give GOODS N`,
   `screen title|party|realms|path|shop`.
 - **In a battle:** `place`, `act`, `counter`, `target`, `gear`, `ranged`, `cam`, `xp`, `hp`, `win`, `lose`, `log`;
-  `turn 1|-1` (as Select does), `view 0..3` (at once), `turnstyle 0|1` (spinning, narrowing); `obj C R TILE FX`,
-  `height C R H FX`, `top C R TILE FX` (the scenery changing: TILE a tile's number, -1 none; FX 0 at once, 1
-  breaking, 2 dropping, 3 rising, 4 fading, 5 teleporting), `float C R BASE BOB`, `crack C R POWER`,
-  `dropon C R TILE` (looks only); `cast EL TIER C R` (a spell's looks at a cell; EL 0 healing, 1 fire, 2 water,
-  3 earth, 4 air), `tier N` (every spell at a tier; 0: by level), `screen KIND MS STRENGTH` (0 negative, 1 wave,
-  2 shake); `kill UNIT` (-1: every creature but the bosses; a waiting boss then comes), `boss` (a waiting boss
-  called in now); `relayer` (the layer built again from scratch), `checklayer` (the layer against a fresh build:
-  "check: layer ok"), `bench` (what turns, the ripple and scenery changes cost, to the log).
+  `turn 1|-1` (as Select does), `view 0..3` (at once), `turnstyle 0|1` (spinning, narrowing), `cutaway 0|1`; `obj C
+  R TILE FX`, `height C R H FX`, `top C R TILE FX` (the scenery changing: TILE a tile's number, -1 none; FX 0 at
+  once, 1 breaking, 2 dropping, 3 rising, 4 fading, 5 teleporting), `float C R BASE BOB`, `crack C R POWER`,
+  `dropon C R TILE` (looks only); `cast EL TIER C R` (a spell's looks at a cell; EL 0 healing, 1 fire, 2 water, 3
+  earth, 4 air), `tier N` (every spell at a tier; 0: by level), `screen KIND MS STRENGTH` (0 negative, 1 wave, 2
+  shake); `kill UNIT` (-1: every creature but the bosses; a waiting boss then comes), `boss` (a waiting boss called
+  in now); `relayer` (the layer built again from scratch), `checklayer` (the layer against a fresh build: "check:
+  layer ok"), `bench` (what turns, the ripple and scenery changes cost, to the log).
 
 **The test field** (`battle_test`, "Campo de Testes"): 14 × 14, heights 0 to 6 (a stair up to a tower), a channel
 of water, a yard, rocks, plants and stumps, a still floating slab and two groups of bobbing ones; three heroes,
 two of the realm's creatures and its Alpha waiting off the field.
 
 **The suite:** `host/suite.sh [--device] [GROUP...]` runs the scripts in `host/tests/` (views, water, scenery,
-float, effects, spells, overlays, boss, colors, stress) and the older ones (regress), in sets (quick, the default;
+float, facing, cutaway, effects, fx, spells, overlays, boss, colors, summary, show, stress) and the older ones (regress), in sets (quick, the default;
 engine, game, all), and fails on writes outside the frame, commands not taken, layers that differ from a full
 build, checks that never reported, and crashes. Screenshots and a contact sheet per group: `host/out/suite/GROUP/`.
 `--device` runs them on the FH1 (`FH1_CODE`).

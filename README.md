@@ -40,6 +40,9 @@ Future ideas and pending work; each leaves this list when it lands.
 - **Simulator:**
   - faster in the browser;
   - the micro-SD card and Wi-Fi.
+- **FH1 hardware:** a third GPIO expander on the second board for the camera and later modules; a faster display
+  link, first 80 MHz SPI tested on the built board, then an 8-bit 8080 bus if needed (`hardware/open-questions.md`
+  22 and 23).
 - **FH1 board firmware:** the ES8311 codec setup, the micro-SD slot, the battery level, the IMU.
 - **Táticas da Ilha:**
   - difficulty that adapts to the player;
@@ -47,6 +50,9 @@ Future ideas and pending work; each leaves this list when it lands.
     battle with him, as the game's last boss;
   - bosses with skills of their own and sizes beyond twice (a boss's own entrance and attacks, drawn for it);
   - spells with art of their own at each tier.
+- **Construção Legal:**
+  - more to stack: a storey on houses beyond the 2 x 2 one, on the smithy;
+  - more moving things: smoke from houses with a chimney, water, people in the village.
 - **Isometric engine:** ground under a floating slab (a cell with a column and a slab over it), and a shadow
   on it.
 
@@ -65,6 +71,7 @@ Future ideas and pending work; each leaves this list when it lands.
 | `hardware/open-questions.md` | Decisions, and the questions still open |
 | `firmware/PLAN.md` | Firmware design: boards, devices, interface, packages, emulators, music, bridge, users |
 | `firmware/docs/sdk.md` | The SDK guide: writing apps and games for the FH1, the isometric engine, testing, limits |
+| `firmware/docs/construcao-legal.md` | Construção Legal, the exploration (and building) game: its world, drawing, development |
 | `firmware/` | The firmware (ESP-IDF v6.1): build, flash and app notes in `firmware/README.md` |
 | `bridge/` | The Bluetooth bridge's firmware (ESP32 + Bluepad32) |
 | `simulator/` | The web simulator and the site: the FH1 firmware on esp32sim in the browser |

@@ -157,17 +157,18 @@ in memory watches `fh1_user(0, ...)` and loads theirs. Uninstalling deletes the 
 
 ## Games: the isometric engine
 
-The engine lives in the Táticas da Ilha package, [`apps/packages/taticas-da-ilha/main`](../apps/packages/taticas-da-ilha/main),
-in plain C with no FH1 dependencies beyond the frame buffer. Another game reuses it by copying its files into its
-own package. Its design is in [`game-engines.md`](game-engines.md); the game built on it is described in
+The engine is plain C with no FH1 dependencies beyond the frame buffer. Its shared part, the art packs, the in-game
+interface and the effects, is in [`apps/engine`](../apps/engine): a package compiles those files from there (its
+`main/CMakeLists.txt` lists them and adds the folder to its includes). The map and its units (`iso.c`) are still in
+the Táticas da Ilha package, [`apps/packages/taticas-da-ilha/main`](../apps/packages/taticas-da-ilha/main). Its design is in [`game-engines.md`](game-engines.md); the game built on it is described in
 [`taticas-da-ilha.md`](taticas-da-ilha.md).
 
 | File | What |
 |---|---|
-| `fart.c` / `fart.h` | Art packs: images as rows of opaque runs (RGB565), animations by facing; drawing with tints, armour, a colour for all of it, twice the size, turned about the anchor, fading; recolouring an image in place |
+| `engine/fart.c` / `fart.h` | Art packs: images as rows of opaque runs (RGB565), animations by facing; drawing with tints, armour, a colour for all of it, twice the size, turned about the anchor, fading; recolouring an image in place |
 | `iso.c` / `iso.h` | The map and its units (below) |
-| `fx.c` / `fx.h` | Projectiles that turn along their path, particles, lightning, trails, auras; the whole screen: a negative flash, a wave through the rows, a shake (through the camera) |
-| `ui.c` / `ui.h` | Translucent boxes, menus, bars, banners, text, hint lines with the controller's button icons |
+| `engine/fx.c` / `fx.h` | Projectiles that turn along their path, particles, lightning, trails, auras, animations of the art played once at a point (`fx_play`: a hit, a spell); the whole screen: a negative flash, a wave through the rows, a shake (through the camera) |
+| `engine/ui.c` / `ui.h` | Translucent boxes, menus, bars, banners, text, hint lines with the controller's button icons |
 | `snd.c` / `snd.h` | Sound banks (`.fsfx`): sets loaded per screen, played through `fh1_sfx_play` |
 
 **What the map does:**
@@ -177,9 +178,15 @@ own package. Its design is in [`game-engines.md`](game-engines.md); the game bui
   (not in the layer), and units standing on them bob too.
 - **A static layer:** the scenery drawn once into PSRAM; each frame copies the part under the camera, then draws
   the units in depth order and draws the scenery in front of them again over them, only where they are.
-- **Units:** walk and idle animations by facing (4 facings; a missing one is its twin mirrored), walking paths
-  with hops between heights, one-shot animations, falling over, white flashes, dimming, fading, a weapon in the
-  hand (16 rotations), armour colours, bosses at twice the size.
+- **Units:** walk and idle animations by facing: the 4 diagonals on screen, or 8 with the cardinal ones (s, w, n,
+  e; `fh1art.py` writes 8 when a recipe names any of them). A missing facing is its twin mirrored (se/sw, nw/ne,
+  e/w); a cardinal facing the art lacks shows the unit's own diagonal beside it. A unit turns an eighth at a time
+  (70 ms each), so a quarter turn shows the facing between; a spin carries it round through them; `aim` (from
+  `iso_aim8`) faces a target off the map's axes. Walking paths with hops between heights, one-shot animations,
+  falling over, white flashes, dimming, fading, a weapon in the hand (16 rotations), armour colours, bosses at
+  twice the size, an image on the ground at the feet (`under`). The cutaway (`cutaway`, on by default): a unit
+  behind taller scenery shows through it, the cover drawn half see-through (every other pixel) in an ellipse round
+  the unit.
 - **Rules helpers:** the cells a unit can reach within a range and a climb limit, and the path to one
   (`iso_reach`, `iso_path_to`); marked cells (move, act, area); a cursor; a camera that follows.
 - **Four views** (`iso_turn`, `iso_set_view`): the map turns a quarter at a time round the cursor, whose cell
@@ -226,9 +233,9 @@ slabs; the RAM on the FH1). A frame has 33 ms at 30 frames a second:
 
 **Art** comes from external packs, converted when the package is built by `tools/fh1art.py` following a recipe
 the game commits (`art.json`): slices of sheets, Aseprite tags and layers, scaling that keeps pixel art crisp,
-recoloured hues, weapons turned to 16 angles (`"rotated"`), and tiles animated by a ripple through their
-brightness levels (`"tile_anims"`: water, and lava once graded). The recipe format is in the tool's
-docstring. The packs' sources are in the repository's `assets/packs/<pack>/`, as their authors ship them.
+recoloured hues, weapons turned to 16 angles (`"rotated"`), and tiles animated (`"tile_anims"`): by a list of
+the pack's own images (a tileset's steps of a swell, a glint), or by a ripple through an image's brightness
+levels. The recipe format is in the tool's docstring. The packs' sources are in the repository's `assets/packs/<pack>/`, as their authors ship them.
 **Sound** comes from WAV files through `tools/fh1sfx.py` (a bank per game, or an asset package shared by games;
 [`sound-and-shared-assets.md`](sound-and-shared-assets.md)).
 
@@ -240,13 +247,13 @@ docstring. The packs' sources are in the repository's `assets/packs/<pack>/`, as
   writes outside it stops the run. `make -C host`, then `host/host host/tests/views.script host/out/views`.
 - **The test suite:** `host/suite.sh [GROUP...]` runs Táticas da Ilha's end-to-end tests on the test field (dev
   `test REALM`: heights 0–6, a tower, a channel, objects, floating and bobbing slabs, two creatures and a boss
-  waiting), one script per group under `host/tests/`. Groups: `views`, `water`, `scenery`, `float`, `effects`,
-  `spells`, `overlays`, `boss`, `colors`, `stress`, and `regress` (the older scripts); sets `quick` (the default:
-  views, scenery, float, effects, a few seconds), `engine`, `game` and `all`. Each group leaves its screenshots
-  and a contact sheet in `host/out/suite/GROUP/` and fails on a write outside the frame, a command the game did
-  not take, a layer that differs from a full build (`checklayer`), a check that never reported, or a crash.
-  `--device` runs the same scripts on an FH1 (`FH1_CODE`), with the frame times on screen and the `bench` lines.
-  The groups double as the engine's showcase.
+  waiting), one script per group under `host/tests/`. Groups: `views`, `water`, `scenery`, `float`, `facing`,
+  `cutaway`, `effects`, `fx`, `spells`, `overlays`, `boss`, `colors`, `summary`, `show`, `stress`, and `regress`
+  (the older scripts); sets `quick` (the default: views, scenery, float, facing, effects, a few seconds), `engine`,
+  `game` and `all`. Each group leaves its screenshots and a contact sheet in `host/out/suite/GROUP/` and fails on a
+  write outside the frame, a command the game did not take, a layer that differs from a full build (`checklayer`),
+  a check that never reported, or a crash. `--device` runs the same scripts on an FH1 (`FH1_CODE`), with the frame
+  times on screen and the `bench` lines. The groups double as the engine's showcase.
 - **Checking a cached picture:** a change that updates part of a cache (the layer) should leave it as a full
   build would: `checklayer` (`iso_check_layer`) compares them; `relayer` rebuilds the layer.
 - **Development commands:** a game reads `fh1_dev_command()` once a frame and runs the same commands as its host

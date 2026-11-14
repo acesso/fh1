@@ -237,6 +237,12 @@ A full-screen app gets the fast internal RAM: the window system keeps its heap i
 draw buffer while paused, and the emulators put their hottest data (CPU state, work and video RAM, the
 first ROM bank) in internal RAM first, always leaving 32 KB free for Wi-Fi. See PLAN.md, "Memory".
 
+The firmware's own large static tables live in PSRAM (`EXT_RAM_BSS_ATTR`, `CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY`):
+the package lists, the bridges, the users, the desktop pattern. On the Guition that leaves ~58 KB of internal RAM
+free at idle (largest block ~31 KB) and ~68 KB in a Táticas da Ilha battle. A new big static buffer belongs there
+too, unless an interrupt, DMA or code running with the flash cache off uses it; `idf.py size-components` shows
+what each component keeps in internal RAM.
+
 ## Look
 
 Windows are text boxes with a double border, ball corners, and the title in a small pill the border runs

@@ -79,11 +79,13 @@ it can change without flashing firmware, then moved into the firmware once its A
 - **Static scenery drawn once:** the map is drawn into a PSRAM layer, again only when tiles change, the view
   turns or an animated tile's frame changes (only that tile's box); camera moves copy from it. Each frame redraws only what changed: a sprite's old and new rectangles are restored from the
   layer, sprites are drawn in depth order, then the tile parts in front of them are drawn again.
-- **Sprites:** RGB565 with 1-bit transparency, trimmed to their pixels, an anchor at the feet; animations of a
-  few frames at their own rate (4–8 frames a second), so a mostly static scene costs little CPU.
+- **Sprites:** RGB565 with 1-bit transparency, trimmed to their pixels, an anchor at the feet; drawn (not pixel)
+  art scaled down can keep a soft edge (pack v3: the edge's pixels with their opacity, blended over what is under
+  them on plain draws; styled draws keep the hard shape); animations of a few frames at their own rate (4–8 frames a second), so a mostly static scene costs little CPU.
 - **Depth:** by row + column, then height, then layer.
-- **Characters:** 4 facings (the map's diagonals on screen); the two facing west are the eastern ones mirrored,
-  so art is needed for 2 facings. A unit is a base body plus equipment layers (armour, shield, weapon), each with
+- **Characters:** 4 facings (the map's diagonals on screen), or 8 where the art has them (the cardinal ones show
+  while turning and toward targets off the axes); the facings west can be the eastern ones mirrored, so art is
+  needed for 2 facings at least. A unit is a base body plus equipment layers (armour, shield, weapon), each with
   its own frames and a draw order per facing (a shield goes behind the body when the unit faces away). The layers
   are combined into a cached sheet per unit when its equipment changes, not every frame.
 - **Around it:** the FH1's gamepads and keys, `fh1_audio`, saves with `fh1_state_save`, windows in the FH1's
@@ -97,7 +99,48 @@ it can change without flashing firmware, then moved into the firmware once its A
   tags as animations, cel positions).
 - **Steps:** slice, trim, scale down (integer factors pixel-exact; other factors by area, then snapped to the
   source's colours, so pixel art stays crisp), optional palette reduction, anchors, mirrored facings, and the
-  equipment layers kept apart.
+  equipment layers kept apart. Drawn art (`"smooth"`) is filtered instead (a box filter, premultiplied); with
+  `"aa"` its soft edge stays (opacity 24–223 in the edge list, from 224 opaque), except on ground blocks, which
+  tile. `"over"` lays one picture on another first; `"spin"` makes frames of a picture turned about a point in a
+  tilted plane (a windmill's sails). `fart_draw_alpha` blends a whole image at an opacity (smoke).
+- **3D models (`tools/fh1model.py`):** simple solids (blocks, gable and hip roofs, cylinders, cones, flat panels
+  for doors and windows) in a small JSON model, rendered on the PC into the game's isometric view in a drawn style
+  (flat colours by which way a face looks, dark outlines where faces meet, soft edges), and cut along their cells
+  so a building can be drawn cell by cell. `fh1art.py`'s `"buildings"` puts a building game's pieces into its pack
+  (a piece per way a cell can be joined, in reference colours, and the palettes); `fart_map` swaps colours as an
+  image is drawn, so one piece serves every colour. Inside a model's picture every pixel is an exact palette
+  colour (the most of its subpixels), only the edge is soft. A piece is rendered with a little of its neighbours
+  round it (no outline where it runs on) and keeps the pixels whose middle is over its own cell, so pieces drawn
+  side by side share the pixels out exactly. `"line"` parts draw seams (a castle's square-wave joins) on the faces
+  they lie on. `castle_set`: castle walls and keeps cell by cell; `flag_set`: a waving flag's frames.
+  `fh1model.py show` renders a model to look at, `sheet` a building spec's pictures.
+- **Lights (`engine/fx.c`):** `fx_light` adds a glow over the scene round a point on the ground (an ellipse, brightest
+  at its middle, a flame's flicker if asked) until `fx_reset` or `fx_light_off`; `fx_light_move` follows the point
+  when the view turns. Táticas' map engine leaves what gives off light out of a realm's grade (`iso_lit`).
+- **Whirls and turns (`fh1art.py`'s `tile_anims`):** `"whirl"` keeps a part's rim and winds spiral arms round its
+  middle in its own colours (a portal's vortex), `"turn"` turns a part in its tilted plane, both pixel-art crisp;
+  a ripple's `"rows"` keeps it to some rows (a fire's flames). On an image, `"cut"` takes a part out of a whole
+  picture (the rest, what stands in front of it, or the light it casts) and `"anchor_in"` places a part as it sits
+  in the whole.
+- **Portals (`engine/portal.c`):** `portal_load` (a pack's whirl frames; its reference colours from them),
+  `portal_colour` (any colour: the shades spread from a dark tone of it to a pale one), `portal_glow` (the light it
+  casts on its frame, fh1art.py's `"cut"` `"glow"`), `portal_open` / `portal_close` (growing from its middle,
+  shrinking back: `fart_draw_zoom`), `portal_update`, `portal_draw` (with a few motes of light drifting round it in
+  its colours). The game draws it where its frame stands, at its depth.
+- **Interiors (`engine/interior.c`):** a building's inside seen from above at a slant, one floor at a time, laid
+  out by the game's plan (`interior_plan_t`): a room for each of its cells on a grid of up to 4 x 4, a doorway
+  wherever the plan joins two (to the right, below), or one open hall; the door out on the entry room's back wall,
+  stairs in its back corners. `interior_enter`, `interior_floor` (another floor's plan), `interior_room` (a cell's
+  room, for furnishing it), `interior_add` (furniture: a picture and its footprint), `interior_move` (kept off
+  walls and furniture; tells of the door out and the stairs), `interior_draw` (the game's floor, wall, door and
+  window pictures, or plain shapes; the view following the walker, drawn by the game in its place among the
+  furniture).
+- **View turns (`engine/viewturn.c`):** a quarter turn of the view shown as a cube turning: `viewturn_begin` keeps
+  the frame shown, `viewturn_update`, `viewturn_draw` folds it away over the new view as that one turns in (each
+  face darker and narrower at its far side as it faces away). A frame counts at most 40 ms toward it, so the slow
+  first frame of a new view does not cut it short.
+- **Flags (`engine/flag.c`):** `flag_load` (a pack's `flag.0..`, `flag.key`), `flag_frame` (the frame at a time,
+  `FLAG_MS` each), `flag_draw` (its cloth in any two colours, through `fart_map`): a team's, a realm's, a tower's.
 - **Output:** one binary pack in the package's `assets/`, and preview sheets (PNG) to check by eye.
 - **Sources** are in the repository's `assets/packs/<pack>/` (the repository is private), each pack as its
   author ships it. A build writes the SHA-256 of every input next to the pack (`*.sources.json`).
@@ -108,8 +151,13 @@ it can change without flashing firmware, then moved into the firmware once its A
 |---|---|---|---|
 | [32 x 32 Pixel Isometric Tiles](https://scrabling.itch.io/pixel-isometric-tiles) (scrabling) | Terrain (grass, dirt, flowers, rocks, stumps, water and its edges), separate PNGs and a sheet; animals (boar, stag, badger, wolf) walking in 4 directions, with Aseprite files | Free (pay what you want) | Labelled CC BY 4.0; its text allows use and modification in any project, no credit required, and forbids distributing the files on their own |
 | [8 Directional Walk Isometric Pixel animation template](https://banado.itch.io/isometic) (banado) | A human base body walking in 8 directions, 64 x 64 frames (the figure about 32 x 32), its Aseprite file split into part layers (back leg, front leg, back arm, body, front arm, head); four dressed characters (Adventurer, Black Mage, Knight, Warrior) as Aseprite files and sheets. Walk only, plus one standing frame per direction (empty in the Knight and Adventurer files); still in development | $1 ($3 for the characters) | Same text as above |
+| Effect and FX Pixel All Free (found on a forum; `assets/packs/effect-fx-pixel/`: the sheets in use only) | About 180 effects (slashes, bursts, claws, flames, ice, rubble, lightning, flowers, magic circles), each a sheet of 64 x 64 frames in 9 colourways, fully opaque | Free | None given; shared as free to use. Without a licence the author keeps the rights: the user's call to use it |
+| Isometric Medieval Pack (Artyom Zagorskiy; `assets/packs/isometric-medieval/`) | Drawn (not pixel) art: ground blocks in three seasons, roads and rivers with every connection and bridges, houses in four colours and four facings, a blacksmith, a mill, fields, castle walls and towers, trees, stones; 95 x 97 blocks, a 1.7 : 1 top face | Free | CC0 1.0 (`License.txt`): any use, no credit required |
+| Medieval Free Pack, Free Modern Pack (Dev Essentials, a-something.itch.io; `assets/packs/interior-medieval/`, `interior-modern/`) | Top-down interiors on 16 x 16 tiles: walls with doors and windows, floors, beds, tables, chairs, fireplaces, an oven, shelves, chests, barrels, rugs (medieval; a modern set alike), one sheet and its Aseprite file each | Free | None given in the archives (the sheet points to the full pack): the user's call to use them |
+| Isometric Portal (MRPI; `assets/packs/isometric-portal/`) | Pixel-art props on 32 x 32 tiles (2 : 1): a campfire (wood or rocks), wall torches, a portal in two facings with its vortex, ruined pillars, rocks, logs, stone platforms; one static frame each (its Aseprite file too) | Free | MIT-style: any use in games, credit kept with the files; the raw files may not be resold or shared as a pack |
+| Isometric character (`assets/packs/isometric-character/`: the sheets in use) | A white chibi template in 460-pixel frames, five directions: idle, walk, run, tool swings, interact (more actions in the pack) | Free | Free for personal use: check before publishing a game built with it |
 
-- Both licences allow the art inside our games, modified, but not the files on their own: they are kept in
+- The first two licences allow the art inside our games, modified, but not the files on their own: they are kept in
   this private repository only, and the converted art travels inside a game's package.
 - The base body has only a walk. Idle, attack, hurt and knocked-out frames, and the equipment layers, are drawn
   on top of it in Aseprite. Its 32-pixel figure matches the 32 x 32 tiles, so neither needs scaling.
@@ -270,4 +318,44 @@ it can change without flashing firmware, then moved into the firmware once its A
     a frame 7 ms, spinning 12–14 ms, four changes 9 ms, the layer rebuilt in 18–19 ms, 68 water cells in 20–21 ms.
   - **Tests:** the test field (`test REALM`) and `host/suite.sh`, groups of end-to-end scripts on the PC or the FH1
     (`docs/sdk.md`, "Testing"; `docs/taticas-da-ilha.md`, "Development commands").
+- **0.10:** eight facings. The banado heroes are drawn in all eight directions their art has (s, w, n, e besides
+  the diagonals; the pack grew ~166 KB): `fh1art.py` writes a pack's anim with 8 facings when its recipe names a
+  cardinal one, `fart_frame8` picks the image for an eighth (its own, the e/w mirror, or the diagonal beside it).
+  A unit's facing is shown in eighths: it turns one every 70 ms the short way round (a quarter turn passes through
+  the facing between), a spin turns it with the ground (the eighth between two views shows from a quarter to three
+  quarters of the way), and an action toward a target off the axes sets `aim` (`iso_aim8`), drawn facing it while
+  the rules keep the four facings. Creatures with four facings show their rules' diagonal. Weapons go by the
+  eighth (`iso_oct_right`, `iso_oct_away`). The title's heroes turn an eighth every walk loop. Tests: the `facing`
+  group (the spin's quarters, a turn, a shot off the axes).
+  - **The water by its depth:** a pass after the map is built (`shore` in `mapgen.c`) makes water next to land
+    (the eight cells round) shallow, the tileset's light tiles, its swell (tiles 88, 91 and 89) rolling along the
+    shore as a wave, a rock standing in it now and then (tiles 77–81); further out deep, the dark ripples (93) with
+    glints (94–96) at each cell's own time. `"tile_anims"` takes a list of the pack's images (`"frames"`) besides
+    the ripple. Fewer redraws than the ripple: a cell changes 4 times in 1.6 s (shore) or 6 in 2.8 s (deep).
+  - **Effects from a pack:** `fx_play` plays an animation of the art once at a point, over the scene, mirrored if
+    asked, after a delay; the battle waits for it. A unit's `under` image is drawn at its feet before it (the casting
+    circle). From the effect pack (`fx.*` in `art.json`, 3/4 or 1/2 size; `fh1art.py`'s `"squash"` lays the circle
+    flat): a sword's slash the way it swings, an arrow's star burst, a creature's claw marks, and per element a flame
+    pillar, an ice burst, rubble when the rock lands, purple lightning, a lotus (healing and items), with a rune
+    circle in the element's colours under the caster while casting. The pack grew ~124 KB. Tests: the `fx` group.
+  - **The game:** the move cursor keeps to the reachable cells; XP goes only to the heroes standing, the share of
+    those knocked out shared among them; the summary plays each creature's idle once and then its death (falling
+    over without one), a levelling hero cheers twice, a hero knocked out kneels. The heroes' art has no knock-out:
+    `fh1art.py`'s `"kneel"` makes one from each facing's first walk frame, cut along the base body's lines (legs
+    below the torso, head above it, arms with the body): the knees bend (the legs squash toward the feet, the rest
+    sinks), then the head drops and tips the way the hero faces, 5 frames, the armour masks and hand moved alike.
+    It is the heroes' death in a battle (held, the weapon let go) and on the summary (`hero_draw`'s `down`). Tests:
+    the `summary` group.
+  - **The heroes' showcase:** `battle_show` makes a battle (`show`): a random realm and seed, a flat stage
+    painted on the random map before the water pass (`stage`), the four heroes and four creatures on `show_spots`.
+    A director (`ST_SHOW`, `show_update`) steps through each hero (walk in, every skill, a hit that kneels it, an
+    Elixir from its neighbour, two hops, walk back) once all actions, effects and walks are done; creatures take
+    the looks of a hit but no damage, Elixirs are free. The title watches for the Konami code (`konami`), whose
+    closing A is kept from the menu. Tests: the `show` group (entered by the code). The mage casts every spell at
+    tier 1, then 2, then 3; a 0.9 s breath between skills.
+  - **The cutaway:** where scenery in front of a unit is drawn again over it, the unit's box is kept first (the
+    unit, its weapon, the ground round it) and given back through the cover: every other pixel inside an ellipse
+    fitted to the box, every fourth at its edge. The cover reads half see-through with the unit behind it; nothing
+    changes where nothing covers a unit. `iso_map_t.cutaway` (on by default), the `cutaway 0|1` dev command, the
+    `cutaway` test group.
 
