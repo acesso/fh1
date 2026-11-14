@@ -53,17 +53,36 @@ index 8717a42f..81c96a95 100644
      match boot.as_str() {
          "app" => match m.boot_app(0x10000) { Ok(entry) => eprintln!("[emu] app boot: entry {:#010x} {}", entry, m.sym(entry)), Err(e) => { eprintln!("[emu] {}", e); std::process::exit(2) } },
          "rom" => { m.boot_rom(); eprintln!("[emu] ROM boot from reset vector {:#010x}", m.cores[0].pc()); }
+diff --git a/esp-periph/src/i2s.rs b/esp-periph/src/i2s.rs
+index 54cc371c..62e59fad 100644
+--- a/esp-periph/src/i2s.rs
++++ b/esp-periph/src/i2s.rs
+@@ -111,6 +111,12 @@ impl I2s {
+             else if self.tx_tdm_ctrl & (1 << 20) != 0 { slots } else { active };
+         self.bytes_per_frame = self.sample_bytes() as u32 * dma_slots;
+     }
++    /// CPU cycles after the last `frames_due` until `n` more frames are due: the transmitter's
++    /// deadline, so a running TX does not need the SoC's short polling cadence.
++    pub fn cycles_until_frames(&self, n: u64) -> u64 {
++        if self.sample_rate == 0 { return u64::MAX; }
++        n.saturating_mul(self.cpu_hz).saturating_sub(self.acc).div_ceil(self.sample_rate as u64)
++    }
+     /// Number of frames due after `cycles` CPU cycles at the configured sample rate.
+     pub fn frames_due(&mut self, cycles: u64) -> u32 {
+         if !self.tx_running() { self.acc = 0; return 0; }
 diff --git a/esp-soc/src/board.rs b/esp-soc/src/board.rs
-index 28693db0..bb0db7d8 100644
+index 28693db0..8102d716 100644
 --- a/esp-soc/src/board.rs
 +++ b/esp-soc/src/board.rs
-@@ -119,6 +119,12 @@ pub trait BoardModel {
+@@ -119,6 +119,14 @@ pub trait BoardModel {
      fn take_edges(&mut self) -> Vec<BoardEdge> { Vec::new() }
      /// A pin by the name scripts and the UI use (`btn1`, `sw`, ...).
      fn named_pin(&self, _name: &str) -> Option<u8> { None }
 +    /// A named key the board handles itself, such as a button behind an I/O expander (the UI's `press`
 +    /// message, a script's `press NAME`). False when the board has no such key: the caller then tries `named_pin`.
 +    fn key(&mut self, _name: &str, _down: bool) -> bool { false }
++    /// Whether `key` knows `name` (scripts check their `press NAME` lines with it when they load).
++    fn has_key(&self, _name: &str) -> bool { false }
 +    /// Indicator lights for the UI (button LEDs and the like), one colour each, black when off. Owned, so a board
 +    /// can read them from state it shares with its I2C devices. Sent to the UI as `{"t":"lights"}` when they change.
 +    fn lights(&self) -> Vec<[u8; 3]> { Vec::new() }
@@ -71,7 +90,7 @@ index 28693db0..bb0db7d8 100644
      fn encoder(&self) -> Option<(u8, u8)> { None }
      /// Lines for the end-of-run report.
 diff --git a/esp-soc/src/machine.rs b/esp-soc/src/machine.rs
-index eccff1c2..7b0a57a5 100644
+index eccff1c2..5f2f44a2 100644
 --- a/esp-soc/src/machine.rs
 +++ b/esp-soc/src/machine.rs
 @@ -14,7 +14,7 @@ mod modeled;
@@ -208,7 +227,7 @@ index eccff1c2..7b0a57a5 100644
 +                "press" => { let mut p = rest.split_whitespace(); let name = p.next().unwrap_or(""); let ms: f64 = p.next().map(|x| x.parse().unwrap_or(100.0)).unwrap_or(100.0);
 +                             let up = c + (ms / 1000.0 * hz) as u64;
 +                             // a key the board handles itself (a button behind an expander), else a GPIO
-+                             if board.named_pin(name).is_none() && name.parse::<u8>().is_err() { ev.push((c, ScriptAction::Key(name.to_string(), true))); ev.push((up, ScriptAction::Key(name.to_string(), false))); }
++                             if board.named_pin(name).is_none() && name.parse::<u8>().is_err() && board.has_key(name) { ev.push((c, ScriptAction::Key(name.to_string(), true))); ev.push((up, ScriptAction::Key(name.to_string(), false))); }
 +                             else { let pn = pin(name)?; ev.push((c, ScriptAction::Gpio(pn, false))); ev.push((up, ScriptAction::Gpio(pn, true))); } }
                  "release" => ev.push((c, ScriptAction::Gpio(pin(rest)?, true))),
                  "gpio" => { let mut p = rest.split_whitespace(); let pn = pin(p.next().unwrap_or(""))?; let l = p.next().unwrap_or("1") == "1"; ev.push((c, ScriptAction::Gpio(pn, l))); }
@@ -254,10 +273,10 @@ index d4be5617..24a52592 100644
                      // Bound each browser message to about one second of encoder motion.
 diff --git a/esp32s3/src/board/fh1.rs b/esp32s3/src/board/fh1.rs
 new file mode 100644
-index 00000000..b8391fde
+index 00000000..088ca658
 --- /dev/null
 +++ b/esp32s3/src/board/fh1.rs
-@@ -0,0 +1,144 @@
+@@ -0,0 +1,145 @@
 +//! The FH1 handheld (github.com/acesso/fh1, hardware/wiring.md): an ST7789 240x320 module turned to
 +//! landscape on SPI2 (SCK 18, MOSI 39, CS 38, DC 47, RST 48, backlight PWM 40); I2C0 on SDA 3 / SCL 1 with
 +//! two MCP23017 expanders (0x20: the face buttons on GPA0-5 and their LEDs on GPB0-3, low = on; 0x21:
@@ -382,6 +401,7 @@ index 00000000..b8391fde
 +    }
 +    fn input_levels(&self) -> Vec<(u8, bool)> { vec![(PIN_MENU, true)] }
 +    fn named_pin(&self, name: &str) -> Option<u8> { match name { "menu" | "boot" => Some(PIN_MENU), _ => None } }
++    fn has_key(&self, name: &str) -> bool { KEYS.contains(&name) }
 +    fn key(&mut self, name: &str, down: bool) -> bool {
 +        let Some(bit) = KEYS.iter().position(|k| *k == name) else { return false };
 +        let mut s = self.mcp[0].lock().unwrap();
@@ -436,6 +456,138 @@ index 0f6845aa..62d0b99c 100644
          "waveshare-amoled18-v2" | "amoled18-v2" => Some(Box::new(WaveshareAmoled18V2::new())),
          _ => None,
      }
+diff --git a/esp32s3/src/bus.rs b/esp32s3/src/bus.rs
+index 017614d5..23112fe3 100644
+--- a/esp32s3/src/bus.rs
++++ b/esp32s3/src/bus.rs
+@@ -884,12 +884,14 @@ impl Bus for SocBus {
+ impl SocBus {
+     fn cadence_active(&self) -> bool {
+         let p = &self.periph;
+-        p.i2s0.active() || p.i2s1.active()
++        // I2S TX has a deadline (`i2s_tx_deadline`): the end of its current DMA descriptor. Only RX polls.
++        p.i2s0.rx_running() || p.i2s1.rx_running()
+             || p.lcd_cam.cam_active() || p.lcd_cam.lcd_running()
+             // EX157: a running GDMA IN channel is passive. Its only producers are the camera
+             // (capture or VSYNC enabled), AES (dma_pending) and mem-to-mem (needs the OUT side running),
+             // all listed here, so an armed-but-idle receive channel does not hold the cadence.
+-            || p.gdma.out.iter().any(|c| c.running)
++            // OUT channels feeding I2S (triggers 3 and 4) are paced by the I2S TX deadline.
++            || p.gdma.out.iter().any(|c| c.running && c.peri_sel != 3 && c.peri_sel != 4)
+             || p.wifi.link.ap().is_some() || p.wifi.link.net().is_some() || !p.wifi.tx_pending.is_empty()
+             || p.aes.dma_pending || p.sha.dma_pending
+             || p.spi2.has_pending_transfer() || p.spi2.dma_tx_pending.is_some()
+@@ -909,6 +911,9 @@ impl SocBus {
+             let until = u64::from(self.tick_pending).saturating_add(deadline.saturating_sub(self.cycles));
+             budget = budget.min(until.clamp(1, u64::from(MAX_TICK_DEFER)) as u32);
+         }
++        if let Some(until) = self.i2s_tx_deadline() {
++            budget = budget.min(until.clamp(1, u64::from(cap)) as u32);
++        }
+         if let Some(deadline) = self.board.next_deadline() {
+             let until_deadline = u64::from(self.tick_pending)
+                 .saturating_add(deadline.saturating_sub(self.cycles))
+@@ -925,6 +930,29 @@ impl SocBus {
+         self.tick_budget = budget;
+     }
+ 
++    /// Cycles from the last flush until a running I2S transmitter finishes its current DMA
++    /// descriptor and one more frame is due: the flush that raises OUT_DONE/OUT_EOF and moves to the
++    /// next descriptor (`dma_i2s_one` advances only while frames are still due). None while no
++    /// transmitter runs with a DMA channel.
++    fn i2s_tx_deadline(&mut self) -> Option<u64> {
++        let mut best: Option<u64> = None;
++        for which in 0..2u32 {
++            let (running, bpf) = { let i2s = if which == 0 { &self.periph.i2s0 } else { &self.periph.i2s1 }; (i2s.tx_running(), i2s.bytes_per_frame) };
++            if !running || bpf == 0 { continue; }
++            let Some(ch) = self.periph.gdma.out_channel_for(3 + which) else { continue };
++            let (desc, pos) = (self.periph.gdma.out[ch].desc, self.periph.gdma.out[ch].buf_pos);
++            // A descriptor in device space (never on silicon) would recurse through a flush: poll then.
++            if desc == 0 || Self::is_periph(desc) { return Some(1); }
++            let Ok(dw0) = self.read32_unpriced(desc) else { return Some(1) };
++            let remaining = ((dw0 >> 12) & 0xfff).saturating_sub(pos);
++            let frames = u64::from(remaining.div_ceil(bpf)) + 1;
++            let i2s = if which == 0 { &self.periph.i2s0 } else { &self.periph.i2s1 };
++            let until = i2s.cycles_until_frames(frames);
++            best = Some(best.map_or(until, |b| b.min(until)));
++        }
++        best
++    }
++
+     /// Each UART's configured baud rate, for pacing queued host input.
+     fn uart_bauds(&self) -> [Option<u32>; 3] { std::array::from_fn(|port| self.periph.uart_route(port).baud) }
+     /// Release host bytes queued by `uart_input` at the configured baud rate.
+diff --git a/esp32s3/src/bus/dma_tests.rs b/esp32s3/src/bus/dma_tests.rs
+index 533f32b2..c3d14e2d 100644
+--- a/esp32s3/src/bus/dma_tests.rs
++++ b/esp32s3/src/bus/dma_tests.rs
+@@ -46,6 +46,36 @@ fn empty_streaming_descriptor_cycles_raise_error_and_stop() {
+     }
+ }
+ 
++#[test]
++fn i2s_tx_paces_the_tick_budget_by_its_descriptor() {
++    // 16-bit stereo (4 bytes a frame) at 32 kHz: 7500 cycles a frame at 240 MHz.
++    let frame = crate::periph::CPU_HZ / 32_000;
++    let mut bus = bus_with_out(3, 8, DESC);
++    bus.periph.i2s0.write(0x2c, 15 << 13);
++    bus.periph.i2s0.write(0x54, (1 << 16) | 3);
++    bus.periph.i2s0.write(0x24, 4);
++    bus.periph.i2s0.sample_rate = 32_000;
++    // Two frames left, then the one that moves to the next descriptor.
++    bus.refresh_tick_budget();
++    assert_eq!(u64::from(bus.tick_budget), 3 * frame);
++    bus.periph.gdma.out[0].buf_pos = 4;
++    bus.refresh_tick_budget();
++    assert_eq!(u64::from(bus.tick_budget), 2 * frame);
++    // The descriptor completes (OUT_DONE) exactly at the deadline, not before.
++    bus.dma_i2s_step(2 * frame - 1);
++    assert_eq!(bus.periph.gdma.out[0].int_raw & 1, 0);
++    bus.dma_i2s_step(1);
++    assert_ne!(bus.periph.gdma.out[0].int_raw & 1, 0);
++    // A long descriptor leaves the quiet backstop in force.
++    let mut bus = bus_with_out(3, 4000, DESC);
++    bus.periph.i2s0.write(0x2c, 15 << 13);
++    bus.periph.i2s0.write(0x54, (1 << 16) | 3);
++    bus.periph.i2s0.write(0x24, 4);
++    bus.periph.i2s0.sample_rate = 32_000;
++    bus.refresh_tick_budget();
++    assert_eq!(bus.tick_budget, QUIET_TICK_DEFER);
++}
++
+ #[test]
+ fn finite_i2s_work_can_read_a_nonempty_ring() {
+     let mut bus = bus_with_out(3, 4, DESC);
+diff --git a/esp32s3/src/bus/tests.rs b/esp32s3/src/bus/tests.rs
+index 40a5864d..c5d02b66 100644
+--- a/esp32s3/src/bus/tests.rs
++++ b/esp32s3/src/bus/tests.rs
+@@ -751,8 +751,9 @@ fn deferred_extension_bases_include_preoffset_boundary_crossings() {
+ fn quiet_backstop_keeps_the_original_cadence_for_active_devices() {
+     type Activation = (&'static str, fn(&mut Peripherals));
+     let cases: &[Activation] = &[
+-        ("i2s0", |p| p.i2s0.write(0x24, 1 << 2)),
+-        ("i2s1", |p| p.i2s1.write(0x24, 1 << 2)),
++        // I2S RX polls; TX is paced by its DMA deadline (dma_tests: i2s_tx_paces_the_tick_budget...).
++        ("i2s0-rx", |p| p.i2s0.write(0x20, 1 << 2)),
++        ("i2s1-rx", |p| p.i2s1.write(0x20, 1 << 2)),
+         ("camera", |p| { p.lcd_cam.set_clock_enabled(true); p.lcd_cam.write(0x04, 1 << 29); p.lcd_cam.write(0x08, 1 << 29); }),
+         ("camera-vsync", |p| { p.lcd_cam.set_clock_enabled(true); p.lcd_cam.write(0x04, 1 << 29); p.lcd_cam.write(0x64, 1 << 2); }),
+         ("lcd", |p| { p.lcd_cam.lcd_user |= 1 << 27; p.lcd_cam.lcd_ctrl |= 1 << 31; }),
+@@ -786,6 +787,13 @@ fn quiet_backstop_keeps_the_original_cadence_for_active_devices() {
+     bus.periph.gdma.inp[0].running = true;
+     bus.refresh_tick_budget();
+     assert_eq!(bus.tick_budget, QUIET_TICK_DEFER, "gdma-in alone is passive");
++    // A transmitting I2S with its OUT channel has a deadline instead of the short cadence.
++    let mut bus = SocBus::new(1024, 1024, [0; 6]);
++    bus.periph.i2s0.write(0x24, 1 << 2);
++    bus.periph.gdma.out[0].running = true;
++    bus.periph.gdma.out[0].peri_sel = 3;
++    bus.refresh_tick_budget();
++    assert_ne!(bus.tick_budget, MAX_TICK_DEFER, "i2s tx: deadline, not the short cadence");
+     // Real MMIO writes must switch the cap immediately in both directions.
+     let mut bus = SocBus::new(1024, 1024, [0; 6]);
+     bus.write32(0x6003_8010, 2).unwrap();
 diff --git a/wasm/src/s3.rs b/wasm/src/s3.rs
 index d8ef487c..a197ad63 100644
 --- a/wasm/src/s3.rs
