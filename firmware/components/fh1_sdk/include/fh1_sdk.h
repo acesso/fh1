@@ -14,12 +14,13 @@
 #include <stddef.h>
 
 #define FH1_SDK_MAJOR 0
-#define FH1_SDK_MINOR 8               // 2: gamepads with motion, a canvas to draw on. 3: triangles, text width.
+#define FH1_SDK_MINOR 9               // 2: gamepads with motion, a canvas to draw on. 3: triangles, text width.
                                       // 4: users (who plays, their face), notifications, settings, saved states
                                       // 5: full screen, the app's own folder
                                       // 6: development commands from the console
                                       // 7: asset packages, sound effects
                                       // 8: the controller's button pictures; data follows player 1
+                                      // 9: the players' looks, network play
 
 #ifdef __cplusplus
 extern "C" {
@@ -133,7 +134,8 @@ int fh1_canvas_text_width(lv_obj_t *c, const char *text);
 // Who plays: the user of a player's controller (player 0 is player 1, who also uses the menus). false: nobody
 // (the FH1 has no users, or no one plays as that player).
 bool fh1_user(int player, char *name, size_t n);
-// Their face, animated (size 16 or 32 units), in a window; NULL when nobody plays as that player.
+// Their face, animated (size 16 or 32 units), in a window; NULL when nobody plays as that player (or a network
+// guest does: fh1_user_look has their look).
 lv_obj_t *fh1_user_face(lv_obj_t *parent, int player, int size);
 // A notification with player 1's face (a small box at the top right for 4 s).
 void fh1_notify(const char *text);
@@ -197,6 +199,60 @@ int fh1_pad_style(void);
 #define FH1_HINT_UPDOWN 101           // its up and down
 #endif
 int fh1_px_key(uint16_t *px, int w, int h, int x, int y, int key);
+
+// ── The players' looks (SDK 0.9) ──
+// What a player's user looks like as their avatar shows them (System > Users): its body, hair, clothes and
+// accessories as choices, and its colours, for a game to dress its own character the same. The choices are in
+// the avatar editor's order. A user who has not made their avatar has the one the system draws for them.
+// false: nobody plays as that player.
+enum { FH1_LOOK_MALE, FH1_LOOK_FEMALE };
+enum { FH1_LOOK_HAIR_SPIKY, FH1_LOOK_HAIR_SHORT, FH1_LOOK_HAIR_BOB, FH1_LOOK_HAIR_LONG, FH1_LOOK_HAIR_TWIN_TAILS,
+       FH1_LOOK_HAIR_PONYTAIL };
+enum { FH1_LOOK_TOP_TSHIRT, FH1_LOOK_TOP_HOODIE, FH1_LOOK_TOP_JACKET, FH1_LOOK_TOP_GI, FH1_LOOK_TOP_SAILOR };
+enum { FH1_LOOK_BOTTOM_TROUSERS, FH1_LOOK_BOTTOM_SHORTS, FH1_LOOK_BOTTOM_SKIRT, FH1_LOOK_BOTTOM_LONG_SKIRT };
+enum {                                    // accessories, as flags
+    FH1_LOOK_ROUND_GLASSES = 1 << 0, FH1_LOOK_SQUARE_GLASSES = 1 << 1, FH1_LOOK_EARRINGS = 1 << 2,
+    FH1_LOOK_SCARF = 1 << 3, FH1_LOOK_NECKLACE = 1 << 4, FH1_LOOK_FACE_MARKS = 1 << 5,
+};
+typedef struct {
+    uint8_t body, hair_style, top, bottom, acc;
+    uint32_t skin, hair, eyes, top_colour, bottom_colour, acc_colour;   // 0xRRGGBB
+} fh1_look_t;
+bool fh1_user_look(int player, fh1_look_t *out);
+
+// ── Network play (SDK 0.9) ──
+// FH1 units on the same Wi-Fi network play one game together: one hosts it, the others join it as guests. The
+// host runs the game. Each guest's player 1 (its controller, or the unit's own keys as a controller's buttons)
+// becomes one of the host's players, and for that player fh1_pad, fh1_pad_info, fh1_user and fh1_user_look
+// answer for the guest as they would for a local one: a game made for two local players plays over the network
+// as it is. What the guests see, the host sends them (fh1_net_state_send, a blob of the game's own making, the
+// newest one wins); a guest's game draws what it gets (fh1_net_state_recv). Sessions are of one app: a guest
+// finds the games of its own app only. Everything ends when the app closes (or fh1_net_close).
+// A guest that has not been heard from for 3 s is dropped; a host not heard from for 3 s is lost.
+enum { FH1_NET_OFF, FH1_NET_HOSTING, FH1_NET_JOINING, FH1_NET_GUEST, FH1_NET_LOST };
+#define FH1_NET_PLAYERS 4                 // players in a session, the host's included
+#define FH1_NET_STATE_MAX 1024            // a state's bytes, at most
+typedef struct {
+    char name[24];                        // its host's player 1 (their user's name, or the unit's)
+    uint32_t addr;                        // its address (IPv4, network order)
+    uint8_t players, seats;               // players in it, seats still free
+} fh1_net_game_t;
+// Host: guests join as players first_player, first_player + 1... (seats of them). false: no network, or busy.
+bool fh1_net_host(int first_player, int seats);
+// Guest: look for this app's games on the network (answers come in over about a second), then list them.
+bool fh1_net_find(void);
+int fh1_net_games(fh1_net_game_t *out, int max);
+bool fh1_net_join(const fh1_net_game_t *game);   // FH1_NET_JOINING, then FH1_NET_GUEST (or FH1_NET_LOST)
+int fh1_net_status(void);                 // FH1_NET_*
+int fh1_net_me(void);                     // a guest's player number at the host; -1 elsewhere
+bool fh1_net_remote(int player);          // host: a guest plays as that player
+// A session's players, as the host numbers them (on the host and its guests alike): their name; their user's
+// look (false: no such player, or one playing without a user).
+bool fh1_net_player(int player, char *name, size_t n);
+bool fh1_net_look(int player, fh1_look_t *look);
+bool fh1_net_state_send(const void *data, size_t len);   // host: to every guest
+int fh1_net_state_recv(void *data, size_t max);          // guest: the newest state not read yet; -1 none
+void fh1_net_close(void);
 
 #ifdef __cplusplus
 }

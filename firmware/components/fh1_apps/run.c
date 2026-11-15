@@ -10,6 +10,7 @@
 #include <time.h>
 #include "fh1_sdk.h"
 #include "apps_priv.h"
+#include "netplay.h"
 #include "fh1_ui.h"
 #include "fh1_audio.h"
 #include "fh1_input.h"
@@ -115,6 +116,7 @@ _Static_assert(sizeof(fh1_pad_t) == sizeof(fh1_pad_state_t), "fh1_pad_t is fh1_p
 bool fh1_pad(int player, fh1_pad_t *out)
 {
     fh1_gamepad_info_t g;
+    if (out && np_remote_pad(player, out)) return true;          // a network guest's (SDK 0.9)
     if (!out || !fh1_gamepad_of_player(player, &g)) return false;
     fh1_pad_state_t st;
     if (!fh1_gamepad_state(g.id, &st)) return false;
@@ -125,6 +127,13 @@ bool fh1_pad(int player, fh1_pad_t *out)
 bool fh1_pad_info(int player, char *name, size_t n, uint32_t *rgb, bool *motion)
 {
     fh1_gamepad_info_t g;
+    np_who_t w;
+    if (np_remote(player) && np_player(player, &w)) {           // a network guest's controller
+        if (name && n) snprintf(name, n, "%s", w.pad);
+        if (rgb) *rgb = w.rgb;
+        if (motion) *motion = w.motion;
+        return true;
+    }
     if (!fh1_gamepad_of_player(player, &g)) return false;
     if (name && n) snprintf(name, n, "%s", g.name);
     if (rgb) *rgb = g.rgb;
@@ -348,6 +357,11 @@ static bool any_timer(void)
 bool fh1_user(int player, char *name, size_t n)
 {
     fh1_user_t u;
+    np_who_t w;
+    if (np_remote(player) && np_player(player, &w)) {           // a network guest (named after their unit when
+        snprintf(name, n, "%s", w.name);                        // they play without a user)
+        return true;
+    }
     if (!fh1_users_player(player, &u)) {
         if (n) name[0] = 0;
         return false;
@@ -359,7 +373,7 @@ bool fh1_user(int player, char *name, size_t n)
 lv_obj_t *fh1_user_face(lv_obj_t *parent, int player, int size)
 {
     fh1_user_t u;
-    if (!fh1_users_player(player, &u)) return NULL;
+    if (np_remote(player) || !fh1_users_player(player, &u)) return NULL;   // (a network guest: fh1_net_look)
     return users_face_widget(parent, u.id, size >= 32 ? 32 : 16);
 }
 
@@ -672,6 +686,19 @@ static const struct esp_elfsym s_sdk_syms[] = {
     ESP_ELFSYM_EXPORT(fh1_sfx_playing),
     ESP_ELFSYM_EXPORT(fh1_pad_style),
     ESP_ELFSYM_EXPORT(fh1_px_key),
+    ESP_ELFSYM_EXPORT(fh1_user_look),
+    ESP_ELFSYM_EXPORT(fh1_net_host),
+    ESP_ELFSYM_EXPORT(fh1_net_find),
+    ESP_ELFSYM_EXPORT(fh1_net_games),
+    ESP_ELFSYM_EXPORT(fh1_net_join),
+    ESP_ELFSYM_EXPORT(fh1_net_status),
+    ESP_ELFSYM_EXPORT(fh1_net_me),
+    ESP_ELFSYM_EXPORT(fh1_net_remote),
+    ESP_ELFSYM_EXPORT(fh1_net_player),
+    ESP_ELFSYM_EXPORT(fh1_net_look),
+    ESP_ELFSYM_EXPORT(fh1_net_state_send),
+    ESP_ELFSYM_EXPORT(fh1_net_state_recv),
+    ESP_ELFSYM_EXPORT(fh1_net_close),
     ESP_ELFSYM_EXPORT(fh1_millis),
     ESP_ELFSYM_EXPORT(fh1_app_timer),
     ESP_ELFSYM_EXPORT(fh1_app_timer_stop),
@@ -751,6 +778,7 @@ static void unload(void)
     for (int i = 0; i < MAX_TIMERS; i++) fh1_app_timer_stop(i);
     fh1_pad_motion(false);             // what it asked of the gamepads, undone
     fh1_pad_hold_keys(false);
+    fh1_net_close();                   // its network game
     s_dev_n = 0;
     sfx_shutdown();                    // the mixer reads the app's samples: stopped before they go
     esp_elf_deinit(&s_app.elf);

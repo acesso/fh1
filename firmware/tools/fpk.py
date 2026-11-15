@@ -21,7 +21,7 @@ import sys
 import tarfile
 import urllib.request
 
-SDK = (0, 8)                    # fh1_sdk.h: FH1_SDK_MAJOR, FH1_SDK_MINOR
+SDK = (0, 9)                    # fh1_sdk.h: FH1_SDK_MAJOR, FH1_SDK_MINOR
 CAPS = {"DISPLAY", "BACKLIGHT", "BUTTONS", "STICK_ANALOG", "TOUCH", "AUDIO_OUT", "AUDIO_IN", "SD", "WIFI", "BLE",
         "LORA", "IMU", "RTC", "BATTERY", "BUTTON_LIGHTS"}
 
