@@ -102,7 +102,7 @@ td code, .note code { font-family: var(--font-mono); font-size: 12.5px; }
 
   <div class="filters" id="filters" role="group" aria-label="Show the parts of one group"><span class="lbl">Show</span></div>
 
-  <p class="alert"><b>Between the boards:</b> the gap is 25 mm (20 + 5 mm spacers). It holds the cell, the speaker, the 2.4 GHz LoRa radio and the space reserved for a camera coprocessor, all hanging from the second board. Only the two antennas and the camera window stay on the outer face. The battery holder takes the bottom corners, so the bottom pair of spacers sits just above it (two M3 holes drilled through both boards).</p>
+  <p class="alert"><b>Between the boards:</b> the gap is 25 mm (20 + 5 mm spacers). It holds the cell, the speaker, the 2.4 GHz LoRa radio and the space reserved for a camera coprocessor, all hanging from the second board. Only the two antennas, the camera window and the L and R buttons sit on the outer face. The battery holder takes the bottom corners, so the bottom pair of spacers sits just above it (two M3 holes drilled through both boards).</p>
 
   <div class="views">
     <figure>
@@ -118,7 +118,7 @@ td code, .note code { font-family: var(--font-mono); font-size: 12.5px; }
       <div class="art" id="inner"></div>
     </figure>
     <figure>
-      <figcaption><h2>Second board · outer face</h2><span>The device's back; seen from behind, like the back view. Only antennas, the camera window and the speaker holes. Dashed = later.</span></figcaption>
+      <figcaption><h2>Second board · outer face</h2><span>The device's back; seen from behind, like the back view. Antennas, the camera window, the speaker holes and the L and R buttons near the centre. Dashed = later.</span></figcaption>
       <div class="art" id="outer"></div>
     </figure>
   </div>
@@ -127,7 +127,7 @@ td code, .note code { font-family: var(--font-mono); font-size: 12.5px; }
     <div class="art" id="wiring"></div>
   </figure>
   <figure class="wide">
-    <figcaption><h2>Second board · inner face · wiring (V1)</h2><span>Seen from the front, like the inner-face view. The V1 parts: the RTC and IMU through the board-to-board header (column 0 here), and the E28 LoRa radio through its own header on row 0 plus three control lanes. The speaker and battery come with their own leads; the camera is left out.</span></figcaption>
+    <figcaption><h2>Second board · inner face · wiring (V1)</h2><span>Seen from the front, like the inner-face view. The V1 parts: the RTC and IMU through the board-to-board header (column 0 here), the E28 LoRa radio through its own header on row 0 plus three control lanes, and the pins of the L and R buttons (mounted on the outer face). The speaker and battery come with their own leads; the camera is left out.</span></figcaption>
     <div class="art" id="wiring2"></div>
   </figure>
 
@@ -187,14 +187,14 @@ td code, .note code { font-family: var(--font-mono); font-size: 12.5px; }
   const PAD = { l: 6, r: 6, t: 6, b: 6 };
   const GROUP = {
     display:  { c: '#5aa9ff', name: 'Display', sub: '2.8" IPS ST7789 module and its header' },
-    controls: { c: '#ff8a3d', name: 'Controls', sub: 'Thumbstick, lit A B X Y, plain Start/Select, Menu, slide switch' },
+    controls: { c: '#ff8a3d', name: 'Controls', sub: 'Thumbstick, lit A B X Y, plain Start/Select, Menu, slide switch, L and R on the back' },
     mcu:      { c: '#c9c9c4', name: 'MCU', sub: 'ESP32-S3 mini board (S3R8, USB-C, RST/BOOT on board) and the Wi-Fi flex antenna' },
     power:    { c: '#ff4d4d', name: 'Power', sub: 'Charger, power path, reverse FET, buck-boost, battery divider' },
     audio:    { c: '#c98cff', name: 'Audio', sub: 'ES8311 + NS4150B codec module (with mic) and the speaker' },
     io:       { c: '#2ee6c4', name: 'I/O', sub: 'Two MCP23017 expanders, micro-SD, RTC, IMU, board-to-board header' },
     battery:  { c: '#ffd23f', name: 'Battery', sub: '18650 in a spring holder, on its side between the boards' },
     frame:    { c: '#a0a6ad', name: 'Structure', sub: 'Corner spacers, keep-out zones, lead areas' },
-    later:    { c: '#7fe0a0', name: 'Later', sub: 'L/R, camera coprocessor', dash: true },
+    later:    { c: '#7fe0a0', name: 'Later', sub: 'Camera coprocessor', dash: true },
   };
   const NS = 'http://www.w3.org/2000/svg';
   const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
@@ -262,14 +262,14 @@ td code, .note code { font-family: var(--font-mono); font-size: 12.5px; }
 
 
     { g: 'power', kind: 'mod', x: 4.5, y: 34, w: 12.8, h: 25.8, fill: '#141414', label: 'TPS63802', name: 'TPS63802 buck-boost module (3V3 jumper)', size: '25.8 × 12.8', note: 'VOUT/GND at the top (towards the S3), VIN/GND at the bottom (towards the power path); wired by its end pads, not on the grid. Power-save mode for ~11 µA idle. Notes: hardware/modules/buck-boost-tps63802.md.' },
-    { g: 'io', kind: 'mcp', x: 54.91, y: 36.81, w: 21, h: 26, label: '#2 · 0x21', name: 'MCP23017 module #2 (0x21)', size: '26 × 21, upright', note: 'Single row on column 21, double rows on columns 27 (A) and 28 (B), rows 12–21. GPA: amp enable, L/R, the radio NRESET and RX_EN (later), charger STDBY/CHRG. GPB: camera PWDN, BT, RTC INT and IMU INT (one-hole hops from the board-to-board header), the radio TX_EN (later). A0 tied to 3V3.' },
+    { g: 'io', kind: 'mcp', x: 54.91, y: 36.81, w: 21, h: 26, label: '#2 · 0x21', name: 'MCP23017 module #2 (0x21)', size: '26 × 21, upright', note: 'Single row on column 21, double rows on columns 27 (A) and 28 (B), rows 12–21. GPA: amp enable, camera PWDN and BT (later), the radio RX_EN, charger STDBY/CHRG. GPB: the radio NRESET and TX_EN (short diagonals to the board-to-board header), IMU INT and RTC INT (one-hole hops), the L and R buttons. GPA7 and GPB7 (output-only) spare. A0 tied to 3V3.' },
     { g: 'power', kind: 'perf', x: 66, y: 67, w: 9.5, h: 6, label: 'path+off', name: 'Power path (AO3401 + SS14) and off-switch P-FET (AO3401)', size: 'on the perfboard', note: 'Load sharing makes VSYS from USB or the cell; the second AO3401, driven by the slide switch, cuts VSYS to everything downstream.' },
     { g: 'controls', kind: 'perf', x: 19, y: 40, w: 11, h: 6, label: 'LED pwm', name: 'Button-LED brightness switch (AO3401 + BS170)', size: 'on the perfboard', note: 'High-side switch on the LEDs\' VSYS feed, PWM from GPIO44.' },
     { g: 'power', kind: 'perf', x: 68, y: 90, w: 5.6, h: 7, label: 'rev', name: 'Reverse-polarity P-MOSFET', size: 'on the perfboard', note: 'Right next to the holder wires: a cell put in backwards does no harm.' },
     { g: 'power', kind: 'mod', x: 60, y: 74, w: 20, h: 15, fill: '#141414', label: 'charger', name: 'Mini charger + protection board (TP4056-type, USB-C)', size: '20 × 15 × 5', note: 'Its USB-C, at the side edge, is the charging port. IN+ also gets the S3 board\'s VIN through an SS14; B+/B− from the holder through the reverse FET; protected OUT+/OUT− into the power path. CHRG/STDBY wired from its LEDs to the expander. Notes: hardware/modules/charger-tp4056-mini.md.' },
     { g: 'power', kind: 'edge', side: 'right', y: 77, h: 9, label: 'charge', name: 'Charging port (the charger board\'s USB-C)', size: '—', note: 'Power only. Seen from the front, at the left edge just above the battery band.' },
-    { g: 'io', kind: 'hheader', i0: 3, j: 0, n: 9, name: 'Radio header (to the E28 on the second board)', size: '1 × 9, 2.54, row 0, columns 3–11', note: 'Directly above the S3\'s top outer pins: GND, 3V3, GPIO21 (camera CS, later), 17 DIO1, 15 BUSY, 13 NSS, 11 MISO, 9 MOSI, 7 SCK. Each is a one-hole hop from the S3 pin below it.' },
-    { g: 'io', kind: 'header', x: 76.83, y: 43.49, n: 10, name: 'Board-to-board header (to the second board)', size: '1 × 10, 2.54', note: 'V1: the RTC and IMU lines (I2C, two interrupts, 3V3, GND); the radio gets a second header later. The battery wires go through 2 + 2 pins or their own JST.' },
+    { g: 'io', kind: 'hheader', i0: 3, j: 0, n: 9, name: 'Radio header (to the E28 on the second board)', size: '1 × 9, 2.54, row 0, columns 3–11', note: 'Directly above the S3\'s top outer pins: GND, 3V3, GPIO21 MISO, 17 DIO1, 15 BUSY, 13 NSS, a spare pin (GPIO11 below it is the display\'s MOSI), 9 MOSI, 7 SCK. Each is a one-hole hop from the S3 pin below it.' },
+    { g: 'io', kind: 'header', x: 76.83, y: 40.95, n: 11, name: 'Board-to-board header (to the second board)', size: '1 × 11, 2.54, rows 13–23', note: 'V1: the radio\'s NRESET, TX_EN and RX_EN, the RTC and IMU lines (I2C, two interrupts, 3V3, GND), the R and L buttons; the radio\'s SPI has its own header. The battery wires go through 2 + 2 pins or their own JST.' },
     { g: 'controls', kind: 'pins', pts: mirror(Object.values(BTN).flatMap(bigLeads)), name: 'A B X Y leads (switch + LED)', size: '6 per switch', note: 'Trimmed flush. Modules may sit over them on sockets but not in their holes.' },
     { g: 'controls', kind: 'pins', pts: mirror([...Object.values(SS).flatMap(tactLeads), ...btnLeads(MENU)]), name: 'Start, Select and Menu leads', size: '—', note: 'Start and Select: two legs each. Trim flush and cover with Kapton.' },
     { g: 'controls', kind: 'pins', pts: mirror(STICK_PINS), name: 'Thumbstick header', size: '1 × 4', note: 'GND, X, Y, VCC (switched). Straight pins replace the right-angle ones.' },
@@ -302,19 +302,22 @@ td code, .note code { font-family: var(--font-mono); font-size: 12.5px; }
   const NETC = { radio: '#ffa94d', disp: '#5aa9ff', sd: '#2ee6c4', i2s: '#c98cff', i2c: '#ffd23f', int: '#ff8a3d', adc: '#7fe0a0', pwm: '#ff7eb6', boot: '#ff8a3d', btn: '#f2f2f2', led: '#ff6b6b', v33: '#f2f2f2', vsys: '#ff4d4d', gnd: '#101410' };
   const wire = (g, net, name, a, b, pts, note = '', front = false) => ({ g, kind: 'wire', net, pts, name, size: `${a} → ${b}`, note: (front ? 'Front face, under the display. ' : '') + note, front });
   const WIRES = [
-    // display: header on column 0, rows 4–11 (GND, VCC, SCL, SDA, RES, DC, CS, BLK)
-    wire('display','disp','Display SCK (GPIO18)','S3 GPIO18','display SCL',[S('18'), P(6, 6), DH('SCL')]),
-    wire('display','disp','Display MOSI (GPIO39)','S3 GPIO39','display SDA',[S('39'), P(6, 7), DH('SDA')]),
+    // display: header on column 0, rows 4–11 (GND, VCC, SCL, SDA, RES, DC, CS, BLK). SCK and MOSI on SPI2's IO_MUX pins
+    // (GPIO12, GPIO11, for 80 MHz): out on the front face, past the I2S lanes, back through holes (4, 6) and (4, 7)
+    wire('display','disp','Display SCK (GPIO12), front face','S3 GPIO12','hole (4, 6)',[S('12'), P(9, 6), P(4, 6)], 'IO_MUX FSPICLK. Through hole (4, 6) to the back face. Crosses the 3V3 lane on half-row 2.5.', true),
+    wire('display','disp','Display SCK, back face','hole (4, 6)','display SCL',[P(4, 6), DH('SCL')], 'Along row 6.'),
+    wire('display','disp','Display MOSI (GPIO11), front face','S3 GPIO11','hole (4, 7)',[S('11'), P(9.5, 1.5), P(9.5, 7), P(4, 7)], 'IO_MUX FSPID. Between GPIO12 and GPIO10, then through hole (4, 7) to the back face. Crosses the 3V3 lane on half-row 2.5.', true),
+    wire('display','disp','Display MOSI, back face','hole (4, 7)','display SDA',[P(4, 7), DH('SDA')], 'Along row 7.'),
     wire('display','disp','Display RES (GPIO48)','S3 GPIO48','display RES',[S('48'), DH('RES')], 'Straight across, two holes.'),
     wire('display','disp','Display DC (GPIO47)','S3 GPIO47','display DC',[S('47'), DH('DC')], 'Straight across, two holes.'),
-    wire('display','disp','Display CS (GPIO38)','S3 GPIO38','display CS',[S('38'), P(5, 10), DH('CS')]),
+    wire('display','disp','Display CS (GPIO38)','S3 GPIO38','display CS',[S('38'), P(5, 10), DH('CS')], 'Through the GPIO matrix: chip select is not the speed limit.'),
     wire('display','disp','Display backlight PWM (GPIO40)','S3 GPIO40','display BLK',[S('40'), P(6, 11), DH('BLK')]),
-    // I2S: five drops from the top inner row into the free rows 3–7, straight across to the codec (no crossings)
+    // I2S: five drops from the top inner row into the free rows 3–7, straight across to the codec (no crossings); GPIO12 is the display's
     wire('audio','i2s','I2S data in (GPIO8)','S3 GPIO8','codec DO',[S('8'), P(11, 3), CP('DO')]),
     wire('audio','i2s','I2S WS (GPIO10)','S3 GPIO10','codec WS',[S('10'), P(10, 4), CP('WS')]),
-    wire('audio','i2s','I2S data out (GPIO12)','S3 GPIO12','codec DI',[S('12'), P(9, 5), CP('DI')]),
-    wire('audio','i2s','I2S BCK (GPIO14)','S3 GPIO14','codec BCK',[S('14'), P(8, 6), CP('BCK')]),
-    wire('audio','i2s','Codec MCK (GPIO16)','S3 GPIO16','codec MCK',[S('16'), P(7, 7), CP('MCK')]),
+    wire('audio','i2s','I2S data out (GPIO14)','S3 GPIO14','codec DI',[S('14'), P(8, 5), CP('DI')]),
+    wire('audio','i2s','I2S BCK (GPIO16)','S3 GPIO16','codec BCK',[S('16'), P(7, 6), CP('BCK')]),
+    wire('audio','i2s','Codec MCK (GPIO18)','S3 GPIO18','codec MCK',[S('18'), P(6, 7), CP('MCK')]),
     // I2C: straight across on rows 8 and 9, then trunks down to both expanders
     wire('io','i2c','I2C SCL (GPIO1)','S3 GPIO1','codec SCL',[S('1'), CP('SCL')], 'Straight across, three holes.'),
     wire('io','i2c','I2C SDA (GPIO3)','S3 GPIO3','codec SDA',[S('3'), CP('SDA')], 'Straight across, three holes.'),
@@ -375,11 +378,13 @@ td code, .note code { font-family: var(--font-mono); font-size: 12.5px; }
     wire('power','int','Charger CHRG → MCP #2 GPA6','charger CHRG LED','MCP #2 GPA6',[P(25.5, 26.5), P(25.5, 26), P(26.5, 26), P(26.5, 20.5), M2.i('A6')], 'Thin wire from the charger\'s LED cathode.'),
     wire('power','int','Charger STDBY → MCP #2 GPA5','charger STDBY LED','MCP #2 GPA5',[P(26.5, 26.5), P(27.5, 26), P(27.5, 19.5), M2.i('A5')]),
     // ── E28 radio (V1): one-hole hops from the S3's top outer row to the radio header on row 0
-    ...[['GND',3,'gnd'],['3V3',4,'v33'],['21',5,'radio'],['17',6,'radio'],['15',7,'radio'],['13',8,'radio'],['11',9,'radio'],['9',10,'radio'],['7',11,'radio']].map(([n, c, net]) =>
-      wire('io', net, `Radio header ← S3 ${n === 'GND' || n === '3V3' ? n : 'GPIO' + n}`, `S3 ${n}`, `radio header column ${c}`, [P(c, 1), P(c, 0)], { '21': 'Camera CS (later).', '17': 'DIO1: a received packet can wake the S3.', '15': 'BUSY.', '13': 'NSS.', '11': 'MISO.', '9': 'MOSI.', '7': 'SCK.', 'GND': 'Radio GND.', '3V3': 'Radio supply: 580 mA TX bursts.' }[n])),
-    wire('io','radio','E28 NRESET ← MCP #2 GPA3','MCP #2 GPA3','B2B row 15',[M2.i('A3'), P(27.5, 16.5), P(27.5, 14.5), P(28.5, 14.5), P(28.5, 15), [gx(29), gy(15)]], 'Between the expander\'s pin columns, then across between GPB0 and GPB1.'),
-    wire('io','radio','E28 TX_EN ← MCP #2 GPB7','MCP #2 GPB7 (out)','B2B row 22',[M2.o('B7'), P(28.5, 21.5), P(28.5, 22), [gx(29), gy(22)]]),
-    wire('io','radio','E28 RX_EN ← MCP #2 GPA7','MCP #2 GPA7 (out)','B2B row 23',[M2.i('A7'), P(27, 23), [gx(29), gy(23)]], 'Crosses the charger STDBY lane once.'),
+    ...[['GND',3,'gnd'],['3V3',4,'v33'],['21',5,'radio'],['17',6,'radio'],['15',7,'radio'],['13',8,'radio'],['9',10,'radio'],['7',11,'radio']].map(([n, c, net]) =>
+      wire('io', net, `Radio header ← S3 ${n === 'GND' || n === '3V3' ? n : 'GPIO' + n}`, `S3 ${n}`, `radio header column ${c}`, [P(c, 1), P(c, 0)], { '21': 'MISO.', '17': 'DIO1: a received packet can wake the S3.', '15': 'BUSY.', '13': 'NSS.', '9': 'MOSI.', '7': 'SCK.', 'GND': 'Radio GND.', '3V3': 'Radio supply: 580 mA TX bursts.' }[n])),
+    wire('io','radio','E28 NRESET ← MCP #2 GPB0','MCP #2 GPB0 (out)','B2B row 13',[M2.o('B0'), P(28.5, 13.5), [gx(29), gy(13)]], 'A short diagonal, between ITB and GPB0.'),
+    wire('io','radio','E28 TX_EN ← MCP #2 GPB1','MCP #2 GPB1 (out)','B2B row 14',[M2.o('B1'), P(28.5, 14.5), [gx(29), gy(14)]], 'A short diagonal, between GPB0 and GPB1.'),
+    wire('io','radio','E28 RX_EN ← MCP #2 GPA3','MCP #2 GPA3 (out)','B2B row 15',[M2.i('A3'), P(27.5, 16.5), P(27.5, 15.5), P(28.5, 15.5), [gx(29), gy(15)]], 'Between the expander\'s pin columns, then across between GPB1 and GPB2.'),
+    wire('controls','btn','R button → MCP #2 GPB6','B2B row 22','MCP #2 GPB6',[[gx(29), gy(22)], P(28.5, 22), P(28.5, 20.5), M2.o('B6')], 'Up half-column 28.5, between GPB7 and the header\'s 3V3 pin.'),
+    wire('controls','btn','L button → MCP #2 GPB5','B2B row 23','MCP #2 GPB5',[[gx(29), gy(23)], P(28.5, 22.5), P(27.5, 22.5), P(27.5, 19.5), M2.o('B5')], 'A short hop on the front face, up half-column 27.5 between the expander\'s pin columns. Crosses the 3V3 lane to the header once.', true),
     // power stage (bottom right), simplified
     wire('power','vsys','Cell + → reverse FET → charger B+','holder red lead','charger B+',[[77, 104], [72, 97.5], [71, 93.5], [72, 88]], 'Holder lead in, through the AO3401, up to B+.'),
     wire('power','gnd','Cell − → charger B−','holder black lead','charger B−',[[3, 104], [3, 100], [62, 100], [62, 89]]),
@@ -394,14 +399,22 @@ td code, .note code { font-family: var(--font-mono); font-size: 12.5px; }
 
   ];
 
+  // L and R: PB86 push buttons (modules/button-pb86.md) on the second board's outer face; their pins seen from the inner face
+  // (front coordinates), first column c: pin 2 (c, 26), pin 3 (c + 3, 26), the two pins 1 (c, 28) and (c + 3, 28), LED 4–7 on row 30.
+  // One on each side of the centred speaker, the bodies' tops level with its top.
+  const LR = { L: 2, R: 24 };
+  const LRP = (c, pin) => pin === 3 ? P(c + 3, 26) : pin === 2 ? P(c, 26) : P(c + 3, 28);
+  const LR_PINS = Object.entries(LR).map(([n, c]) => ({ g: 'controls', kind: 'pins', pts: [P(c, 26), P(c + 3, 26), P(c, 28), P(c + 3, 28), ...[0, 1, 2, 3].map(k => P(c + k, 30))],
+    name: `${n} button pins (PB86, from the outer face)`, size: `columns ${c}–${c + 3}, rows 26–30`, note: 'Row 26: pin 2 (unconnected) and pin 3 (normally open, the signal). Row 28: the two pins 1 (common, GND). Row 30: the LED, left floating. Plus two Ø1.1 peg holes to place on arrival.' }));
   const INNER = [
     { g: 'battery', kind: 'holder', x: 2.5, y: 102, w: 75, h: 18, name: '18650 holder anchoring', size: '~77 × 21', note: 'The holder is fixed to this face (glue or two screws through its base), so the main board\'s button leads stay free.' },
-    { g: 'io', kind: 'header', x: 3.17, y: 43.49, n: 10, name: 'Board-to-board header (mating half)', size: '1 × 10, 2.54', note: 'Mirrors the main board\'s header.' },
-    { g: 'audio', kind: 'speaker', x: 25, y: 70.5, w: 36, h: 25, name: 'Speaker, 36 × 25 mm, 8 Ω 2 W', size: '36 × 25 × 6.5', note: 'Between the boards, its adhesive gasket stuck to this face, firing through a field of drilled holes to a grille in the back cover. Closed box. Notes: hardware/modules/speaker-36x25.md.' },
+    { g: 'io', kind: 'header', x: 3.17, y: 40.95, n: 11, name: 'Board-to-board header (mating half)', size: '1 × 11, 2.54, rows 13–23', note: 'Mirrors the main board\'s header.' },
+    ...LR_PINS,
+    { g: 'audio', kind: 'speaker', x: 22, y: 70.5, w: 36, h: 25, name: 'Speaker, 36 × 25 mm, 8 Ω 2 W', size: '36 × 25 × 6.5', note: 'Between the boards, its adhesive gasket stuck to this face, firing through a field of drilled holes to a grille in the back cover. Closed box. Notes: hardware/modules/speaker-36x25.md.' },
     { g: 'io', kind: 'pins', pts: Array.from({ length: 6 }, (_, k) => P(2 + k, 22)), name: 'RTC header (VCC, GND, SDA, SCL, COT, INT)', size: '6 × 2.54, row 22, columns 2–7', note: 'The module stands with its header at the bottom; COT unused.' },
     { g: 'io', kind: 'mod', x: 6.1, y: 22.1, w: 17, h: 43, fill: '#1d4fa8', label: 'RTC', name: 'PCF8563 RTC module (coin cell)', size: '43 × 17', note: 'Upright beside the board-to-board header: I2C, 3V3, GND and INT (to MCP #2 GPB2) through it. Coin cell keeps time while the device is off. Notes: hardware/modules/rtc-pcf8563-module.md.' },
     { g: 'io', kind: 'imu', x: 8.25, y: 66.35 - 1.1, w: 2.54 * 8, h: 2.2, name: 'QMI8658A IMU module, standing upright', size: '~21 × 16 board, 8 pins on one row', note: 'Moved here from the main board (its row was in the way of the button wires). Shares the RTC\'s I2C, 3V3 and GND from the board-to-board header; INT to MCP #2 GPB3. Glue it as well as soldering it. Notes: hardware/modules/imu-qmi8658-module.md.' },
-    { g: 'io', kind: 'hheader', i0: 18, j: 0, n: 9, name: 'Radio header, mating half', size: '1 × 9, row 0, columns 18–26', note: 'Mirrors the main board\'s radio header: SCK, MOSI, MISO, NSS, BUSY, DIO1, camera CS (later), 3V3, GND (left to right, seen from the front).' },
+    { g: 'io', kind: 'hheader', i0: 18, j: 0, n: 9, name: 'Radio header, mating half', size: '1 × 9, row 0, columns 18–26', note: 'Mirrors the main board\'s radio header: SCK, MOSI, spare, NSS, BUSY, DIO1, MISO, 3V3, GND (left to right, seen from the front).' },
     { g: 'io', kind: 'mod', x: 52, y: 11, w: 26.5, h: 15, fill: '#b02a2a', label: 'E28 LoRa', name: 'EBYTE E28-2G4M27S 2.4 GHz LoRa radio (V1)', size: '26.5 × 15 × 2.85', note: 'Glued flat, antenna end to the right (IPEX next to the SMA corner). 28 AWG leads from its castellated pads to the radio header above it and to the three control lanes below. 470 µF + 100 nF at its VCC pad. Notes: hardware/modules/radio-e28-2g4m27s.md.' },
     { g: 'later', kind: 'ghost', x: 30.5, y: 10.5, w: 21, h: 17.5, label: 'camera', name: 'Camera coprocessor: XIAO ESP32S3 Sense (later)', size: '21 × 17.5, ~15 tall with the camera', note: 'Top centre, between the boards, its lens through a hole in this board and the back cover. Linked over SPI, power-gated.' },
     { g: 'frame', kind: 'zone', x: 0, y: 0, w: 30, h: 18, label: 'Wi-Fi keep-out', name: 'Wi-Fi antenna keep-out (this face)', size: '30 × 18', note: 'Nothing metal under the antenna on the other face: it is only 1.6 mm away.' },
@@ -415,9 +428,9 @@ td code, .note code { font-family: var(--font-mono); font-size: 12.5px; }
     { g: 'frame', kind: 'zone', x: 50, y: 0, w: 30, h: 18, label: 'Wi-Fi keep-out', name: 'Wi-Fi antenna keep-out', size: '30 × 18', note: 'No modules, wires or spacers here on either face of this board.' },
     { g: 'frame', kind: 'zone', x: 0, y: 0, w: 18, h: 60, label: 'LoRa ant.', name: 'LoRa antenna corner', size: '18 × 60', note: 'No modules or wires here on either face of this board.' },
     { g: 'later', kind: 'ghost', x: 33.5, y: 12.5, w: 15, h: 13, label: 'lens', name: 'Camera window (later)', size: '~15 × 13 hole', note: 'Hole for the coprocessor\'s lens, top centre.' },
-    { g: 'audio', kind: 'grille', x: 19, y: 70.5, w: 36, h: 25, name: 'Speaker sound holes', size: '30 × 20', note: 'Drilled through this board over the speaker, under the back-cover grille.' },
-    { g: 'later', kind: 'ghost', x: 18, y: -1.5, w: 10, h: 5, label: 'L', name: 'L shoulder button (later)', size: 'right-angle tactile', note: 'On the top edge, reaching past the back, just inside the LoRa antenna corner. Its expander input is reserved.' },
-    { g: 'later', kind: 'ghost', x: 52, y: -1.5, w: 10, h: 5, label: 'R', name: 'R shoulder button (later)', size: 'right-angle tactile', note: 'On the top edge, beside the Wi-Fi antenna (a small switch, little metal). Its expander input is reserved.' },
+    { g: 'audio', kind: 'grille', x: 22, y: 70.5, w: 36, h: 25, name: 'Speaker sound holes', size: '30 × 20', note: 'Drilled through this board over the speaker, under the back-cover grille.' },
+    ...Object.entries(LR).map(([n, c]) => ({ g: 'controls', kind: 'mod', x: +(80 - gx(c + 1.5) - 6.175).toFixed(2), y: +(gy(28) - 8.7).toFixed(2), w: 12.35, h: 17.4, fill: '#2b2b2b', label: n,
+      name: `${n} button: PB86 push button`, size: '12.35 × 17.4, ~15.7 tall', note: `Pressed from behind by the ${n === 'L' ? 'left' : 'right'} hand's fingers; through an opening in the back cover. Its LED is not wired. Notes: hardware/modules/button-pb86.md.` })),
     ...spacerParts(true, NYLON),
   ];
 
@@ -662,11 +675,16 @@ td code, .note code { font-family: var(--font-mono); font-size: 12.5px; }
     wire('io','i2c','IMU SCL','RTC SCL','IMU SCL',[RTCP('SCL'), IMUP('SCL')]),
     wire('power','gnd','IMU AD0 → GND (0x6A)','IMU AD0','IMU GND',[IMUP('AD0'), P(8, 23.5), P(3, 23.5), IMUP('GND')]),
     // E28 radio: pad leads from the radio header (row 0) to the module's top edge, control lines from the B2B header
-    ...['SCK','MOSI','MISO','NSS','BUSY','DIO1','cam CS','3V3','GND'].map((n, k) => n === 'cam CS' ? null :
+    ...['SCK','MOSI','spare','NSS','BUSY','DIO1','MISO','3V3','GND'].map((n, k) => n === 'spare' ? null :
       wire('io', n === '3V3' ? 'v33' : n === 'GND' ? 'gnd' : 'radio', `Radio ${n}`, `radio header column ${18 + k}`, `E28 ${n} pad`, [P(18 + k, 0), [Math.max(53, gx(18 + k)), 11]], 'Short 28 AWG lead to the castellated pad (pads 2–4: check the full pin table).')).filter(Boolean),
-    wire('io','radio','E28 NRESET','B2B row 15','E28 NRESET pad',[BB(15), P(20, 15), P(20, 7.3)], 'Row 15, above the RTC lanes; up column 20 to the module\'s bottom edge.'),
-    wire('io','radio','E28 TX_EN','B2B row 22','E28 TX_EN pad',[BB(22), P(0.5, 22.5), P(21, 22.5), P(21, 7.3)], 'Half-row 22.5, between the RTC header and the IMU pins; crosses the IMU INT lane once.'),
-    wire('io','radio','E28 RX_EN','B2B row 23','E28 RX_EN pad',[BB(23), P(0, 24), P(22, 24), P(22, 7.3)], 'Row 24, just below the IMU and above the speaker.'),
+    wire('io','radio','E28 NRESET','B2B row 13','E28 NRESET pad',[BB(13), P(20, 13), P(20, 7.3)], 'Row 13, above the button lanes; up column 20 to the module\'s bottom edge.'),
+    // L and R (PB86 on the outer face, pins through to here): signal to pin 3 (normally open), GND to a pin 1
+    wire('controls','btn','R button','B2B row 22','R pin 3',[BB(22), P(0.5, 22.5), P(0.5, 24), P(27, 24), LRP(LR.R, 3)], 'Down half-column 0.5, along row 24 above the speaker, then down column 27.'),
+    wire('controls','btn','L button','B2B row 23','L pin 3',[BB(23), P(0, 25), P(5, 25), LRP(LR.L, 3)], 'Down column 0, then along row 25.'),
+    wire('power','gnd','L GND','B2B row 20 (GND)','L pin 1',[BB(20), P(-0.5, 20.5), P(-0.5, 28), P(LR.L, 28)], 'Down the edge margin, half a column outside the header.'),
+    wire('power','gnd','R GND','IMU AD0 lane (GND)','R pin 1',[P(8, 23.5), P(28, 23.5), P(28, 28), LRP(LR.R, 1)], 'Carries on from the IMU AD0 lane along half-row 23.5, then down column 28.'),
+    wire('io','radio','E28 TX_EN','B2B row 14','E28 TX_EN pad',[BB(14), P(21, 14), P(21, 7.3)], 'Row 14, then up column 21, inside the NRESET lane.'),
+    wire('io','radio','E28 RX_EN','B2B row 15','E28 RX_EN pad',[BB(15), P(22, 15), P(22, 7.3)], 'Row 15, then up column 22, inside the TX_EN lane.'),
     { g: 'power', kind: 'cap', cx: 76, cy: 30.5, r: 3, label: '470µ', name: 'Radio bulk cap, 10 V 470 µF polymer', size: 'Ø6 × 8', note: 'Across the E28 VCC and GND, for its 580 mA TX bursts.' },
   ];
   board(document.getElementById('wiring2'), INNER.filter(p => p.g !== 'later' && p.kind !== 'zone'), 'Second board inner face with the V1 wiring', WIRES2);
@@ -681,7 +699,7 @@ td code, .note code { font-family: var(--font-mono); font-size: 12.5px; }
   // ── Side section: length along x (top edge at 0), thickness along y (front up; main board front face at 0) ──
   (() => {
     const target = document.getElementById('side');
-    const svg = el('svg', { viewBox: '-8 -18 152 56', role: 'img', 'aria-label': 'Side section: display, main board, 25 mm gap with modules, the cell, the speaker the radio and the reserved camera, second board, antennas' }, target);
+    const svg = el('svg', { viewBox: '-8 -18 152 64', role: 'img', 'aria-label': 'Side section: display, main board, 25 mm gap with modules, the cell, the speaker, the radio and the reserved camera, second board, antennas, the L and R buttons on the back' }, target);
     const id = defs(svg);
     const part = (p, draw) => { const g = el('g', { class: 'part', tabindex: 0 }, svg); g._part = p; draw(g); return g; };
     const R = (g, x, y, w, h, a) => el('rect', { class: 'hit', x, y, width: w, height: h, ...a }, g);
@@ -737,9 +755,10 @@ td code, .note code { font-family: var(--font-mono); font-size: 12.5px; }
       R(g, 68, 20.1, 25, 6.5, { fill: '#1b1b1b', stroke: GROUP.audio.c, 'stroke-width': .3 });
       text(g, 'speaker', 80.5, 23.4, { size: 1.8, fill: '#ead5ff', weight: 400 });
     });
-    part({ g: 'later', name: 'L/R (later)', size: 'right-angle tactile', note: 'Top edge of the second board.' }, g => {
-      R(g, -1.5, 25, 5, 6, { fill: 'none', stroke: GROUP.later.c, 'stroke-width': .3, 'stroke-dasharray': '1.2 .8' });
-      text(g, 'L/R', 1, 33, { size: 1.8, fill: '#c8f5d6', weight: 400 });
+    part({ g: 'controls', name: 'L and R (PB86)', size: '12.35 × 17.4, ~15.7 tall', note: 'On the second board\'s outer face, either side of the speaker, about 70–88 mm from the top, pressed from behind through openings in the back cover.' }, g => {
+      R(g, 70.35, 28.2, 17.4, 13.5, { fill: '#2b2b2b', stroke: GROUP.controls.c, 'stroke-width': .3 });
+      el('rect', { x: 70.75, y: 41.7, width: 16.6, height: 2.2, rx: .6, fill: '#3b3b3b', stroke: GROUP.controls.c, 'stroke-width': .3 }, g);
+      text(g, 'L / R', 79.05, 35, { size: 1.8, fill: '#ffd9bf', weight: 400 });
     });
     // dimension marks
     const dim = (y1, y2, x, label) => {
@@ -749,6 +768,7 @@ td code, .note code { font-family: var(--font-mono); font-size: 12.5px; }
     dim(-12, 0, 131, '~12');
     dim(1.6, 26.6, 131, '25 gap');
     dim(26.6, 29, 131, '~1–2');
+    dim(28.2, 43.9, 91, '~15.7 L/R');
     text(svg, 'top edge', 0, -15.5, { size: 2, fill: '#8a968d', anchor: 'start', weight: 400 });
     text(svg, 'bottom edge', 120, -15.5, { size: 2, fill: '#8a968d', anchor: 'end', weight: 400 });
     text(svg, 'front ↑   back ↓', 60, -15.5, { size: 2, fill: '#8a968d', weight: 400 });

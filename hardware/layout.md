@@ -37,7 +37,7 @@ Why upright: the chosen 2.8" module is 81.28 × 54.74 mm (`modules/display-2.8in
   bottom band: 18650 holder on its side, open face to the bottom edge  ← between the boards
   ═══════════ second board ══════════════════════════
   inner face (hanging into the gap): speaker · LoRa radio (later) · camera coprocessor (later)
-  outer face: Wi-Fi antenna · LoRa antenna on an SMA bulkhead, top-left edge (later) · camera window · speaker holes · L/R on the top edge (later)
+  outer face: Wi-Fi antenna · LoRa antenna on an SMA bulkhead, top-left edge (later) · camera window · speaker holes, centred, with L and R on either side
 ```
 
 **The battery goes at the bottom, between the two boards, loaded from the device's bottom edge**.
@@ -99,7 +99,7 @@ Why upright: the chosen 2.8" module is 81.28 × 54.74 mm (`modules/display-2.8in
   - **Wi-Fi/BT flex antenna, top right** (~26 × 8 mm, U.FL cable from the S3), phase 1.
   - **LoRa antenna, top left** (V1): the JKS rubber duck on an SMA bulkhead through the case edge, as far from the Wi-Fi antenna as possible. Same band as Wi-Fi: the firmware never transmits on both at once. Its pigtail runs from the radio's IPEX socket, and about 45 mm separates them across the camera window.
   - The camera window and the speaker holes.
-  - L and R shoulder buttons on the top edge (later).
+  - **L and R** (two PB86 push buttons, `modules/button-pb86.md`), one on each side of the speaker holes, their tops level with the speaker's top (about 70–88 mm from the top): L behind the left hand, R behind the right, pressed by the fingers holding the device. Clear of the bottom spacers and the battery band below. About 15.7 mm tall, through openings in the back cover.
 - **Keep-outs:** each antenna has a keep-out on **both faces** of this board: the inner face is only 1.6 mm away. Nothing metal, no modules, no wires. The back cover over the antennas must be plastic.
 - **Why the top corners, not the centre:**
   - An antenna in the middle of the outer face would need the same keep-out on the inner face, right where the radio and the speaker now hang. It would also face the main board's modules across the gap.
@@ -118,6 +118,7 @@ Why upright: the chosen 2.8" module is 81.28 × 54.74 mm (`modules/display-2.8in
 | Two boards | 3.2 mm |
 | Board gap (spacers) | 25 mm |
 | Antennas and labels on the outer face | ~1 mm |
+| L and R on the outer face (only where they stand) | ~15.7 mm |
 | **Whole device** | **~42 mm socketed, ~35 mm soldered** |
 
 A Game Boy DMG is 32 mm.

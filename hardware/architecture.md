@@ -22,7 +22,7 @@
    │ I2S0 ─ BCLK/WS shared ─► amp (DOUT) + MEMS mic (DIN)      │
    │ ADC1 ─────────► thumbstick X / Y                          │
    │ I2C ──────────► MCP23017 #1 (buttons, status, enables)     │
-   │            └──► MCP23017 #2 (amp, charger, radio control)  │
+   │            └──► MCP23017 #2 (amp, charger, radio, L/R)     │
    │ LEDC PWM ─────► button-LED brightness (VSYS high-side FET) │
    │            └──► RTC (optional)                            │
    │ ADC1 ─────────► battery voltage (divider from B+)          │
@@ -36,10 +36,11 @@
 ## Buses
 
 - **Display on SPI2 (FSPI), its own bus.** MOSI, SCK, CS, DC; reset from the expander or tied to the S3's EN through an RC. No MISO.
-  - **Speed:** 40 MHz on GPIO-matrix pins (18, 39, 38), 5 MB/s. A full 320 × 240 RGB565 screen is 1.23 Mbit, about 31 ms, so full-screen motion (games, emulators) runs at about 30 fps; the driver sends at most every 33 ms. A 1.5× scaled Game Boy frame alone (240 × 216) is about 21 ms.
+  - **Pins:** SCK and MOSI on SPI2's IO_MUX pins (GPIO12, GPIO11), which take the bus past the GPIO matrix's 40 MHz; CS (GPIO38), DC and RST through the matrix, where timing is not the limit.
+  - **Speed:** the firmware runs 40 MHz, 5 MB/s. A full 320 × 240 RGB565 screen is 1.23 Mbit, about 31 ms, so full-screen motion (games, emulators) runs at about 30 fps; the driver sends at most every 33 ms. A 1.5× scaled Game Boy frame alone (240 × 216) is about 21 ms.
   - **What the panel's own memory buys:** the ST7789 refreshes itself from its frame memory, so only changed rectangles go over the bus and static screens cost nothing. The dev board's RGB panel (16-bit at 10 MHz, 20 MB/s) has no frame memory and must be streamed every frame, about 38 times a second.
   - **No tearing sync:** the module's 9-pin header has no TE line, so fast motion can tear.
-  - **Faster options:** 80 MHz SPI (open question 22) and an 8-bit 8080 parallel bus (open question 23). The 8080 bus takes 11 pins and does not fit the current GPIO budget.
+  - **Faster options:** 80 MHz on these pins, about 15 ms a full screen (open question 22), and an 8-bit 8080 parallel bus (open question 23). The 8080 bus takes 11 pins and does not fit the current GPIO budget.
 - **micro-SD on SDMMC, 1-bit.** CLK, CMD and D0 on the SPI/SDIO breakout (`modules/micro-sd-sdio-board.md`). D1, DAT2 and D3 stay unconnected, held high by its pull-ups. It runs alongside the display without sharing a bus.
   - **4-bit later:** 3 more GPIOs (D1, DAT2, D3).
   - **Card detect (DET):** an input on the second expander.
@@ -55,7 +56,7 @@
   - **Shared interrupt:** both chips' INTA/INTB are mirrored and set open-drain, then tied together to one RTC GPIO with a pull-up.
   - **Output-only pins:** on current silicon, **GPA7 and GPB7 are output-only**, so they carry enables.
   - **Expander #1 (address 0x20), next to the buttons:** the six button inputs, SD card detect and stick power on GPA; the four button-LED cathodes on GPB.
-  - **Expander #2 (address 0x21), next to the charger and the board-to-board header:** amp enable, charger CHRG/STDBY the radio's NRESET (GPA3) and RX_EN (GPA7), later L/R on GPA; the radio's TX_EN on GPB7; the RTC and IMU interrupts and later the camera and BT lines on GPB. The full table is in `wiring.md`.
+  - **Expander #2 (address 0x21), next to the charger and the board-to-board header:** amp enable, charger CHRG/STDBY, the radio's RX_EN (GPA3), later the camera and BT lines on GPA1/GPA2; the radio's NRESET (GPB0) and TX_EN (GPB1), the RTC and IMU interrupts, the L and R buttons (GPB5, GPB6). GPA7 and GPB7, output-only, are spare. The full table is in `wiring.md`.
   - **Parts around each chip:** already on the module (decoupling, RESET and address resistors). Only the second module's A0 is tied to 3V3, for 0x21.
   - **Latency:** reading 2 bytes at 400 kHz takes about 60 µs, so polling every frame is free. INT on an RTC GPIO lets any button wake the S3 from light or deep sleep.
 
@@ -86,7 +87,7 @@
 
 | Function | Pins | Notes |
 |---|---|---|
-| Display SPI (MOSI, SCK, CS, DC) + RST | 5 | On GPIO-matrix pins, which ESP-IDF guarantees up to 40 MHz. SPI2's IO_MUX pins (12 SCK, 11 MOSI, 10 CS) carry I2S and the radio's MISO (open question 22) |
+| Display SPI (MOSI, SCK, CS, DC) + RST | 5 | SCK and MOSI on SPI2's IO_MUX pins (12, 11) for 80 MHz; CS (38), DC (47), RST (48) through the GPIO matrix |
 | Backlight PWM | 1 | Drives a small N-MOSFET (BS170 on hand, or AO3400) |
 | SDMMC 1-bit | 3 | |
 | I2S (BCLK, WS, DOUT, DIN) | 4 | |
@@ -98,9 +99,9 @@
 | Button-LED brightness (PWM) | 1 | LEDC PWM to the shared high-side switch on the LEDs' VSYS feed |
 | Battery voltage | 1 | ADC1 only (1–10), from the divider on B+ |
 | **Core total** | **21** | 5 clean pins + 43/44 left |
-| E28 radio (SPI3: SCK 7, MOSI 9, MISO 11, NSS 13; BUSY 15; DIO1 17), V1 | 6 | The camera coprocessor later shares the SPI3 bus with its own CS (GPIO21). NRESET, RX_EN, TX_EN on MCP #2 |
+| E28 radio (SPI3: SCK 7, MOSI 9, MISO 21, NSS 13; BUSY 15; DIO1 17), V1 | 6 | The camera coprocessor later shares the SPI3 bus with its own CS. NRESET, RX_EN, TX_EN on MCP #2 |
 | Reserved: camera coprocessor link (SPI: SCK, MOSI, MISO, CS) | 4 | Goes to the second-board header |
-| **Core + reservations** | **28** | No clean pin spare; the strapping pins 3, 45, 46 remain, with care. Dropping MCK (ES8311 clocked from BCLK) would free one |
+| **Core + reservations** | **28** | One clean pin spare, GPIO39, kept for the camera's CS; the strapping pins 45 and 46 remain, with care. Dropping MCK (ES8311 clocked from BCLK) would free one |
 
 The camera is not part of the first build. The reservation above fits a camera coprocessor; a direct DVP camera (12 pins) would not fit next to the radio:
 

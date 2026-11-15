@@ -273,16 +273,17 @@ index d4be5617..24a52592 100644
                      // Bound each browser message to about one second of encoder motion.
 diff --git a/esp32s3/src/board/fh1.rs b/esp32s3/src/board/fh1.rs
 new file mode 100644
-index 00000000..088ca658
+index 00000000..2d35ec1e
 --- /dev/null
 +++ b/esp32s3/src/board/fh1.rs
-@@ -0,0 +1,145 @@
+@@ -0,0 +1,146 @@
 +//! The FH1 handheld (github.com/acesso/fh1, hardware/wiring.md): an ST7789 240x320 module turned to
-+//! landscape on SPI2 (SCK 18, MOSI 39, CS 38, DC 47, RST 48, backlight PWM 40); I2C0 on SDA 3 / SCL 1 with
++//! landscape on SPI2 (SCK 12, MOSI 11, CS 38, DC 47, RST 48, backlight PWM 40); I2C0 on SDA 3 / SCL 1 with
 +//! two MCP23017 expanders (0x20: the face buttons on GPA0-5 and their LEDs on GPB0-3, low = on; 0x21:
-+//! the amplifier enable and the radio's lines), an ES8311 codec (0x18) and a PCF8563 clock (0x51); I2S
-+//! to the codec on BCK 14, WS 10, DOUT 12; the stick on ADC GPIO2 (X) and GPIO4 (Y); Menu on GPIO0.
-+//! Not modelled: the micro-SD slot (SDMMC), the E28 radio (SPI3), the IMU.
++//! the amplifier enable, the radio's lines, L on GPB5 and R on GPB6), an ES8311 codec (0x18) and a PCF8563
++//! clock (0x51); I2S to the codec on BCK 16, WS 10, DOUT 14; the stick on ADC GPIO2 (X) and GPIO4 (Y); Menu
++//! on GPIO0.
++//! Not modelled: the micro-SD slot (SDMMC), the E28 radio (SPI3), the IMU, the L and R buttons.
 +//! Keys (`press` from the UI, `press NAME` in scripts): a, b, x, y, start, select on MCP #1 GPA0-5, menu on GPIO0.
 +//! The stick is two ADC voltages (`adc 2 V`, `adc 4 V`; 1.65 V centred, low = left / up). `lights()` gives the
 +//! A, B, X, Y LEDs in the buttons' colours.

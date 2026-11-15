@@ -1,11 +1,12 @@
 // The FH1 itself (hardware/wiring.md): an ST7789 320 x 240 over SPI, the face buttons and their lights on
 // MCP23017 #1, the stick on the ADC as the D-pad, Menu on GPIO0, a PCF8563 clock and the codec's I2S, with the
 // amplifier switched on through MCP23017 #2. Not yet: the ES8311's own set-up, micro-SD (1-bit SDMMC), the
-// battery, the IMU, the radio.
+// battery, the IMU, the radio, the L and R buttons (wired to MCP23017 #2, GPB5 and GPB6).
 //
 // The display is fed as the dev board's RGB panel is: everything draws into one 320 x 240 screen in PSRAM (the
 // UI's flush, full-screen apps, the emulators), and a task sends it to the panel about 30 times a second over
 // SPI DMA, in bands of lines copied (byte-swapped: the ST7789 takes the high byte first) into internal RAM.
+#include <stdio.h>
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
@@ -33,15 +34,15 @@
 static const char *TAG = "board";
 
 // GPIOs (hardware/wiring.md, "GPIO map").
-#define PIN_LCD_SCK   18
-#define PIN_LCD_MOSI  39
+#define PIN_LCD_SCK   12                // SPI2's IO_MUX pins (FSPICLK, FSPID): the bus can run past 40 MHz
+#define PIN_LCD_MOSI  11
 #define PIN_LCD_RST   48
 #define PIN_LCD_DC    47
 #define PIN_LCD_CS    38
 #define PIN_LCD_BL    40
-#define PIN_I2S_BCK   14
+#define PIN_I2S_BCK   16
 #define PIN_I2S_WS    10
-#define PIN_I2S_DOUT  12
+#define PIN_I2S_DOUT  14
 #define PIN_I2C_SCL   1
 #define PIN_I2C_SDA   3
 #define PIN_STICK_X   2
@@ -53,6 +54,8 @@ static const char *TAG = "board";
 #define LCD_H 240
 #define BAND 20                         // lines per SPI transfer: two bands in internal RAM, 25 KB
 #define FRAME_MS 33
+// The display's SPI clock. 40 MHz until 60 and 80 MHz are tried on the built board (hardware/open-questions.md, 22).
+#define LCD_SPI_HZ (40 * 1000 * 1000)
 
 static const fh1_display_mode_t s_modes[] = { { "native", "FH1 320x240", LCD_W, LCD_H, 1, 1, 1 } };
 
@@ -174,7 +177,7 @@ static esp_err_t lcd_init(void)
     ESP_RETURN_ON_ERROR(spi_bus_initialize(SPI2_HOST, &bus, SPI_DMA_CH_AUTO), TAG, "spi bus");
     esp_lcd_panel_io_handle_t io;
     const esp_lcd_panel_io_spi_config_t ioc = { .cs_gpio_num = PIN_LCD_CS, .dc_gpio_num = PIN_LCD_DC, .spi_mode = 0,
-                                                .pclk_hz = 40 * 1000 * 1000, .trans_queue_depth = 4,
+                                                .pclk_hz = LCD_SPI_HZ, .trans_queue_depth = 4,
                                                 .on_color_trans_done = on_band_sent, .lcd_cmd_bits = 8, .lcd_param_bits = 8 };
     ESP_RETURN_ON_ERROR(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)SPI2_HOST, &ioc, &io), TAG, "panel io");
     const esp_lcd_panel_dev_config_t pc = { .reset_gpio_num = PIN_LCD_RST, .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,
@@ -225,7 +228,7 @@ void fh1_board_display_stats(fh1_display_stats_t *out, bool reset)
 
 static esp_err_t disp_probe(fh1_device_t *d)
 {
-    strlcpy(d->info, "ST7789 320x240, SPI 40 MHz", sizeof(d->info));
+    snprintf(d->info, sizeof(d->info), "ST7789 320x240, SPI %d MHz", LCD_SPI_HZ / 1000000);
     return s_panel ? ESP_OK : ESP_FAIL;
 }
 static const fh1_driver_t s_disp_drv = { .name = "st7789", .probe = disp_probe };
@@ -317,13 +320,15 @@ static void i2c_init(void)
         mcp_write(s_mcp1, MCP_GPPUB, 0xF0);
     }
     if (s_mcp2) {
-        // GPA0 amp enable (on), GPA3 E28 NRESET (high), GPA7 E28 RX_EN, GPB7 E28 TX_EN: outputs. The rest inputs.
-        mcp_write(s_mcp2, MCP_OLATA, 0x09);
+        // Outputs: GPA0 amp enable (on), GPA3 E28 RX_EN, GPB0 E28 NRESET (high), GPB1 E28 TX_EN, and the output-only
+        // GPA7/GPB7 (spare, low). The rest inputs with pull-ups, L on GPB5 and R on GPB6 among them (low = pressed;
+        // not read yet).
+        mcp_write(s_mcp2, MCP_OLATA, 0x01);
         mcp_write(s_mcp2, MCP_IODIRA, 0x76);
         mcp_write(s_mcp2, MCP_GPPUA, 0x76);
-        mcp_write(s_mcp2, MCP_OLATB, 0x00);
-        mcp_write(s_mcp2, MCP_IODIRB, 0x7F);
-        mcp_write(s_mcp2, MCP_GPPUB, 0x7F);
+        mcp_write(s_mcp2, MCP_OLATB, 0x01);
+        mcp_write(s_mcp2, MCP_IODIRB, 0x7C);
+        mcp_write(s_mcp2, MCP_GPPUB, 0x7C);
     }
     ESP_LOGI(TAG, "I2C: MCP23017 #1 %s, #2 %s", s_mcp1 ? "found" : "missing", s_mcp2 ? "found" : "missing");
 }

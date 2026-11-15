@@ -43,7 +43,7 @@ Future ideas and pending work; each leaves this list when it lands.
 - **FH1 hardware:** a third GPIO expander on the second board for the camera and later modules; a faster display
   link, first 80 MHz SPI tested on the built board, then an 8-bit 8080 bus if needed (`hardware/open-questions.md`
   22 and 23).
-- **FH1 board firmware:** the ES8311 codec setup, the micro-SD slot, the battery level, the IMU.
+- **FH1 board firmware:** the ES8311 codec setup, the micro-SD slot, the battery level, the IMU, the L and R buttons (wired; the input set has no L/R keys yet).
 - **Táticas da Ilha:**
   - difficulty that adapts to the player;
   - the shadow villain: a humanoid figure (the banado base body, dark, its eyes lit), never seen until the
