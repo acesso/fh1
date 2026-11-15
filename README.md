@@ -53,6 +53,10 @@ Future ideas and pending work; each leaves this list when it lands.
 - **Construção Legal:**
   - more to stack: a storey on houses beyond the 2 x 2 one, on the smithy;
   - more moving things: smoke from houses with a chimney, water, people in the village.
+- **Roaming profiles:** a user's saves and settings following them between units: a user who plays on another FH1
+  brings their saved states along (fetched from their home unit over Wi-Fi, signed with their key), plays there,
+  and their progress goes back; conflicts shown when both sides changed. Today a saved state can be put into a
+  user's folder by hand (`POST /fh1/state`, `firmware/docs/users.md`).
 - **Isometric engine:** ground under a floating slab (a cell with a column and a slab over it), and a shadow
   on it.
 

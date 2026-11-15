@@ -269,17 +269,20 @@ last window closes, it is unloaded and its memory freed.
 | 0.6 | Development commands from the console: `fh1_dev_command` |
 | 0.7 | Asset packages (`fh1_asset_dir`, `"uses"`) and sound effects (`fh1_sfx_play`, `_stop`, `_stop_all`, `_playing`) |
 | 0.8 | Player 1's controller's button pictures: `fh1_pad_style`, `fh1_px_key`; the data folder follows player 1's user at every call |
+| 0.9 | The players' looks (`fh1_user_look`: their avatar's choices and colours) and network play: `fh1_net_host`, `_find`, `_games`, `_join`, `_status`, `_me`, `_remote`, `_player`, `_look`, `_state_send`, `_state_recv`, `_close`; a guest's controller answers as one of the host's players |
 
 **Limits.**
 - Apps run in the same address space as the firmware, with no isolation. A crashing app reboots the device, and the watchdog catches hangs.
 - Code run from PSRAM is slower than code from flash.
 
-**Duelo** (`apps/packages/duel`): a sword duel for two players, best of three rounds, on SDK 0.3. The
+**Duelo** (`apps/packages/duel`): a sword duel for two players, best of three rounds, on SDK 0.9. The
 controllers' motion are the blades; a shoulder button guards (pressed just before a blow: a parry that
 stuns), the right face button dodges back. Without motion the D-pad aims and the bottom button strikes; the
 FH1 plays when player 2 has no controller. The fighters (`main/fighter.c`) are 80 × 92 sprites in a 16-bit
-fighting-game style, drawn from shapes into a mask by row spans (3.8 ms each on the S3) and drawn again only
-when their pose changes; the game blits them as runs of one colour. 30 frames a second, ~12 ms a frame.
+fighting-game style, dressed as their players' avatars (`fh1_user_look`), drawn from shapes into a mask by row
+spans (3.8 ms each on the S3) and drawn again only when their pose changes; the game blits them as runs of one
+colour. 30 frames a second, ~12 ms a frame. Over the network one FH1 hosts the duel and another joins it as
+player 2: the host runs the fight and sends its state each frame (~0.5 KB), the guest draws it.
 
 ## Flash layout (16 MB)
 

@@ -145,6 +145,20 @@ face in a window), `fh1_notify` (a notification with player 1's face), `fh1_sett
 by key) and `fh1_state_save` / `_load` (whole saved states, CRC-checked), all in that user's folder. Apps never
 see keys. `apps/packages/hello` uses them all.
 
+From SDK 0.9, `fh1_user_look` gives a player's avatar as its choices and colours, for a game to dress its own
+character the same (Duelo's fighters). In a network game a guest's user travels as their name and avatar code
+(a user who has not made one sends the avatar drawn from their id), so both units show them alike. Nothing in a
+network game is signed: it trusts the local network.
+
+## Saved states between units
+
+`POST /fh1/state?user=NAME&app=ID&name=STATE` on a unit's console (header `X-FH1-Code`) puts one saved state,
+the file as `fh1_state_save` writes it (`FH1S`, length, CRC-32, the data), into that user's folder for that app:
+another unit's progress continued here. It replaces their `STATE.state` and keeps it as `STATE.state.bak`; it is
+refused while the app runs (it would write its own over it), for an unknown user, and when the file's length or
+CRC do not match. Reading one off a unit: the console's `hash` (size and SHA-256) and `peek` (16 bytes at an
+offset) ops. `data_list` shows each user's files for an app.
+
 ## Testing without a second FH1
 
 `tools/fh1peer.py serve` is a pretend unit on the PC with one user, announced by mDNS, that accepts friend

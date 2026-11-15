@@ -30,14 +30,14 @@ build/<name>.app.elf  ──tools/fpk.py pack──▶  <id>_<version>.fpk  (man
 - **The installer and launcher** are in [`components/fh1_apps/apps.c`](../components/fh1_apps/apps.c): packages
   from `/sd/packages` or `/int/packages`, checked (manifest, SDK version, checksums), unpacked into
   `/int/apps/<id>/`, listed in the APPS menu.
-- **Versions:** `FH1_SDK_MAJOR.FH1_SDK_MINOR` (now 0.8). A minor version only adds functions; a major one
+- **Versions:** `FH1_SDK_MAJOR.FH1_SDK_MINOR` (now 0.9). A minor version only adds functions; a major one
   means rebuilding apps. The installer refuses an app built for another major, or for a newer minor than the
   firmware has. The table of what each version added is in [`PLAN.md`](../PLAN.md) ("App packages").
 
 | Path | What |
 |---|---|
 | [`apps/packages/hello`](../apps/packages/hello) | The template: windows, buttons, a saved state, a setting, sound, users |
-| [`apps/packages/duel`](../apps/packages/duel) | Duelo: a two-player game on the canvas, gamepads with motion |
+| [`apps/packages/duel`](../apps/packages/duel) | Duelo: a two-player game on the canvas, gamepads with motion, the players' avatars, network play |
 | [`apps/packages/taticas-da-ilha`](../apps/packages/taticas-da-ilha) | Táticas da Ilha: a full-screen tactics game, the isometric engine, art and sound packs, a PC host |
 | `tools/pkgbuild.sh` | Builds a package from scratch (art pack, ELF, symbol check, `.fpk`) |
 | `tools/fpk.py` | Packs, checks, lists and uploads packages |
@@ -97,13 +97,17 @@ and write `manifest.json`. An app that draws in loops sets `CONFIG_COMPILER_OPTI
 - **Hello FH1** ([`apps/packages/hello`](../apps/packages/hello), SDK 0.4): the template. Windows and buttons,
   the SDK version and the device's capabilities, a beep that says so when there is no sound device, player 1's
   face and a notification, a count kept as a saved state and visits as a setting (both per user).
-- **Duelo** ([`apps/packages/duel`](../apps/packages/duel), SDK 0.3): a sword duel for two players, best of three
+- **Duelo** ([`apps/packages/duel`](../apps/packages/duel), SDK 0.9): a sword duel for two players, best of three
   rounds, on the canvas. The controllers' motion are the blades (turned on its side: the height; a swing
   strikes); a shoulder button guards (pressed just before a blow: a parry that stuns), the right face button
   dodges back. Without motion the D-pad aims and the bottom button strikes; the FH1 plays when player 2 has no
   controller. A how-to screen per controller comes first. The fighters are 16-bit fighting-game sprites (black
   outline, four tones and a shine, a three-quarter stance; [`fighter.c`](../apps/packages/duel/main/fighter.c)),
-  drawn from shapes into a mask by row spans and drawn again only when their pose changes.
+  drawn from shapes into a mask by row spans and drawn again only when their pose changes. Each is dressed as
+  their player's avatar (`fh1_user_look`: body, all six hair styles, the tops and bottoms, accessories, colours;
+  a gi and hakama for a player without a user); [`host/preview.c`](../apps/packages/duel/host/preview.c) draws
+  avatars beside their fighters on the PC. Y on the how-to screen plays over the network: one FH1 creates the
+  duel, another joins it as player 2 (below, "Network play").
 - **Táticas da Ilha** ([`apps/packages/taticas-da-ilha`](../apps/packages/taticas-da-ilha), SDK 0.8): a full-screen tactics game on
   the isometric engine (below), with art and sound packs, per-user progress (it loads the new player's when
   `fh1_user(0, ...)` changes), the controller's button icons in its hints, development commands, a PC host and an
@@ -125,6 +129,8 @@ and write `manifest.json`. An app that draws in loops sets `CONFIG_COMPILER_OPTI
 | Development | `fh1_dev_command` (text from the console: reach a scene without playing to it) | 0.6 |
 | Assets and sound effects | `fh1_asset_dir` (asset packages), `fh1_sfx_play` / `_stop` / `_stop_all` / `_playing` (8 voices mixed at 44.1 kHz) | 0.7 |
 | Controller pictures | `fh1_pad_style`, `fh1_px_key` (a key's icon in player 1's controller's style) | 0.8 |
+| Looks | `fh1_user_look` (a player's avatar: its choices and colours, to dress a game's character) | 0.9 |
+| Network play | `fh1_net_host`, `_find`, `_games`, `_join`, `_status`, `_me`, `_remote`, `_player`, `_look`, `_state_send`, `_state_recv`, `_close` | 0.9 |
 
 The C library an app may use is listed at the top of `fh1_sdk.h`: memory, strings, formatted text, files
 (`fopen` ... `rename`), `qsort`, `rand`, time, and `sinf cosf sqrtf floorf atan2f fabsf asinf`.
@@ -150,6 +156,24 @@ accelerometer); `fh1_pad_motion` streams motion while asked for (it costs link c
 unloads. `fh1_pad_style` says how player 1's controller shows its buttons (the FH1's coloured caps, an Xbox pad's
 letters in their colours, a Nintendo pad's letters, a PlayStation pad's shapes): ask again rather than keep it,
 as another controller can take player 1 over. `fh1_px_key` draws a key's icon in that style.
+
+**Looks:** `fh1_user_look` gives a player's avatar as choices in the avatar editor's order (body, hair style,
+top, bottom, accessories as flags) and their colours, so a game can dress its own character as the player
+looks in the system; false when nobody plays as that player.
+
+**Network play:** FH1 units on the same Wi-Fi network play one game: one hosts it (`fh1_net_host(first_player,
+seats)`), the others find it (`fh1_net_find`, then `fh1_net_games` over about a second) and join it
+(`fh1_net_join`). The host runs the game. A guest's player 1 (its controller, or the unit's own keys as a
+controller's buttons by position) becomes one of the host's players: `fh1_pad`, `fh1_pad_info`, `fh1_user` and
+`fh1_user_look` answer for it as for a local player (`fh1_user_face` gives none; `fh1_net_remote` tells which
+players are guests), so a game made for two local players plays over the network as it is. What the guests see,
+the host sends them as a blob of the game's own making, up to 1 KB (`fh1_net_state_send`, as often as it likes;
+the newest wins); a guest draws what it gets (`fh1_net_state_recv`). Both sides know the session's players
+(`fh1_net_player`, `fh1_net_look`, numbered as the host has them; `fh1_net_me` is a guest's number). A guest only
+finds games of its own app. Everything ends when the app closes. Underneath (`components/fh1_apps/netplay.c`):
+UDP on port 47720; a guest broadcasts FIND, hosts answer, JOIN gets a seat; then the guest's controls go about 60
+times a second, the game's states as the host sends them, and the players' names and avatar codes each second.
+Nothing is resent; 3 s of silence ends a guest or the session.
 
 **Saves and settings** go to `fh1_app_data_dir()`, player 1's user's folder: every user keeps their own. When
 another user takes player 1's controller over, the folder changes at the next call; a game that keeps progress
@@ -262,6 +286,10 @@ levels. The recipe format is in the tool's docstring. The packs' sources are in 
 - **On the device:** `host/device.py SCRIPT OUTDIR` runs a script on the FH1 over the dev console: keys,
   development commands, screenshots; the PC's scripts too (`wait` frames become sleeps, other lines development
   commands), with the game's log lines printed as they come.
+- **Network play without a second FH1:** [`tools/nettest.c`](../tools/nettest.c) runs the FH1's own network play
+  code on the PC: `nettest host APP` hosts a game (one seat), `nettest find APP [ADDR]` lists games,
+  `nettest join APP ADDR` joins one (pressing A every half second, printing the states and the players). Against
+  each other on one PC they check the protocol; against an FH1 they play the other side.
 - **Before sending keys** to a device someone may be using, take two screenshots a few seconds apart: if the
   screen changed for another reason than an animation, someone is playing.
 
