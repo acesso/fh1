@@ -7,6 +7,7 @@
 #include "fh1_settings.h"
 #include "console_priv.h"
 #include "esp_wifi.h"
+#include "fh1_bridge.h"
 #include "esp_netif.h"
 #include "esp_event.h"
 #include "mdns.h"
@@ -89,8 +90,9 @@ static esp_err_t wifi_start(fh1_device_t *d)
     esp_err_t err = esp_wifi_start();
     // No modem power save: with it, every radio wake-up allocates a timer from internal RAM, and Wi-Fi
     // aborts the system when that fails under load (seen with a game plus the stress test). It also cuts
-    // input delay from the console. Battery devices revisit this with proper sleep modes.
-    if (err == ESP_OK) esp_wifi_set_ps(WIFI_PS_NONE);
+    // input delay from the console. Battery devices revisit this with proper sleep modes. While Bluetooth LE
+    // runs (bridges over BLE) it is on: the two share the radio, and without it BLE barely gets a turn.
+    if (err == ESP_OK) esp_wifi_set_ps(fh1_bridge_ble_on() ? WIFI_PS_MIN_MODEM : WIFI_PS_NONE);
     if (err == ESP_OK) console_server_start();
     return err;
 }

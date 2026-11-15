@@ -50,6 +50,7 @@ typedef struct {
 } fh1_bridge_view_t;
 
 bool fh1_bridge_on(void);                             // Bluetooth running
+bool fh1_bridge_ble_on(void);                         // Bluetooth LE (the device "bridge0") running
 bool fh1_bridge_wifi_link_on(void);                   // the Wi-Fi link's device running
 int fh1_bridge_count(void);                           // remembered bridges
 bool fh1_bridge_get(int i, fh1_bridge_view_t *out);

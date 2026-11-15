@@ -11,6 +11,9 @@ void bridge_wifi_forget(void);
 // Off while a new controller is paired: Wi-Fi's share of the radio got in the way of paging (a Joy-Con
 // refused the connection, HCI 0x0F, with Wi-Fi on). Back when pairing ends.
 void bridge_wifi_pause(bool pause);
+// Wi-Fi kept awake (modem sleep off) while an FH1 is linked over it; otherwise it sleeps between beacons and leaves
+// the radio to Bluetooth.
+void bridge_wifi_awake(bool awake);
 void bridge_wifi_status(fh1b_status_t *st);            // fills the Wi-Fi fields
 bool bridge_wifi_connected(void);                      // has an address
 int8_t bridge_wifi_rssi(void);                         // dBm, 0 when not connected

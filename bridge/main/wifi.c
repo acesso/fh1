@@ -21,6 +21,7 @@ static const char *TAG = "bridge_wifi";
 
 static bool s_inited, s_started, s_on;
 static volatile bool s_paused;         // while pairing a controller (bridge_wifi_pause)
+static bool s_awake;                   // modem sleep off (an FH1 linked over Wi-Fi)
 static char s_ssid[33], s_pass[65];
 static volatile uint8_t s_state = FH1B_WIFI_OFF;
 static volatile uint32_t s_ip;
@@ -146,10 +147,19 @@ static void apply(void)
     s_started = true;
     s_state = FH1B_WIFI_CONNECTING;
     esp_wifi_start();
-    // No modem sleep: with Bluetooth on, the driver still keeps the station awake only when coexistence
-    // gives it the radio, but it no longer waits for beacons to take commands (rumble).
-    esp_wifi_set_ps(WIFI_PS_NONE);
+    // Modem sleep off only while an FH1 is linked over Wi-Fi (bridge_wifi_awake): it then takes commands (rumble)
+    // without waiting for beacons. Otherwise on: Wi-Fi and Bluetooth share the radio, and an awake Wi-Fi leaves
+    // the controllers and an FH1 linked over BLE little of it.
+    esp_wifi_set_ps(s_awake ? WIFI_PS_NONE : WIFI_PS_MIN_MODEM);
     ESP_LOGI(TAG, "connecting to %s", s_ssid);
+}
+
+void bridge_wifi_awake(bool awake)
+{
+    if (awake == s_awake) return;
+    s_awake = awake;
+    if (s_started) esp_wifi_set_ps(awake ? WIFI_PS_NONE : WIFI_PS_MIN_MODEM);
+    ESP_LOGI(TAG, "modem sleep %s", awake ? "off (an FH1 over Wi-Fi)" : "on");
 }
 
 void bridge_wifi_init(void)

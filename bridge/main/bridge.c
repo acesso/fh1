@@ -15,6 +15,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <inttypes.h>
+#include <stdarg.h>
+#include <stdio.h>
 
 #include <btstack.h>
 #include <uni.h>
@@ -109,6 +111,43 @@ static void event_push(const uint8_t *data, uint8_t len)
     request_send();
 }
 
+// The bridge's account of its controllers, for the FH1's log too (FH1B_EVT_LOG): who asked to connect, who
+// connected, got ready or left and why. Kept while no FH1 hears (Wi-Fi is off while pairing) and sent once one
+// does (blog_flush, on the next tick).
+#define LOGQ 12
+static char s_logq[LOGQ][96];
+static int s_logq_n;
+
+static void blog_send(const char *t)
+{
+    uint8_t ev[1 + 95] = { FH1B_EVT_LOG };
+    const size_t n = strnlen(t, sizeof(ev) - 1);
+    memcpy(ev + 1, t, n);
+    event_push(ev, (uint8_t)(1 + n));
+}
+
+static bool fh1_hears(void) { return bridge_udp_linked() || s_notify_events; }
+
+static void blog_flush(void)
+{
+    if (!fh1_hears()) return;
+    for (int i = 0; i < s_logq_n; i++) blog_send(s_logq[i]);
+    s_logq_n = 0;
+}
+
+static void blog(const char *fmt, ...)
+{
+    char t[96];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(t, sizeof(t), fmt, ap);
+    va_end(ap);
+    logi("bridge: %s\n", t);
+    if (fh1_hears() && !s_logq_n) blog_send(t);
+    else if (s_logq_n < LOGQ) snprintf(s_logq[s_logq_n++], sizeof(s_logq[0]), "%s", t);
+    else snprintf(s_logq[LOGQ - 1], sizeof(s_logq[0]), "(more not kept)");
+}
+
 static void scan(bool on, int seconds)
 {
     btstack_run_loop_remove_timer(&s_scan_timer);
@@ -122,7 +161,7 @@ static void scan(bool on, int seconds)
     if (on != s_scanning) {
         s_scanning = on;
         bridge_wifi_pause(on);
-        logi("bridge: scanning %s\n", on ? "on" : "off");
+        blog("scanning for new controllers %s", on ? "on" : "off");
         uint8_t ev[2] = { FH1B_EVT_PAIRING, on };
         event_push(ev, sizeof(ev));
     }
@@ -266,7 +305,7 @@ static void info_build(fh1b_info_t *info)
     info->caps = FH1B_CAP_GAMEPAD | FH1B_CAP_MOTION | FH1B_CAP_RUMBLE | FH1B_CAP_LIGHTBAR | FH1B_CAP_WIFI_LINK |
                  FH1B_CAP_TRIGGERS | FH1B_CAP_LEDS;
     strncpy(info->board, BRIDGE_BOARD_NAME, sizeof(info->board));
-    strncpy(info->firmware, "bridge-b11", sizeof(info->firmware));
+    strncpy(info->firmware, "bridge-b13", sizeof(info->firmware));
 }
 
 static void beacon_update(void)
@@ -416,9 +455,11 @@ static void tick(btstack_timer_source_t *t)
     send_udp();
     board_poll();
     advertise_rate(bridge_udp_linked() && s_con == HCI_CON_HANDLE_INVALID);
+    bridge_wifi_awake(bridge_udp_linked());
 
     // Every 5 s: what came in and what went out.
     static uint32_t window;
+    if (s_logq_n) blog_flush();
     uint32_t now = now_ms();
     if (!window) window = now;
     if (now - window >= 5000) {
@@ -624,7 +665,32 @@ static void hci_events(uint8_t type, uint16_t channel, uint8_t *packet, uint16_t
 {
     ARG_UNUSED(channel);
     ARG_UNUSED(size);
-    if (type != HCI_EVENT_PACKET || hci_event_packet_get_type(packet) != HCI_EVENT_LE_META) return;
+    if (type != HCI_EVENT_PACKET) return;
+    bd_addr_t a;
+    switch (hci_event_packet_get_type(packet)) {                   // controllers (Bluetooth Classic)
+    case HCI_EVENT_CONNECTION_REQUEST:
+        hci_event_connection_request_get_bd_addr(packet, a);
+        blog("%s asks to connect (class %06" PRIx32 ")", bd_addr_to_str(a), hci_event_connection_request_get_class_of_device(packet));
+        return;
+    case HCI_EVENT_CONNECTION_COMPLETE:
+        hci_event_connection_complete_get_bd_addr(packet, a);
+        if (hci_event_connection_complete_get_status(packet))
+            blog("%s: connection failed (0x%02x)", bd_addr_to_str(a), hci_event_connection_complete_get_status(packet));
+        return;
+    case HCI_EVENT_DISCONNECTION_COMPLETE: {
+        const hci_con_handle_t h = hci_event_disconnection_complete_get_connection_handle(packet);
+        if (h != s_con)
+            blog("link %#x closed, reason 0x%02x", h, hci_event_disconnection_complete_get_reason(packet));
+        return;
+    }
+    case HCI_EVENT_AUTHENTICATION_COMPLETE_EVENT:
+        if (hci_event_authentication_complete_get_status(packet))
+            blog("link %#x: authentication failed (0x%02x)", hci_event_authentication_complete_get_connection_handle(packet),
+                 hci_event_authentication_complete_get_status(packet));
+        return;
+    case HCI_EVENT_LE_META: break;
+    default: return;
+    }
     if (hci_event_le_meta_get_subevent_code(packet) == HCI_SUBEVENT_LE_CONNECTION_UPDATE_COMPLETE &&
         hci_subevent_le_connection_update_complete_get_connection_handle(packet) == s_con) {
         uint16_t iv = hci_subevent_le_connection_update_complete_get_conn_interval(packet);
@@ -724,12 +790,16 @@ static void bridge_on_init_complete(void)
     logi("bridge: advertising as \"FH1 Bridge\". DualSense: hold Create + PS until the light bar flashes fast\n");
 }
 
-static void bridge_on_device_connected(uni_hid_device_t *d) { logi("bridge: connected %s\n", bd_addr_to_str(d->conn.btaddr)); }
+static void bridge_on_device_connected(uni_hid_device_t *d)
+{
+    blog("%s connected (link %#x), setting up", bd_addr_to_str(d->conn.btaddr), d->conn.handle);
+}
 
 static void bridge_on_device_disconnected(uni_hid_device_t *d)
 {
     int s = slot_of(d);
-    logi("bridge: slot %d disconnected\n", s);
+    blog("%s \"%s\" left%s", bd_addr_to_str(d->conn.btaddr), d->name,
+         s >= 0 && s_slot[s].ready ? "" : " before it was ready (its setup did not finish)");
     if (s >= 0 && s_slot[s].ready) {
         s_slot[s].ready = false;
         devices_changed();
@@ -759,8 +829,8 @@ static uni_error_t bridge_on_device_ready(uni_hid_device_t *d)
     memcpy(i->name, d->name, strnlen(d->name, sizeof(i->name)));   // not NUL-terminated when 20 long
     sl->pad.id = (uint8_t)s;
     greet(d, s);
-    logi("bridge: slot %d ready: \"%s\", type %d, vid %04x pid %04x\n", s, d->name, d->controller_type, d->vendor_id,
-         d->product_id);
+    blog("%s \"%s\" ready in slot %d (type %d, %04x:%04x)", bd_addr_to_str(d->conn.btaddr), d->name, s, d->controller_type,
+         d->vendor_id, d->product_id);
     scan(false, 0);
     devices_changed();
     return UNI_ERROR_SUCCESS;

@@ -17,6 +17,7 @@
 // BLE is moved (its BLE link dropped; BLE leaves it alone while it beacons). The link drops after
 // FH1B_UDP_TIMEOUT_MS without a datagram; a BLE link after BLE_SILENT_MS without a message.
 #include "esp_attr.h"
+#include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 #include "fh1_bridge.h"
@@ -28,6 +29,7 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "esp_heap_caps.h"
+#include "esp_wifi.h"
 #include "nvs.h"
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
@@ -53,7 +55,11 @@ typedef struct {
     uint32_t rx_ms;                    // over Wi-Fi: its last datagram
     uint32_t beacon_ms;                // its last Wi-Fi beacon (0: never)
     uint32_t rx_ble_ms;                // over BLE: its last message (a stalled link is dropped)
-    int64_t ble_until;                 // us: kept on BLE until then (to send Wi-Fi credentials)
+    int64_t ble_until;                 // us: kept on BLE until then (to send Wi-Fi credentials; a poor Wi-Fi link)
+    bool ble_pref;                     // its Wi-Fi link was poor: on BLE while BLE holds it
+    uint8_t poor;                      // 5-s windows in a row its Wi-Fi link was poor
+    unsigned long lost_prev;           // its lost messages at the last window
+    uint32_t none_ms;                  // preferring BLE: since when it has had no link (0: it has one)
     volatile bool drop_wifi;           // asked of the Wi-Fi link's task
     ble_addr_t addr;                   // NimBLE's: val[] least significant byte first
     char alias[24];
@@ -543,6 +549,8 @@ static void on_event(br_t *b, const uint8_t *buf, int n)
         on_keys(b, k);
     } else if (buf[0] == FH1B_EVT_PAIRING && n >= 2) {
         ESP_LOGI(TAG, "%s %s scanning for controllers", b->alias, buf[1] ? "started" : "stopped");
+    } else if (buf[0] == FH1B_EVT_LOG && n >= 2) {
+        ESP_LOGI(TAG, "%s: %.*s", b->alias, n - 1, (const char *)buf + 1);   // the bridge's own account
     }
 }
 
@@ -710,6 +718,13 @@ bool fh1_bridge_request_status(int i)
 }
 
 // Every second: a ping and the signal of each link; every 5 s, their numbers in the log.
+//
+// A poor Wi-Fi link while Bluetooth runs (two 5-s windows in a row with a round trip over 150 ms, no pong at all,
+// or 3 or more messages lost): the bridge is moved to BLE and kept there while BLE holds it (a weak Wi-Fi, or one
+// sharing the bridge's radio with its controllers, gave seconds of delay where BLE gives milliseconds); if BLE
+// cannot reach it for a minute, Wi-Fi may take it again.
+#define POOR_RTT_MS 150
+#define POOR_LOST 3
 static void timer_cb(void *arg)
 {
     uint32_t t = now_ms();
@@ -722,6 +737,16 @@ static void timer_cb(void *arg)
             memset(b->creds, 0, sizeof(b->creds));
             b->creds_len = 0;
             b->ble_until = 0;
+        }
+        if (b->known && b->ble_pref) {
+            if (b->link != FH1_BRIDGE_LINK_NONE) b->none_ms = 0;
+            else if (!b->none_ms) b->none_ms = t;
+            else if (t - b->none_ms > 60000) {
+                b->ble_pref = false;
+                b->ble_until = 0;
+                b->none_ms = 0;
+                ESP_LOGW(TAG, "%s: not reachable over BLE for a minute: Wi-Fi may take it again", b->alias);
+            }
         }
         if (!b->known || b->link == FH1_BRIDGE_LINK_NONE) continue;
         uint8_t c[5] = { FH1B_CMD_PING };
@@ -747,7 +772,33 @@ static void timer_cb(void *arg)
         fh1_bridge_view_t v = b->v;
         if (report) b->v.rtt_max_ms = 0;
         portEXIT_CRITICAL(&s_mux);
-        if (report)
+        if (report && !ble) {
+            const unsigned long lost = v.lost - (v.lost >= b->lost_prev ? b->lost_prev : v.lost);
+            b->lost_prev = v.lost;
+            const bool poor = v.rtt_max_ms > POOR_RTT_MS || v.rtt_max_ms == 0 || lost >= POOR_LOST;
+            b->poor = poor ? (uint8_t)(b->poor + 1) : 0;
+            if (b->poor >= 2 && s_running && !b->ble_pref) {
+                ESP_LOGW(TAG, "%s: Wi-Fi link poor (round trip up to %u ms, %lu lost in 5 s): moving it to BLE", b->alias,
+                         v.rtt_max_ms, lost);
+                b->ble_pref = true;
+                b->ble_until = INT64_MAX;
+                b->none_ms = 0;
+                b->drop_wifi = true;
+                s_reconnect_until = esp_timer_get_time() + 60000000;
+            }
+        } else if (report) b->poor = 0, b->lost_prev = 0;
+        // In the log once a minute, or when messages were lost or the controllers changed: every 5 s, it pushed
+        // everything else out of the console's log.
+        static uint8_t quiet[FH1_BRIDGES_KNOWN], ndev_was[FH1_BRIDGES_KNOWN];
+        static unsigned long lost_was[FH1_BRIDGES_KNOWN];
+        bool say = false;
+        if (report && (++quiet[i] >= 12 || v.lost != lost_was[i] || v.ndev != ndev_was[i])) {
+            say = true;
+            quiet[i] = 0;
+            lost_was[i] = v.lost;
+            ndev_was[i] = v.ndev;
+        }
+        if (say)
             ESP_LOGI(TAG, "%s (%s): %.1f msgs/s, %lu lost, input delay spread %u ms, round trip %u ms (worst %u), %d dBm, %u controller(s); internal %u KB free, lowest %u KB",
                      v.alias, ble ? "BLE" : "Wi-Fi", v.msgs_per_s, (unsigned long)v.lost, v.spread_ms, v.rtt_ms, v.rtt_max_ms, v.rssi, v.ndev,
                      (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024),
@@ -1106,6 +1157,9 @@ static esp_err_t bridge_start(fh1_device_t *d)
     s_running = true;
     nimble_port_freertos_init(host_task);
     timer_on();
+    // Wi-Fi and Bluetooth share the radio: with Wi-Fi's modem sleep off (fh1_devconsole's choice) Wi-Fi keeps it
+    // and BLE waits (round trips of ~100 ms over a 7.5 ms link). On while Bluetooth runs.
+    esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
     ESP_LOGI(TAG, "Bluetooth on: %u KB of internal RAM taken", (unsigned)((before - heap_caps_get_free_size(MALLOC_CAP_INTERNAL)) / 1024));
     snprintf(d->info, sizeof(d->info), "starting Bluetooth");
     return ESP_OK;
@@ -1125,6 +1179,7 @@ static void bridge_stop(fh1_device_t *d)
     for (int i = 0; i < FH1_BRIDGES_KNOWN; i++) {
         if (s_br[i].known && s_br[i].link == FH1_BRIDGE_LINK_BLE) reset_live(&s_br[i]);
     }
+    esp_wifi_set_ps(WIFI_PS_NONE);
     ESP_LOGI(TAG, "Bluetooth off");
 }
 
@@ -1619,3 +1674,4 @@ void fh1_bridge_search(int seconds)
 bool fh1_bridge_searching(void) { return (s_running || s_udp_on) && esp_timer_get_time() < s_search_until; }
 
 bool fh1_bridge_wifi_link_on(void) { return s_udp_on; }
+bool fh1_bridge_ble_on(void) { return s_running; }
