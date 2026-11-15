@@ -69,6 +69,7 @@ void users_trust_arrived(const char *local, const char *from, uint8_t level);
 
 // apps_net.c: users between units (U4, U5)
 void net_start(void);
+void saves_start(void);                // POST /fh1/state: a saved state from another unit (apps_saves.c)
 void net_kick(void);                    // look for other units and deliver the outbox now
 
 // stress.c (dev tool)

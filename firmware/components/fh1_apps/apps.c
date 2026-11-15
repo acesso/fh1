@@ -1814,6 +1814,7 @@ void fh1_apps_start(void)
     users_ui_init(users_changed_menu);
     io_claim_init();                          // Menu held on any controller: it takes player 1
     net_start();                              // users between units (apps_net.c)
+    saves_start();                            // saved states between units (apps_saves.c)
     // Games arriving over the console show as games for the GameBoy Color app.
     fh1_ui_register_file_type("gb", FH1_ICON_GAMEBOY, "Receiving a game", "Game received");
     fh1_ui_register_file_type("gbc", FH1_ICON_GAMEBOY, "Receiving a game", "Game received");
