@@ -6,7 +6,11 @@
 // blow lands to parry (the attacker is stunned); the right face button (Circle) dodges back, untouchable for a
 // moment. Without motion: Up/Down aim, the bottom face button (Cross) strikes. The stick or the D-pad walks.
 // With no controller for player 2, the FH1 fights. A match is the best of three rounds.
-// Holding Select, or the FH1's B, leaves.
+// Each fighter is dressed as their player's avatar (fh1_user_look: hair, clothes, accessories, colours).
+// Network play (SDK 0.9): from the how-to screen, Y (triangle) opens the network menu. One FH1 hosts the duel, its
+// player 1 against the player 1 of another FH1 that joins it; the host runs the fight and sends its state each
+// frame, the guest draws it (its controls reach the host through the SDK as player 2's controller).
+// Holding Select, or the FH1's B, leaves (in the network screens and as a guest B is the game's: Select leaves).
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -51,7 +55,8 @@ typedef struct {
     bool moving;
     uint32_t colour;
     ftr_look_t look;
-    char name[24];
+    char name[24];                     // their user's name, or their controller's
+    char pad_name[24];
     bool pad, motion, cpu, playstation;
     bool strike_was, dodge_was;
     int wins;
@@ -70,6 +75,9 @@ static int s_state = ST_INTRO, s_round = 1, s_round_winner = -1;
 static uint32_t s_state_at, s_select_since, s_spark_at;
 static float s_spark_x, s_spark_y;
 static popup_t s_pop[4];
+// Network play: the local game (its host, when another FH1 plays player 2), or a network screen, or a guest.
+enum { MODE_LOCAL, MODE_MENU, MODE_WAIT, MODE_FIND, MODE_GUEST };
+static int s_mode = MODE_LOCAL, s_pick, s_ngames;
 // Each fighter's sprite, drawn again only when its pose changes (the pose rounded to what shows in pixels).
 static struct {
     uint32_t *px;                    // FTR_W x FTR_H, allocated at the start, freed when the window closes
@@ -136,18 +144,24 @@ static void setup_match(void)
         fighter_t *f = &s_f[i];
         memset(f, 0, sizeof(*f));
         f->colour = i ? 0xff3c28 : 0x2a6cf0;
-        f->pad = fh1_pad_info(i, f->name, sizeof(f->name), &f->colour, &f->motion);
+        f->pad = fh1_pad_info(i, f->pad_name, sizeof(f->pad_name), &f->colour, &f->motion);
         f->colour = usable(f->colour);
         // Player 1 spiky-haired with a red headband, player 2 with a ponytail and a white one; the gi in
-        // the controller's colour, the hakama a dark shade of it.
+        // the controller's colour, the hakama a dark shade of it. A player's avatar dresses them instead (the
+        // headbands stay: who is who).
         f->look = (ftr_look_t){ .skin = i ? 0xe6b088 : 0xf6d2b0, .hair = i ? 0x5a1018 : 0x18203a, .top = f->colour,
                                 .bottom = shade(f->colour, 0.42f), .band = i ? 0xf0f0f4 : 0xd02828, .wraps = 0xf0f0f4,
-                                .boots = 0x3a2a26, .eyes = 0x3c3c48, .hair_style = i ? FTR_HAIR_PONYTAIL : FTR_HAIR_SPIKY };
+                                .boots = 0x3a2a26, .eyes = 0x3c3c48, .hair_style = i ? FTR_HAIR_PONYTAIL : FTR_HAIR_SPIKY,
+                                .top_style = FTR_TOP_GI, .bottom_style = FTR_BOTTOM_HAKAMA };
+        fh1_look_t look;
+        if (fh1_user_look(i, &look)) ftr_dress(&f->look, &look);
         s_spr[i].valid = false;
-        f->playstation = strstr(f->name, "DualSense") || strstr(f->name, "DualShock") || strstr(f->name, "Wireless Controller");
+        f->playstation = strstr(f->pad_name, "DualSense") || strstr(f->pad_name, "DualShock") ||
+                         strstr(f->pad_name, "Wireless Controller");
+        if (!fh1_user(i, f->name, sizeof(f->name))) snprintf(f->name, sizeof(f->name), "%s", f->pad_name);
         if (!f->pad) {
             f->cpu = i == 1;           // player 1 without a controller plays with the FH1's own keys
-            snprintf(f->name, sizeof(f->name), "%s", i ? "FH1" : "Jogador 1");
+            if (i || !f->name[0]) snprintf(f->name, sizeof(f->name), "%s", i ? "FH1" : "Jogador 1");
         }
     }
     s_round = 1;
@@ -586,12 +600,14 @@ static void draw_intro(uint32_t now)
         y += 4;
     }
     if ((now / 500) % 2) text_c(W / 2, H - 20, "Start ou Cruz: lutar", 0xf4c21f);
+    else if (s_mode == MODE_GUEST) text_c(W / 2, H - 20, "Select (segurar): sair da partida", 0x8890a0);
+    else text_c(W / 2, H - 20, fh1_net_status() == FH1_NET_HOSTING ? "Y (Triângulo): sair da rede" : "Y (Triângulo): jogar em rede",
+                0x8890a0);
 }
 
-static void frame(void *user)
+// The fight: both players' intents, the rules (the host's, or the only FH1's).
+static void play(uint32_t now)
 {
-    if (!s_spr[0].px) return;        // closing
-    const uint32_t now = now_ms();
     const uint32_t in_state = now - s_state_at;
     intent_t in[2];
     for (int i = 0; i < 2; i++) in[i] = s_f[i].cpu ? read_cpu(now) : read_player(i, now);
@@ -632,7 +648,11 @@ static void frame(void *user)
         s_f[0].facing = s_f[1].x >= s_f[0].x ? 1 : -1;
         s_f[1].facing = -s_f[0].facing;
     }
+}
 
+static void draw(uint32_t now)
+{
+    const uint32_t in_state = now - s_state_at;
     draw_background(now);
     if (s_state == ST_INTRO) {
         draw_intro(now);
@@ -672,8 +692,348 @@ static void frame(void *user)
     fh1_canvas_show(s_canvas);
 }
 
-// The FH1's own keys go to the game (player 1 without a controller); B leaves (the window closes).
-static bool on_key(fh1_win_t *win, int key, void *user) { return key != FH1_KEY_B; }
+// ── Network play (SDK 0.9) ──
+//
+// The host's game is the local one with player 2's controller on the other FH1 (the SDK's), and its state sent
+// each frame; a guest only draws what it gets. The screens between: the menu, waiting for a guest, the games found.
+
+static uint32_t s_find_at, s_note_at, s_keys_prev, s_leave_since;
+static char s_note[40];                  // a line on the network screens: what went wrong
+static fh1_net_game_t s_games[6];
+
+static void set_mode(int m)
+{
+    if (m == MODE_LOCAL) set_state(ST_INTRO);                    // (the key that came back does not start a fight)
+    s_mode = m;
+    s_pick = 0;
+    s_find_at = 0;
+}
+
+static void note(const char *t)
+{
+    snprintf(s_note, sizeof(s_note), "%s", t);
+    s_note_at = now_ms();
+}
+
+static bool hosting(void) { return fh1_net_status() == FH1_NET_HOSTING; }
+
+// The fight as the host has it, for its guest: times as how long ago and how long still (each FH1 has its own
+// clock). Both FH1s run the same build of Duelo, so the struct goes as it is in memory, its version first.
+#define WIRE_VER 1
+typedef struct {
+    float x, aim, swing_aim, walk;
+    int32_t facing, hp, wins;
+    uint32_t swing_age, dodge_left, stun_left, flash_left, colour;
+    uint8_t swinging, guard, moving, pad, motion, cpu, playstation;
+    char name[24];
+    ftr_look_t look;
+} wire_fighter_t;
+typedef struct {
+    uint32_t ver, state, in_state, round, spark_age;
+    int32_t winner;
+    float spark_x, spark_y;
+    wire_fighter_t f[2];
+    struct {
+        float x, y;
+        uint32_t colour, age;
+        char text[16];
+    } pop[4];
+} wire_t;
+
+static uint32_t still(uint32_t until, uint32_t now) { return until > now ? until - now : 0; }
+static uint32_t ago_to_time(uint32_t ago, uint32_t now) { return now - ago ? now - ago : 1; }
+
+static void send_state(uint32_t now)
+{
+    static wire_t w;
+    memset(&w, 0, sizeof(w));
+    w.ver = WIRE_VER;
+    w.state = s_state;
+    w.in_state = now - s_state_at;
+    w.round = s_round;
+    w.winner = s_round_winner;
+    w.spark_x = s_spark_x, w.spark_y = s_spark_y, w.spark_age = now - s_spark_at;
+    for (int i = 0; i < 2; i++) {
+        const fighter_t *f = &s_f[i];
+        wire_fighter_t *o = &w.f[i];
+        o->x = f->x, o->aim = f->aim, o->swing_aim = f->swing_aim, o->walk = f->walk;
+        o->facing = f->facing, o->hp = f->hp, o->wins = f->wins;
+        o->swinging = f->swing_at != 0;
+        o->swing_age = f->swing_at ? now - f->swing_at : 0;
+        o->dodge_left = still(f->dodge_until, now);
+        o->stun_left = still(f->stun_until, now);
+        o->flash_left = still(f->flash_until, now);
+        o->colour = f->colour;
+        o->guard = f->guard, o->moving = f->moving, o->pad = f->pad, o->motion = f->motion, o->cpu = f->cpu;
+        o->playstation = f->playstation;
+        memcpy(o->name, f->name, sizeof(o->name));
+        o->look = f->look;
+    }
+    for (int k = 0; k < 4; k++) {
+        w.pop[k].x = s_pop[k].x, w.pop[k].y = s_pop[k].y, w.pop[k].colour = s_pop[k].colour;
+        w.pop[k].age = s_pop[k].at ? now - s_pop[k].at : UINT32_MAX;
+        memcpy(w.pop[k].text, s_pop[k].text, sizeof(w.pop[k].text));
+    }
+    fh1_net_state_send(&w, sizeof(w));
+}
+
+static void take_state(uint32_t now)
+{
+    static wire_t w;
+    if (fh1_net_state_recv(&w, sizeof(w)) != (int)sizeof(w) || w.ver != WIRE_VER) return;
+    s_state = (int)w.state;
+    s_state_at = now - w.in_state;
+    s_round = (int)w.round;
+    s_round_winner = w.winner;
+    s_spark_x = w.spark_x, s_spark_y = w.spark_y, s_spark_at = now - w.spark_age;
+    for (int i = 0; i < 2; i++) {
+        fighter_t *f = &s_f[i];
+        const wire_fighter_t *o = &w.f[i];
+        f->x = o->x, f->aim = o->aim, f->swing_aim = o->swing_aim, f->walk = o->walk;
+        f->facing = o->facing, f->hp = o->hp, f->wins = o->wins;
+        f->swing_at = o->swinging ? ago_to_time(o->swing_age, now) : 0;
+        f->dodge_until = o->dodge_left ? now + o->dodge_left : 0;
+        f->stun_until = o->stun_left ? now + o->stun_left : 0;
+        f->flash_until = o->flash_left ? now + o->flash_left : 0;
+        f->colour = o->colour;
+        f->guard = o->guard, f->moving = o->moving, f->pad = o->pad, f->motion = o->motion, f->cpu = o->cpu;
+        f->playstation = o->playstation;
+        memcpy(f->name, o->name, sizeof(f->name));
+        f->name[sizeof(f->name) - 1] = 0;
+        if (memcmp(&f->look, &o->look, sizeof(f->look)) != 0) {
+            f->look = o->look;
+            s_spr[i].valid = false;
+        }
+    }
+    for (int k = 0; k < 4; k++) {
+        s_pop[k].x = w.pop[k].x, s_pop[k].y = w.pop[k].y, s_pop[k].colour = w.pop[k].colour;
+        s_pop[k].at = w.pop[k].age == UINT32_MAX ? 0 : ago_to_time(w.pop[k].age, now);
+        memcpy(s_pop[k].text, w.pop[k].text, sizeof(s_pop[k].text));
+        s_pop[k].text[sizeof(s_pop[k].text) - 1] = 0;
+    }
+}
+
+// The menus' keys, pressed this frame: player 1's controller and the FH1's own keys.
+enum { MK_UP = 1, MK_DOWN = 2, MK_OK = 4, MK_BACK = 8, MK_NET = 16 };
+static uint32_t menu_keys(void)
+{
+    uint32_t k = 0;
+    fh1_pad_t p;
+    if (fh1_pad(0, &p)) {
+        if ((p.buttons & FH1_PAD_BTN_UP) || p.ly < -300) k |= MK_UP;
+        if ((p.buttons & FH1_PAD_BTN_DOWN) || p.ly > 300) k |= MK_DOWN;
+        if (p.buttons & (FH1_PAD_BTN_A | FH1_PAD_BTN_START)) k |= MK_OK;
+        if (p.buttons & FH1_PAD_BTN_B) k |= MK_BACK;
+        if (p.buttons & FH1_PAD_BTN_Y) k |= MK_NET;
+    }
+    if (fh1_input_is_down(FH1_KEY_UP)) k |= MK_UP;
+    if (fh1_input_is_down(FH1_KEY_DOWN)) k |= MK_DOWN;
+    if (fh1_input_is_down(FH1_KEY_A) || fh1_input_is_down(FH1_KEY_START)) k |= MK_OK;
+    if (fh1_input_is_down(FH1_KEY_B)) k |= MK_BACK;
+    if (fh1_input_is_down(FH1_KEY_Y)) k |= MK_NET;
+    const uint32_t edge = k & ~s_keys_prev;
+    s_keys_prev = k;
+    return edge;
+}
+
+static void net_stop(void)
+{
+    fh1_net_close();
+    setup_match();
+    set_mode(MODE_LOCAL);
+}
+
+static void host_start(void)
+{
+    if (fh1_net_host(1, 1)) set_mode(MODE_WAIT);
+    else note("Sem rede Wi-Fi");
+}
+
+static void find_start(void)
+{
+    if (!fh1_net_find()) {
+        note("Sem rede Wi-Fi");
+        return;
+    }
+    set_mode(MODE_FIND);
+    s_find_at = now_ms();
+    s_ngames = 0;
+}
+
+static void join_pick(int i)
+{
+    if (i < 0 || i >= s_ngames) return;
+    if (!fh1_net_join(&s_games[i])) note("Não deu para entrar");
+}
+
+// The network screens' keys and what the network did: a guest arrived, a game was joined, one was lost.
+static void net_screens(uint32_t keys, uint32_t now)
+{
+    switch (s_mode) {
+    case MODE_MENU:
+        if (keys & MK_UP) s_pick = (s_pick + 2) % 3;
+        if (keys & MK_DOWN) s_pick = (s_pick + 1) % 3;
+        if (keys & MK_BACK) set_mode(MODE_LOCAL);
+        else if (keys & MK_OK) {
+            if (s_pick == 0) host_start();
+            else if (s_pick == 1) find_start();
+            else set_mode(MODE_LOCAL);
+        }
+        break;
+    case MODE_WAIT:
+        if (keys & MK_BACK) net_stop();
+        else if (fh1_net_remote(1)) {                            // a guest: the duel starts with them as player 2
+            setup_match();
+            set_mode(MODE_LOCAL);
+        }
+        break;
+    case MODE_FIND: {
+        const int st = fh1_net_status();
+        if (st == FH1_NET_GUEST) {
+            set_mode(MODE_GUEST);
+            s_state = ST_INTRO;
+            break;
+        }
+        if (st == FH1_NET_LOST) {
+            fh1_net_close();
+            note("Não deu para entrar");
+            find_start();
+            break;
+        }
+        if (keys & MK_BACK) {
+            fh1_net_close();
+            set_mode(MODE_MENU);
+            break;
+        }
+        if (st == FH1_NET_JOINING) break;
+        if (now - s_find_at > 2000) {                            // asked again now and then
+            fh1_net_find();
+            s_find_at = now;
+        }
+        s_ngames = fh1_net_games(s_games, 6);
+        if (s_pick >= s_ngames) s_pick = s_ngames ? s_ngames - 1 : 0;
+        if ((keys & MK_UP) && s_pick > 0) s_pick--;
+        if ((keys & MK_DOWN) && s_pick + 1 < s_ngames) s_pick++;
+        if (keys & MK_OK) join_pick(s_pick);
+        break;
+    }
+    default: break;
+    }
+}
+
+static void draw_net(uint32_t now)
+{
+    fh1_canvas_rect(s_canvas, 6, 6, W - 12, H - 12, 0x0a0a14);
+    fh1_canvas_rect(s_canvas, 6, 6, W - 12, 2, 0x2a6cf0);
+    text_c(W / 2, 11, "D U E L O   E M   R E D E", 0xf4c21f);
+    int y = 30;
+    char t[64];
+    if (s_mode == MODE_MENU) {
+        static const char *const items[3] = { "Criar uma partida", "Entrar numa partida", "Voltar" };
+        for (int k = 0; k < 3; k++, y += 14) {
+            snprintf(t, sizeof(t), "%s %s", k == s_pick ? ">" : " ", items[k]);
+            fh1_canvas_text(s_canvas, 40, y, t, k == s_pick ? 0xf4c21f : 0xb8c0cc);
+        }
+        y += 6;
+        fh1_canvas_text(s_canvas, 20, y, "Dois FH1 na mesma rede Wi-Fi: um cria,", 0x8890a0);
+        fh1_canvas_text(s_canvas, 20, y + 9, "o outro entra como jogador 2.", 0x8890a0);
+    } else if (s_mode == MODE_WAIT) {
+        snprintf(t, sizeof(t), "Partida de %.23s", s_f[0].name);
+        text_c(W / 2, y, t, 0xd8dee6);
+        if ((now / 500) % 2) text_c(W / 2, y + 16, "Esperando outro FH1...", 0xf4c21f);
+        fh1_canvas_text(s_canvas, 20, y + 36, "No outro FH1: Duelo, Y (Triângulo),", 0x8890a0);
+        fh1_canvas_text(s_canvas, 20, y + 45, "Entrar numa partida.", 0x8890a0);
+        text_c(W / 2, H - 20, "B (Círculo): voltar", 0xb8c0cc);
+    } else if (s_mode == MODE_FIND) {
+        if (fh1_net_status() == FH1_NET_JOINING) {
+            snprintf(t, sizeof(t), "Entrando em %.23s...", s_ngames ? s_games[s_pick].name : "");
+            text_c(W / 2, y + 16, t, 0xf4c21f);
+        } else if (!s_ngames) {
+            if ((now / 500) % 2) text_c(W / 2, y + 16, "Procurando partidas...", 0xf4c21f);
+        } else {
+            for (int k = 0; k < s_ngames; k++, y += 13) {
+                snprintf(t, sizeof(t), "%s Partida de %.23s%s", k == s_pick ? ">" : " ", s_games[k].name,
+                         s_games[k].seats ? "" : " (cheia)");
+                fh1_canvas_text(s_canvas, 30, y, t, k == s_pick ? 0xf4c21f : 0xb8c0cc);
+            }
+        }
+        text_c(W / 2, H - 20, "A (Cruz): entrar   B (Círculo): voltar", 0xb8c0cc);
+    }
+    if (s_note[0] && now - s_note_at < 3000) text_c(W / 2, H - 34, s_note, 0xff6a4a);
+}
+
+// A guest leaves the game (not Duelo) holding Select, on its controller or the FH1.
+static bool guest_leaves(uint32_t now)
+{
+    fh1_pad_t p;
+    const bool sel = fh1_input_is_down(FH1_KEY_SELECT) || (fh1_pad(0, &p) && (p.buttons & FH1_PAD_BTN_SELECT));
+    if (!sel) {
+        s_leave_since = 0;
+        return false;
+    }
+    if (!s_leave_since) s_leave_since = now ? now : 1;
+    return now - s_leave_since > 1500;
+}
+
+// Development commands (fh1dev.py op dev "..."): net host, net find, net join N (the Nth game found), net close.
+static void dev_commands(void)
+{
+    char line[48];
+    int n;
+    while (fh1_dev_command(line, sizeof(line))) {
+        if (!strcmp(line, "net host")) host_start();
+        else if (!strcmp(line, "net find")) find_start();
+        else if (sscanf(line, "net join %d", &n) == 1) join_pick(n);
+        else if (!strcmp(line, "net close")) net_stop();
+        else fh1_log("dev: not understood: %s", line);
+    }
+}
+
+static void frame(void *user)
+{
+    if (!s_spr[0].px) return;        // closing
+    const uint32_t now = now_ms();
+    dev_commands();
+    const uint32_t keys = menu_keys();
+    if (s_mode != MODE_LOCAL && s_mode != MODE_GUEST) {
+        net_screens(keys, now);
+        if (s_mode != MODE_LOCAL && s_mode != MODE_GUEST) {
+            draw_background(now);
+            draw_net(now);
+            fh1_canvas_show(s_canvas);
+            return;
+        }
+    }
+    if (s_mode == MODE_GUEST) {
+        if (fh1_net_status() != FH1_NET_GUEST || guest_leaves(now)) {
+            const bool lost = fh1_net_status() != FH1_NET_GUEST;
+            net_stop();
+            if (lost) note("A ligação caiu");
+            set_mode(MODE_MENU);
+            return;
+        }
+        take_state(now);
+    } else {
+        if (hosting() && !fh1_net_remote(1)) {                   // the guest left: wait for another
+            setup_match();
+            note("O outro FH1 saiu");
+            set_mode(MODE_WAIT);
+            return;
+        }
+        if (s_state == ST_INTRO && (keys & MK_NET)) {            // Y: the network menu, or out of the network game
+            if (hosting()) net_stop();
+            else set_mode(MODE_MENU);
+            return;
+        }
+        play(now);
+        if (hosting()) send_state(now);
+    }
+    draw(now);
+}
+
+// The FH1's own keys go to the game (player 1 without a controller); B leaves (the window closes), except in the
+// network screens and as a guest (there it is the game's: back, or player 2's bottom button).
+static bool on_key(fh1_win_t *win, int key, void *user) { return key != FH1_KEY_B || s_mode != MODE_LOCAL; }
 
 static void on_close(fh1_win_t *win, void *user)
 {

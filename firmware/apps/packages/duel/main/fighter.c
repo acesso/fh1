@@ -310,28 +310,65 @@ static shape_t hpoly(const head_t *g, int n, const float (*uv)[2])
     return poly(n, (const float (*)[2])p);
 }
 
+// The hair behind the head: its cap, and what hangs at the back (left, facing right): a ponytail, long hair
+// down the back, a bob to the jaw, twin tails (the far one showing past the neck).
 static void back_hair(const ftr_look_t *l, const head_t *g)
 {
     const shape_t cap = ellipse(g->cx, g->cy - g->ry * 0.06f, g->rx * 1.13f, g->ry * 1.1f);
-    if (l->hair_style == FTR_HAIR_PONYTAIL) {       // the tail hangs at the back (left, facing right)
-        float p[4][2];
+    float p[6][2] = { { 0 } }, q[4][2] = { { 0 } };
+    int n = 0, m = 0;
+    switch (l->hair_style) {
+    case FTR_HAIR_PONYTAIL:
         H(g, -0.55f, -0.95f, p[0]);
         H(g, -1.05f, -0.7f, p[1]);
-        p[2][0] = g->cx - g->rx * 1.7f, p[2][1] = g->cy + g->ry * 2.2f;
+        H(g, -1.7f, 2.2f, p[2]);
         H(g, -0.75f, 0.4f, p[3]);
-        const shape_t tail = poly(4, (const float (*)[2])p);
-        const shape_t *k[] = { &cap, &tail };
-        const shape_t u = uni(2, k);
-        fill(&u, l->hair);
-    } else {
-        fill(&cap, l->hair);
+        n = 4;
+        break;
+    case FTR_HAIR_LONG:
+        H(g, -0.2f, -0.95f, p[0]);
+        H(g, -1.12f, -0.5f, p[1]);
+        H(g, -1.28f, 1.2f, p[2]);
+        H(g, -1.05f, 2.5f, p[3]);
+        H(g, -0.25f, 2.3f, p[4]);
+        H(g, 0.15f, 0.8f, p[5]);
+        n = 6;
+        break;
+    case FTR_HAIR_BOB:
+        H(g, -0.3f, -0.95f, p[0]);
+        H(g, -1.18f, -0.4f, p[1]);
+        H(g, -1.18f, 0.8f, p[2]);
+        H(g, -0.55f, 0.92f, p[3]);
+        H(g, 0.0f, 0.3f, p[4]);
+        n = 5;
+        break;
+    case FTR_HAIR_TWIN_TAILS:
+        H(g, -0.6f, -0.85f, p[0]);
+        H(g, -1.1f, -0.55f, p[1]);
+        H(g, -1.75f, 2.0f, p[2]);
+        H(g, -0.95f, 0.5f, p[3]);
+        n = 4;
+        H(g, 0.55f, -0.85f, q[0]);
+        H(g, 1.05f, -0.6f, q[1]);
+        H(g, 1.25f, 2.0f, q[2]);
+        H(g, 0.7f, 0.6f, q[3]);
+        m = 4;
+        break;
     }
+    const shape_t back = poly(n ? n : 3, (const float (*)[2])p), far = poly(m ? m : 3, (const float (*)[2])q);
+    const shape_t *k[3] = { &cap };
+    int nk = 1;
+    if (n) k[nk++] = &back;
+    if (m) k[nk++] = &far;
+    const shape_t u = uni(nk, k);
+    fill(&u, l->hair);
 }
 
+// The hair in front: spikes, or bangs; a lock down the face's side for hair that reaches the jaw.
 static void front_hair(const ftr_look_t *l, const head_t *g)
 {
     const shape_t capl = ellipse(g->cx, g->cy - g->ry * 0.06f, g->rx * 1.13f, g->ry * 1.1f);
-    const shape_t top = clip_y(&capl, g->cy - g->ry * 0.38f);
+    const shape_t top = clip_y(&capl, g->cy - g->ry * (l->hair_style == FTR_HAIR_SHORT ? 0.5f : 0.38f));
     if (l->hair_style == FTR_HAIR_SPIKY) {
         static const float bangs_uv[12][2] = { { -1.08f, -0.5f }, { -0.9f, -0.05f }, { -0.62f, -0.42f }, { -0.38f, 0.0f },
                                                { -0.12f, -0.38f }, { 0.15f, 0.02f }, { 0.4f, -0.4f }, { 0.66f, -0.02f },
@@ -347,15 +384,20 @@ static void front_hair(const ftr_look_t *l, const head_t *g)
         const shape_t *k2[] = { &u0, &s3 };
         const shape_t u = uni(2, k2);
         fill(&u, l->hair);
-    } else {
-        static const float bangs_uv[11][2] = { { -1.08f, -0.45f }, { -0.95f, 0.05f }, { -0.65f, -0.3f }, { -0.35f, -0.05f },
-                                               { -0.1f, -0.35f }, { 0.2f, -0.05f }, { 0.5f, -0.32f }, { 0.8f, 0.0f },
-                                               { 1.08f, -0.45f }, { 0.9f, -0.9f }, { -0.9f, -0.9f } };
-        const shape_t bangs = hpoly(g, 11, bangs_uv);
-        const shape_t *k[] = { &top, &bangs };
-        const shape_t u = uni(2, k);
-        fill(&u, l->hair);
+        return;
     }
+    static const float bangs_uv[11][2] = { { -1.08f, -0.45f }, { -0.95f, 0.05f }, { -0.65f, -0.3f }, { -0.35f, -0.05f },
+                                           { -0.1f, -0.35f }, { 0.2f, -0.05f }, { 0.5f, -0.32f }, { 0.8f, 0.0f },
+                                           { 1.08f, -0.45f }, { 0.9f, -0.9f }, { -0.9f, -0.9f } };
+    static const float short_uv[8][2] = { { -1.08f, -0.5f }, { -0.7f, -0.3f }, { -0.3f, -0.42f }, { 0.1f, -0.28f },
+                                          { 0.5f, -0.42f }, { 1.05f, -0.5f }, { 0.9f, -0.9f }, { -0.9f, -0.9f } };
+    static const float lock_uv[4][2] = { { 0.78f, -0.5f }, { 1.13f, -0.42f }, { 1.08f, 0.78f }, { 0.86f, 0.55f } };
+    const bool short_ = l->hair_style == FTR_HAIR_SHORT;
+    const bool lock = l->hair_style == FTR_HAIR_BOB || l->hair_style == FTR_HAIR_LONG || l->hair_style == FTR_HAIR_TWIN_TAILS;
+    const shape_t bangs = short_ ? hpoly(g, 8, short_uv) : hpoly(g, 11, bangs_uv), side = hpoly(g, 4, lock_uv);
+    const shape_t *k[] = { &top, &bangs, &side };
+    const shape_t u = uni(lock ? 3 : 2, k);
+    fill(&u, l->hair);
 }
 
 static void head(const ftr_look_t *l, const ftr_pose_t *p, const head_t *g)
@@ -388,6 +430,32 @@ static void head(const ftr_look_t *l, const ftr_pose_t *p, const head_t *g)
             if (s > 0) pset(x + 1, y + 1, INK);
         }
     }
+    // Lashes, glasses round or square (the frames' colour), face marks under the eyes, an earring at the ear.
+    const int ey0 = RD(ey - 0.5f), exb = RD(fx - ex - 0.5f), exf = RD(fx + ex - 0.5f);
+    if (l->body == FTR_BODY_FEMALE && p->face == FTR_FACE_OPEN) pset(exf + 2, ey0, INK);
+    if (l->acc & (FTR_ACC_ROUND_GLASSES | FTR_ACC_SQUARE_GLASSES)) {
+        const bool sq = (l->acc & FTR_ACC_SQUARE_GLASSES) != 0;
+        for (int e = 0; e < 2; e++) {
+            const int x = e ? exf : exb;
+            for (int k = 0; k < 2; k++) {
+                pset(x + k, ey0 - 1, l->acc_colour);
+                if (sq) pset(x + k, ey0 + 2, l->acc_colour);
+                pset(x - 1, ey0 + k, l->acc_colour);
+                pset(x + 2, ey0 + k, l->acc_colour);
+            }
+            if (sq) {
+                pset(x - 1, ey0 - 1, l->acc_colour);
+                pset(x + 2, ey0 - 1, l->acc_colour);
+            }
+        }
+    }
+    if (l->acc & FTR_ACC_FACE_MARKS) {
+        const uint32_t mark = mix(l->skin, 0xd03a3a, 0.6f);
+        pset(exb, ey0 + 3, mark);
+        pset(exf, ey0 + 3, mark);
+        pset(exf + 1, ey0 + 3, mark);
+    }
+    if (l->acc & FTR_ACC_EARRINGS) pset(RD(TX(g->cx - g->rx * 0.45f)), RD(TY(g->cy + g->ry * 0.6f)), l->acc_colour);
     const int mx = RD(fx - 0.5f), my = RD(TY(g->cy + g->ry * 0.58f));
     if (p->face == FTR_FACE_SHOUT) {
         pset(mx, my, 0x8a2030);
@@ -408,8 +476,15 @@ void ftr_draw(uint32_t *px, const ftr_look_t *l, const ftr_pose_t *p, int *grip_
     s_px = px;
     memset(px, 0, FTR_W * FTR_H * sizeof(uint32_t));
     s_bx0 = FTR_W, s_by0 = FTR_H, s_bx1 = s_by1 = -1;
-    const float cx = 44, br = p->breath * 1.6f, sh = 36 + br, hip = 71, waist = 66, gnd = 125, ww = 11, sw = 19, neck = 29;
+    const bool female = l->body == FTR_BODY_FEMALE;
+    const float cx = 44, br = p->breath * 1.6f, sh = 36 + br, hip = 71, waist = 66, gnd = 125, neck = 29;
+    const float ww = female ? 10 : 11, sw = female ? 17 : 19;
     const uint32_t M = l->top, skin = l->skin;
+    // Clothes: long sleeves (a hoodie, a jacket) down to the wraps; legs in the bottom's colour, bare under shorts
+    // and skirts.
+    const uint32_t forearm = l->top_style == FTR_TOP_HOODIE || l->top_style == FTR_TOP_JACKET ? M : skin;
+    const uint32_t thigh = l->bottom_style == FTR_BOTTOM_SKIRT ? skin : l->bottom;
+    const uint32_t shin = l->bottom_style == FTR_BOTTOM_SKIRT || l->bottom_style == FTR_BOTTOM_SHORTS ? skin : l->bottom;
     // Walking: the feet trade places, the lifted one off the ground.
     const float st = p->step, liftF = st > 0 ? st * 5 : 0, liftB = st < 0 ? -st * 5 : 0;
     float hipB[2] = { cx - 7, hip + 2 }, kneeB[2] = { cx - 18 - st * 4, hip + 26 - liftB }, footB[2] = { cx - 24 - st * 7, gnd - 5 - liftB };
@@ -431,8 +506,8 @@ void ftr_draw(uint32_t *px, const ftr_look_t *l, const ftr_pose_t *p, int *grip_
         line_px(kx, ky + 1, kx - 6, ky + 4 + p->wave * 1.5f, mix(l->band, 0x140a24, 0.3f));
     }
     // The back leg and the back upper arm, behind.
-    limb(hipB, kneeB, 6.6f, l->bottom);
-    limb(kneeB, footB, 5.4f, l->bottom);
+    limb(hipB, kneeB, 6.6f, thigh);
+    limb(kneeB, footB, 5.4f, shin);
     {
         const shape_t e = ellipse(footB[0] - 2, footB[1] + 2, 8, 4.5f), r = rect(footB[0] - 6, footB[1] - 7, 10, 7);
         const shape_t *k[] = { &e, &r };
@@ -441,21 +516,30 @@ void ftr_draw(uint32_t *px, const ftr_look_t *l, const ftr_pose_t *p, int *grip_
     }
     limb(shB, elbB, 5.8f, M);
     // The front leg.
-    limb(hipF, kneeF, 6.6f, l->bottom);
-    limb(kneeF, footF, 5.4f, l->bottom);
+    limb(hipF, kneeF, 6.6f, thigh);
+    limb(kneeF, footF, 5.4f, shin);
     {
         const shape_t e = ellipse(footF[0] + 3, footF[1] + 2, 9, 4.5f), r = rect(footF[0] - 4, footF[1] - 7, 10, 7);
         const shape_t *k[] = { &e, &r };
         const shape_t u = uni(2, k);
         fill(&u, l->boots);
     }
-    // The hakama: wide from the waist, split between the knees, to mid-shin.
-    {
+    // The hakama: wide from the waist, split between the knees, to mid-shin; a skirt to mid-thigh; trousers' and
+    // shorts' seat.
+    if (l->bottom_style == FTR_BOTTOM_HAKAMA) {
         const float end = hip + 34;
         const float pts[7][2] = { { cx - ww, waist }, { cx + ww, waist }, { kneeF[0] + 9, end }, { cx + 3, end },
                                   { cx, hip + 16 }, { cx - 3, end }, { kneeB[0] - 9, end } };
         const shape_t hk = poly(7, pts);
         fill(&hk, l->bottom);
+    } else if (l->bottom_style == FTR_BOTTOM_SKIRT) {
+        const float pts[4][2] = { { cx - ww, waist }, { cx + ww, waist }, { cx + ww + 9, hip + 13 }, { cx - ww - 9, hip + 13 } };
+        const shape_t sk = poly(4, pts);
+        fill(&sk, l->bottom);
+    } else {
+        const float pts[4][2] = { { cx - ww, waist }, { cx + ww, waist }, { cx + ww + 3, hip + 7 }, { cx - ww - 2, hip + 7 } };
+        const shape_t seat = poly(4, pts);
+        fill(&seat, l->bottom);
     }
     // The torso, three-quarters, wider at the front shoulder; the neck.
     {
@@ -465,15 +549,57 @@ void ftr_draw(uint32_t *px, const ftr_look_t *l, const ftr_pose_t *p, int *grip_
                                   { cx + sw - 1, sh + 15 }, { cx + ww + 1, waist + 2 }, { cx - ww, waist + 2 }, { cx - sw + 2, sh + 15 } };
         const shape_t t = poly(8, pts);
         fill(&t, M);
-        // The gi: its crossed collar and the belt.
-        const uint32_t collar = mix(M, 0xffffff, 0.55f);
-        line_px(TX(cx - 6), TY(sh + 1), TX(cx + 4), TY(waist - 3), collar);
-        line_px(TX(cx + 7), TY(sh + 1), TX(cx - 1), TY(waist - 6), collar);
-        const shape_t belt = rect(cx - ww, waist - 2, 2 * ww + 2, 4);
-        fill_sh(&belt, 0x20202a, 0);
+        // The top's details: a gi's crossed collar and belt, a hoodie's hood and strings, a jacket's opening over
+        // a white shirt, a sailor top's collar and tie, a T-shirt's neckline.
+        const uint32_t light = mix(M, 0xffffff, 0.55f), dark = mix(M, 0x140a24, 0.45f);
+        switch (l->top_style) {
+        case FTR_TOP_GI: {
+            line_px(TX(cx - 6), TY(sh + 1), TX(cx + 4), TY(waist - 3), light);
+            line_px(TX(cx + 7), TY(sh + 1), TX(cx - 1), TY(waist - 6), light);
+            const shape_t belt = rect(cx - ww, waist - 2, 2 * ww + 2, 4);
+            fill_sh(&belt, 0x20202a, 0);
+            break;
+        }
+        case FTR_TOP_HOODIE: {
+            const shape_t hood = ellipse(cx - 9, sh + 1, 8, 5);
+            fill_sh(&hood, dark, 0);
+            line_px(TX(cx + 1), TY(sh + 3), TX(cx + 1), TY(sh + 12), light);
+            line_px(TX(cx + 6), TY(sh + 3), TX(cx + 6), TY(sh + 11), light);
+            break;
+        }
+        case FTR_TOP_JACKET: {
+            const float shirt[3][2] = { { cx - 3, sh + 1 }, { cx + 8, sh + 1 }, { cx + 3, sh + 12 } };
+            const shape_t sh_ = poly(3, shirt);
+            fill_sh(&sh_, 0xecedf2, 0);
+            line_px(TX(cx + 3), TY(sh + 12), TX(cx + 2), TY(waist + 1), dark);
+            line_px(TX(cx - 4), TY(sh + 1), TX(cx + 2), TY(sh + 13), light);
+            break;
+        }
+        case FTR_TOP_SAILOR: {
+            const float col[3][2] = { { cx - 12, sh }, { cx + 9, sh }, { cx + 2, sh + 11 } };
+            const shape_t sc = poly(3, col);
+            fill_sh(&sc, 0xecedf2, 0);
+            const float tie[3][2] = { { cx - 1, sh + 9 }, { cx + 5, sh + 9 }, { cx + 2, sh + 15 } };
+            const shape_t t = poly(3, tie);
+            fill_sh(&t, 0xd03a3a, 0);
+            break;
+        }
+        default:                                                 // a T-shirt
+            line_px(TX(cx - 4), TY(sh + 1), TX(cx + 6), TY(sh + 1), dark);
+            break;
+        }
+    }
+    // A scarf round the neck, its end flying back; a necklace at the collar.
+    if (l->acc & FTR_ACC_SCARF) {
+        const shape_t band = rect(cx - 7, sh - 4, 16, 5);
+        fill(&band, l->acc_colour);
+        const float a0[2] = { cx - 6, sh - 2 }, a1[2] = { cx - 17, sh + 3 + p->wave * 2 };
+        limb(a0, a1, 2.4f, l->acc_colour);
+    } else if (l->acc & FTR_ACC_NECKLACE) {
+        for (int k = 0; k <= 4; k++) pset(RD(TX(cx - 4 + k * 2.4f)), RD(TY(sh + 1 + (k < 2 ? k : 4 - k) * 1.6f)), l->acc_colour);
     }
     // The back forearm guards the chin.
-    limb(elbB, fistB, 5.2f, skin);
+    limb(elbB, fistB, 5.2f, forearm);
     {
         const shape_t f = ellipse(fistB[0], fistB[1], 5.8f, 5.4f);
         fill(&f, l->wraps);
@@ -497,7 +623,7 @@ void ftr_draw(uint32_t *px, const ftr_look_t *l, const ftr_pose_t *p, int *grip_
     }
     // The front arm over all, its hand on the handle.
     limb(shF, elbF, 4.8f, M);
-    limb(elbF, grip, 4.2f, skin);
+    limb(elbF, grip, 4.2f, forearm);
     {
         const shape_t f = ellipse(grip[0], grip[1], 5, 4.6f);
         fill(&f, l->wraps);
@@ -506,6 +632,21 @@ void ftr_draw(uint32_t *px, const ftr_look_t *l, const ftr_pose_t *p, int *grip_
     outline();
     if (grip_x) *grip_x = RD(TX(grip[0]));
     if (grip_y) *grip_y = RD(TY(grip[1]));
+}
+
+void ftr_dress(ftr_look_t *f, const fh1_look_t *a)
+{
+    f->skin = a->skin;
+    f->hair = a->hair;
+    f->eyes = a->eyes;
+    f->top = a->top_colour;
+    f->bottom = a->bottom_colour;
+    f->acc_colour = a->acc_colour;
+    f->hair_style = a->hair_style;                               // (the same orders: fighter.h)
+    f->top_style = a->top;
+    f->bottom_style = a->bottom;
+    f->body = a->body;
+    f->acc = a->acc;
 }
 
 void ftr_free(void)
