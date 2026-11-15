@@ -2,9 +2,12 @@
   "id": "construcao-legal",
   "publisher": "org.fh1",
   "name": "Construção Legal",
-  "version": "0.8.1",
-  "sdk": "0.8",
+  "version": "0.9.1",
+  "sdk": "0.9",
   "entry": "app.elf",
   "needs": [],
-  "wants": []
+  "wants": [],
+  "uses": [
+    "rpg-sfx"
+  ]
 }

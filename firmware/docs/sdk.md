@@ -39,6 +39,7 @@ build/<name>.app.elf  ──tools/fpk.py pack──▶  <id>_<version>.fpk  (man
 | [`apps/packages/hello`](../apps/packages/hello) | The template: windows, buttons, a saved state, a setting, sound, users |
 | [`apps/packages/duel`](../apps/packages/duel) | Duelo: a two-player game on the canvas, gamepads with motion, the players' avatars, network play |
 | [`apps/packages/taticas-da-ilha`](../apps/packages/taticas-da-ilha) | Táticas da Ilha: a full-screen tactics game, the isometric engine, art and sound packs, a PC host |
+| [`apps/packages/construcao-legal`](../apps/packages/construcao-legal) | Construção Legal: explore and build, alone or with friends in one world over the network, a PC host |
 | `tools/pkgbuild.sh` | Builds a package from scratch (art pack, ELF, symbol check, `.fpk`) |
 | `tools/fpk.py` | Packs, checks, lists and uploads packages |
 | `tools/elfcheck.py` | Checks that every symbol an app needs is exported |
@@ -63,6 +64,17 @@ The 6-digit console code is in the boot log and the System window. `FH1_HOST` na
 `fh1.local`). `upload` stores the package on the SD card by default, `--to int` in internal storage (the console's
 upload has the same choice). Installing from the console's Packages list or the Installer window, or from
 packages copied to `/sd/packages/` on a computer, works too.
+
+A unit without an SD card, its storage nearly full, takes a package as it is uploaded, keeping no copy of it:
+
+```sh
+FH1_CODE=<code> python3 tools/fh1dev.py op stop          # no app may run meanwhile
+curl -X POST -H "X-FH1-Code: <code>" --data-binary @apps/packages/NAME/<id>_<version>.fpk http://fh1.local/fh1/install
+```
+
+`POST /fh1/install` reads the manifest first (`fpk.py` puts it first), then unpacks and checks the rest as the
+Installer does. When there is not room for the new version beside the old one, the old one's files go first (its
+users' data stays).
 
 Without `pkgbuild.sh`, by hand (it skips the art pack, the symbol check and the clean build):
 
@@ -112,6 +124,11 @@ and write `manifest.json`. An app that draws in loops sets `CONFIG_COMPILER_OPTI
   the isometric engine (below), with art and sound packs, per-user progress (it loads the new player's when
   `fh1_user(0, ...)` changes), the controller's button icons in its hints, development commands, a PC host and an
   end-to-end test suite ([`taticas-da-ilha.md`](taticas-da-ilha.md)).
+- **Construção Legal** ([`apps/packages/construcao-legal`](../apps/packages/construcao-legal), SDK 0.9): an
+  isometric world to explore and build in. Each user has their own world (a saved state); playing it hosts it,
+  and friends on the same network join it from "Mundos de amigos" with up to four players in all: the owner's
+  FH1 runs the game for everyone and keeps what they build. A world bigger than the 1 KB state goes to the guests
+  through the engine's `netrep.c` ([`construcao-legal.md`](construcao-legal.md)).
 
 ## What the SDK gives
 
@@ -192,7 +209,11 @@ the Táticas da Ilha package, [`apps/packages/taticas-da-ilha/main`](../apps/pac
 | `engine/fart.c` / `fart.h` | Art packs: images as rows of opaque runs (RGB565), animations by facing; drawing with tints, armour, a colour for all of it, twice the size, turned about the anchor, fading; recolouring an image in place |
 | `iso.c` / `iso.h` | The map and its units (below) |
 | `engine/fx.c` / `fx.h` | Projectiles that turn along their path, particles, lightning, trails, auras, animations of the art played once at a point (`fx_play`: a hit, a spell); the whole screen: a negative flash, a wave through the rows, a shake (through the camera) |
-| `engine/ui.c` / `ui.h` | Translucent boxes, menus, bars, banners, text, hint lines with the controller's button icons |
+| `engine/ui.c` / `ui.h` | Translucent boxes, menus, bars, banners, text, hint lines with the controller's button icons, the players' colours |
+| `engine/interior.c` / `interior.h` | A building's inside, a floor at a time: rooms from the game's plan, furniture, the walker and other players |
+| `engine/viewturn.c` / `viewturn.h` | A quarter turn of the view shown as a cube turning |
+| `engine/sfxbank.c` / `sfxbank.h` | The sounds a game names, from an asset package's `.fsfx` bank, played by index |
+| `engine/netrep.c` / `netrep.h` | A host's table of records (a world's changes) copied to its network guests inside the SDK's state |
 | `snd.c` / `snd.h` | Sound banks (`.fsfx`): sets loaded per screen, played through `fh1_sfx_play` |
 
 **What the map does:**
@@ -334,7 +355,9 @@ levels. The recipe format is in the tool's docstring. The packs' sources are in 
   catches hangs.
 - **Code runs from PSRAM,** slower than the firmware's own; hot loops matter more than usual.
 - **Uploads stay in `/int/packages`** after installing. Internal storage fills up ("not enough internal
-  storage"): delete them with `op delete_pkg`.
+  storage"): delete them with `op delete_pkg`. `op du /int` (or any folder in `/int` or `/sd`) shows what each
+  entry holds, in KB, to find what fills it. Installing an upload needs room for it and the unpacked app at once
+  (about twice the package); `POST /fh1/install` needs room for the app only.
 - **Screenshots during a full-screen game** (`/shot.bmp`) can time out on a weak Wi-Fi link.
 - **The ELF loader exports more than the SDK** (pthreads, lwIP sockets, `usleep`, `printf`...). They are not
   part of the SDK and may go; threads an app starts would outlive its unloading.

@@ -1,0 +1,37 @@
+# Friends in one world: a friend comes in beside the player (a ring of each one's colour, the friend's name over
+# them), walks off on their own and builds a road and a house; the player builds a house beside it; both go in;
+# the friend leaves; then the start menu.
+wait 10
+guest on
+wait 20
+shot f01-joined
+ghold DOWN 25
+hold RIGHT 12
+shot f02-apart
+gkey X
+gkey A
+wait 20
+gkey Y
+ghold LEFT 6
+gkey A
+wait 20
+shot f03-built
+log
+gkey X
+gkey A
+wait 10
+shot f04-friend-inside
+tp 9 67
+hold UP+LEFT 2
+key A
+wait 10
+shot f05-both-inside
+ghold DOWN 12
+hold RIGHT 10
+shot f06-inside-moving
+guest off
+wait 10
+shot f07-friend-left
+net close
+wait 10
+shot f08-start

@@ -2,7 +2,48 @@
 
 An exploration and building game for the FH1 (package `construcao-legal`, in
 `firmware/apps/packages/construcao-legal`): the protagonist walks a large fixed world, isometric, finds a small
-village on the way, and builds his own place outside it.
+village on the way, and builds his own place outside it, alone or with friends.
+
+## Starting
+
+The start menu, over the world: **Meu mundo** (the player's own world: each user of the FH1 has theirs, kept with
+their data), **Mundos de amigos** (the worlds friends are playing on the same network now, "Mundo de NAME" with
+its players and seats, looked for again every 2 s; A joins one, B goes back) and **Sair**.
+
+## Friends in one world
+
+Playing one's own world opens it to friends on the network (SDK network play, `fh1_net_host`: up to three
+guests, four players in all). The owner's FH1 runs the game for everyone: each guest's keys or controller come to
+it as one of its players, and what anyone builds is a change to the owner's world, saved on the owner's FH1 with
+the owner's data. A guest's FH1 keeps nothing of it (back home, its own world is as it was).
+
+- **Coming in:** a newcomer arrives through a portal near the owner (the engine's `portal.h`, in their colour, with
+  the portal pack's stones round it): it opens, they step out of it and walk a cell clear by themselves, and it
+  closes behind them. One flashes open where someone leaves.
+- **Players** each have a colour (blue for the owner, then red, green, yellow: the engine's `ui_player_colour`):
+  a ring under their feet while others are there, and their name over them on the others' screens. Who comes and
+  goes shows at the top ("NAME entrou no seu mundo", "NAME saiu"). Nobody owns what they build: anyone may
+  remove anything built.
+- **Each on their own:** every player walks, builds and goes into buildings by themselves, sees the world turned
+  their own way (Select / R1 / L1 turn only theirs) and has their own camera; they see the others wherever they
+  are on screen, and inside a building the others in the same rooms (in by the same door, in the same view, on the
+  same floor). Nothing solid is built on anyone.
+- **A guest leaving:** Start (or Menu) asks "Voltar ao seu mundo?": A leaves, B stays. Their player waits
+  meanwhile. When the owner leaves, or their FH1 is gone for 3 s, guests are told and go back to the start menu.
+  The owner's own menu (Start) pauses only them; the others play on.
+- **What goes over the network** (about 30 times a second, at most 1 KB, the newest winning): each player (place,
+  height, facing, view, coming in through a portal, how they move, build mode, tool and variants, a swing under way, inside: the door they
+  went in by, the floor and where they are) and the world's changes through the engine's `netrep.c` (the latest
+  ones, and the whole list going round for a guest that joins late or missed some). A guest's FH1 draws the world
+  from that: it applies the changes to its own copy of the fixed world and lays out a building's rooms as the
+  owner's FH1 does (the same plan from the same door and view).
+
+## Sounds
+
+From the shared `rpg-sfx` pool (the engine's `sfxbank.c`; the manifest's `"uses"`): footsteps on grass, on stone
+(roads, walls, stairs) and on wood (bridges, inside), the hammer's swing, building and removing (fainter the
+farther away, so a friend's work far off is quiet), doors, the tool and its variants changing, a refusal, the
+view turning, menus, and friends coming and going. Without the pool the game is silent.
 
 ## Playing
 
@@ -62,8 +103,8 @@ village on the way, and builds his own place outside it.
   third of a second (the engine's `viewturn.h`: the old view turns away like a cube's face as the new one turns in;
   presses during a turn follow it); he keeps facing the same way in the world, and the D-pad stays the screen's.
 - **Start** (or Menu) opens the menu: continue, show the frame time (and the slowest of the last 2 s) and his cell,
-  leave. His place, facing and the view (`"lugar"`) and his changes (`"mundo"`: every eighth change and on leaving) are kept between
-  visits.
+  back to the start menu. In his own world, his place, facing and the view (`"lugar"`) and the world's changes
+  (`"mundo"`: every eighth change, everyone's, and on leaving) are kept between visits.
 
 ## The world
 
@@ -159,7 +200,10 @@ its top face's centre; the ground is drawn first, then what stands on it, back t
 screenshots (script lines: `key` (L1, R1, L2, R2 too: a controller's shoulder buttons), `hold KEY[+KEY] FRAMES`,
 `wait`, `shot`, and the game's commands `tp U V`, which puts him at a cell, `view N`, which turns the view to N,
 `tool NAME` (road, house, smithy, mill, wall, tower, stair, tree, field, remove), which picks a build tool, `enter`,
-`leave` and `floor N` (inside a building), `info`, and `log`, his place, his target and the changes kept);
+`leave` and `floor N` (inside a building), `info`, and `log`, his place, his target and the changes kept; the
+game starts in the player's own world on the PC); `host/tests/friends.script` brings a friend in (`guest on|off`,
+their keys `gkey KEY` and `ghold KEY[+KEY] FRAMES`): they walk off, build, both go into one house, the friend
+leaves, and `net close` goes back to the start menu;
 `host/tests/build.script` builds with every tool, picks variants, and removes; `host/tests/hold.script` builds on
 with A held; `host/tests/ghost.script` shows the ghost, turned; `host/tests/between.script` walks between two
 houses; `host/tests/castle.script` builds walls with a corner, a gate and a tower; `host/tests/merge.script` joins
@@ -168,6 +212,7 @@ and towers and puts a gate across the road; `host/tests/view.script` turns the v
 a 3 x 3 block, a U, a big house with its storey and a keep with its tower; `host/tests/castle4.script` a castle of
 three levels; `host/tests/stairs.script` climbs a wall and walks along it; `host/tests/interior.script` goes into a
 house, an L of three houses from its side (and turns the view, a shot half way through), a 2 x 2 house, a smithy
-and a keep. On the FH1 the same commands come from the console. The game prints no
+and a keep. On the FH1 the same commands come from the console, and `net host`, `net find`, `net join N` and
+`net close` drive the start menu (two units: one hosts, the other finds and joins). The game prints no
 floats (hundredths as whole numbers): a float through printf needs double helpers the firmware does not export, and
 the package check refuses it.

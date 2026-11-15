@@ -1611,6 +1611,57 @@
     0,
     0
    ]
+  },
+  {
+   "name": "portal.frame",
+   "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/prop_portal_complete_front.png",
+   "anchor": [
+    21.0,
+    36
+   ],
+   "cut": {
+    "part": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/fx_portal_vortex_right.png",
+    "keep": "rest"
+   }
+  },
+  {
+   "name": "portal.front",
+   "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/prop_portal_complete_front.png",
+   "anchor": [
+    21.0,
+    36
+   ],
+   "cut": {
+    "part": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/fx_portal_vortex_right.png",
+    "keep": "front"
+   }
+  },
+  {
+   "name": "portal.glow",
+   "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/prop_portal_complete_front.png",
+   "anchor": [
+    21.0,
+    36
+   ],
+   "cut": {
+    "part": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/fx_portal_vortex_right.png",
+    "keep": "glow"
+   }
+  },
+  {
+   "name": "portal.vortex",
+   "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/fx_portal_vortex_right.png",
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_in": {
+    "png": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/prop_portal_complete_front.png",
+    "anchor": [
+     21.0,
+     36
+    ]
+   }
   }
  ],
  "anims": [
@@ -1803,6 +1854,24 @@
      "#5a463c"
     ]
    ]
+  }
+ ],
+ "tile_anims": [
+  {
+   "name": "portal.whirl",
+   "from": "portal.vortex",
+   "whirl": {
+    "part": "../../../../assets/packs/isometric-portal/Isometric_Portal/Individual_Tiles/Portal/fx_portal_vortex_right.png",
+    "plane": [
+     0.55,
+     0
+    ],
+    "frames": 12,
+    "arms": 2,
+    "twist": 2.2,
+    "rim": 2,
+    "ms": 80
+   }
   }
  ]
 }

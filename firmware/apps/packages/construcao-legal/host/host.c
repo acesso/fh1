@@ -4,7 +4,9 @@
 //   make -C host && host/run game.script out/      (from the package's folder; see host/Makefile)
 //
 // Script lines: key A|B|X|Y|UP|DOWN|LEFT|RIGHT|START|SELECT|MENU, hold KEY[+KEY...] FRAMES (keys held together: a
-// diagonal), wait FRAMES, shot NAME, and the game's development commands (tp U V, info). A frame is 33 ms. Lines
+// diagonal), wait FRAMES, shot NAME, guest on|off (a friend joins the world as player 2), gkey KEY and
+// ghold KEY[+KEY...] FRAMES (the friend's keys), and the game's development commands (tp U V, info, net close: back
+// to the start menu). The game starts in the player's own world. A frame is 33 ms. Lines
 // starting with # are comments. The frame buffer has guard zones around it: a frame that writes outside it stops
 // the run (on the FH1 that write would corrupt memory and crash later, somewhere else).
 #include <stdarg.h>
@@ -75,9 +77,50 @@ int fh1_state_load(const char *n, void *d, size_t m)
     memcpy(d, s_saves[k].data, s_saves[k].len);
     return s_saves[k].len;
 }
+// A guest over the network (script: guest on|off, gkey, ghold): player 2, their keys as a controller's buttons by
+// position (the FH1's A is the controller's right button, B its bottom one), as the SDK gives a guest's keys.
+static bool s_guest;
+static uint32_t s_gkeys;
+static uint32_t guest_buttons(void)
+{
+    static const uint32_t btn[15] = { FH1_PAD_BTN_UP, FH1_PAD_BTN_DOWN, FH1_PAD_BTN_LEFT, FH1_PAD_BTN_RIGHT, FH1_PAD_BTN_B,
+                                      FH1_PAD_BTN_A, FH1_PAD_BTN_Y, FH1_PAD_BTN_X, FH1_PAD_BTN_START, FH1_PAD_BTN_SELECT,
+                                      FH1_PAD_BTN_SYSTEM, FH1_PAD_BTN_L1, FH1_PAD_BTN_R1, FH1_PAD_BTN_L2, FH1_PAD_BTN_R2 };
+    uint32_t b = 0;
+    for (int k = 0; k < 15; k++)
+        if (s_gkeys & 1u << k) b |= btn[k];
+    return b;
+}
+// Network play: the game hosts its world (no one finds it on the PC); the guest, when the script brings one in.
+static int s_net;
+bool fh1_net_host(int first, int seats) { (void)first; (void)seats; s_net = FH1_NET_HOSTING; return true; }
+bool fh1_net_find(void) { return true; }
+int fh1_net_games(fh1_net_game_t *out, int max) { (void)out; (void)max; return 0; }
+bool fh1_net_join(const fh1_net_game_t *g) { (void)g; return false; }
+int fh1_net_status(void) { return s_net; }
+int fh1_net_me(void) { return -1; }
+bool fh1_net_remote(int p) { return s_net == FH1_NET_HOSTING && p == 1 && s_guest; }
+bool fh1_net_player(int p, char *name, size_t n)
+{
+    if (p == 0) return fh1_user(0, name, n);
+    if (p == 1 && s_guest) {
+        snprintf(name, n, "amigo");
+        return true;
+    }
+    return false;
+}
+bool fh1_net_look(int p, fh1_look_t *look) { (void)p; (void)look; return false; }
+bool fh1_net_state_send(const void *d, size_t len) { (void)d; return len <= FH1_NET_STATE_MAX; }
+int fh1_net_state_recv(void *d, size_t max) { (void)d; (void)max; return -1; }
+void fh1_net_close(void) { s_net = FH1_NET_OFF; }
 // A controller's shoulder buttons from the script's keys L1, R1, L2, R2 (bits past the FH1 keys); no other pad state.
 bool fh1_pad(int player, fh1_pad_t *out)
 {
+    if (player == 1 && s_guest) {
+        memset(out, 0, sizeof(*out));
+        out->buttons = guest_buttons();
+        return true;
+    }
     if (player != 0) return false;
     memset(out, 0, sizeof(*out));
     out->buttons = (s_keys & 1u << 11 ? FH1_PAD_BTN_L1 : 0) | (s_keys & 1u << 12 ? FH1_PAD_BTN_R1 : 0) |
@@ -255,6 +298,8 @@ int main(int argc, char **argv)
     app_main(0, NULL);
     if (!s_frame) return 1;
     frames(3);
+    dev_command("net host");                             // into the player's own world (net close: the start menu)
+    frames(2);
     char line[256];
     while (fgets(line, sizeof(line), sc)) {
         char cmd[32] = "", a[64] = "";
@@ -270,6 +315,19 @@ int main(int argc, char **argv)
             for (char *k = strtok(a, "+"); k; k = strtok(NULL, "+")) s_keys |= 1u << key_of(k);
             frames(n[0]);
             s_keys = 0;
+        } else if (!strcmp(cmd, "guest") && sscanf(line, "%*s %63s", a) == 1) {
+            s_guest = !strcmp(a, "on");
+            frames(2);
+        } else if (!strcmp(cmd, "gkey") && sscanf(line, "%*s %63s", a) == 1) {
+            s_gkeys = 1u << key_of(a);
+            frames(2);
+            s_gkeys = 0;
+            frames(6);
+        } else if (!strcmp(cmd, "ghold") && sscanf(line, "%*s %63s %d", a, &n[0]) == 2) {
+            s_gkeys = 0;
+            for (char *k = strtok(a, "+"); k; k = strtok(NULL, "+")) s_gkeys |= 1u << key_of(k);
+            frames(n[0]);
+            s_gkeys = 0;
         } else if (!strcmp(cmd, "wait") && sscanf(line, "%*s %d", &n[0]) == 1) frames(n[0]);
         else if (!strcmp(cmd, "shot") && sscanf(line, "%*s %63s", a) == 1) shot(a);
         else if (!strcmp(cmd, "user") && sscanf(line, "%*s %23s", s_player) == 1) {

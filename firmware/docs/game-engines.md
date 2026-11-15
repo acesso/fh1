@@ -134,7 +134,19 @@ it can change without flashing firmware, then moved into the firmware once its A
   room, for furnishing it), `interior_add` (furniture: a picture and its footprint), `interior_move` (kept off
   walls and furniture; tells of the door out and the stairs), `interior_draw` (the game's floor, wall, door and
   window pictures, or plain shapes; the view following the walker, drawn by the game in its place among the
-  furniture).
+  furniture); `interior_draw_with` also draws others on the same floor (other players), each in its place among
+  the furniture.
+- **Sound banks (`engine/sfxbank.c`):** `sfxbank_load` takes the sounds a game names from an asset package's
+  `.fsfx` bank (the `rpg-sfx` pool) into PSRAM, `sfxbank_play` plays one by its index on the SDK's mixer. Without
+  the package every play is silent, so a game needs no other check.
+- **Network worlds (`engine/netrep.c`):** a host's table of records (a world's changes) copied to its network
+  guests inside the state the SDK sends them (one blob, the newest winning, nothing resent): each blob carries the
+  latest changes (a ring of 64, so a guest keeps up through a few lost blobs) and the next stretch of the whole
+  table, going round (a guest that joins late, or missed too much, catches up), with no answers needed.
+  `netrep_changed` (host: a record's newest state), `netrep_pack`, `netrep_unpack` (guest: each record new to it
+  applied; `synced` once the whole table has come).
+- **Player colours (`engine/ui.c`):** `ui_player_colour` (blue, red, green, yellow): one per player of a game,
+  the same in every game.
 - **View turns (`engine/viewturn.c`):** a quarter turn of the view shown as a cube turning: `viewturn_begin` keeps
   the frame shown, `viewturn_update`, `viewturn_draw` folds it away over the new view as that one turns in (each
   face darker and narrower at its far side as it faces away). A frame counts at most 40 ms toward it, so the slow

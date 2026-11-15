@@ -182,3 +182,9 @@ void ui_banner(const ui_t *u, const char *s, uint32_t rgb)
     fh1_px_text(u->px, u->w, u->h, x + 13, y + 8, s, 0x000000, 2);
     fh1_px_text(u->px, u->w, u->h, x + 12, y + 7, s, rgb, 2);
 }
+
+uint32_t ui_player_colour(int player)
+{
+    static const uint32_t c[4] = { 0x4a8cff, 0xff5a50, 0x4cd86a, 0xffd23f };
+    return c[(player % 4 + 4) % 4];
+}

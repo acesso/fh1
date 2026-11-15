@@ -191,6 +191,14 @@ static void put(uint16_t *px, int w, int h, const fart_t *a, int img, int x, int
 void interior_draw(const interior_t *in, const fart_t *a, const interior_art_t *art, uint16_t *px, int w, int h,
                    void (*draw_walker)(uint16_t *px, int w, int h, int x, int y, void *user), void *user)
 {
+    interior_draw_with(in, a, art, px, w, h, draw_walker, user, NULL, NULL, 0, NULL);
+}
+
+void interior_draw_with(const interior_t *in, const fart_t *a, const interior_art_t *art, uint16_t *px, int w, int h,
+                        void (*draw_walker)(uint16_t *px, int w, int h, int x, int y, void *user), void *user,
+                        const float *wox, const float *woy, int nothers,
+                        void (*draw_other)(uint16_t *px, int w, int h, int x, int y, int i, void *user))
+{
     const uint16_t dark = 0x1082, line = 0x2124;
     for (int i = 0; i < w * h; i++) px[i] = dark;
     // The view: on the walker, kept on the floor when it fits.
@@ -257,13 +265,28 @@ void interior_draw(const interior_t *in, const fart_t *a, const interior_art_t *
             if (bp <= bq) break;
             const int t = order[j]; order[j] = order[j - 1]; order[j - 1] = t;
         }
-    bool walker = false;
+    // The walkers (the one followed: -1, then the others), front to back by their feet.
+    enum { MAXW = 8 };
+    int wk[MAXW], nw = 0;
+    wk[nw++] = -1;
+    for (int i = 0; i < nothers && nw < MAXW; i++) wk[nw++] = i;
+    #define WY(i) ((i) < 0 ? in->y : woy[(i)])
+    for (int i = 1; i < nw; i++)
+        for (int j = i; j > 0 && WY(wk[j - 1]) > WY(wk[j]); j--) {
+            const int t = wk[j]; wk[j] = wk[j - 1]; wk[j - 1] = t;
+        }
+    int next = 0;                                                  // the next walker to draw
     for (int k = 0; k <= n; k++) {
         const interior_item_t *it = k < n ? &in->item[order[k]] : NULL;
-        if (!walker && (!it || (it->depth > 0 && item_bottom(it, a) > in->y))) {
-            if (draw_walker) draw_walker(px, w, h, ox + (int)(in->x * IN_TILE), oy + (int)(in->y * IN_TILE), user);
-            walker = true;
+        while (next < nw && (!it || (it->depth > 0 && item_bottom(it, a) > WY(wk[next])))) {
+            const int i = wk[next++];
+            if (i < 0) {
+                if (draw_walker) draw_walker(px, w, h, ox + (int)(in->x * IN_TILE), oy + (int)(in->y * IN_TILE), user);
+            } else if (draw_other) {
+                draw_other(px, w, h, ox + (int)(wox[i] * IN_TILE), oy + (int)(woy[i] * IN_TILE), i, user);
+            }
         }
         if (it) put(px, w, h, a, it->img, ox + (int)(it->x * IN_TILE), oy + (int)(it->y * IN_TILE));
     }
+    #undef WY
 }

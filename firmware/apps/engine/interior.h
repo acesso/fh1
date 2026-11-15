@@ -74,3 +74,9 @@ int interior_move(interior_t *in, const fart_t *a, float dx, float dy);
 // among the furniture.
 void interior_draw(const interior_t *in, const fart_t *a, const interior_art_t *art, uint16_t *px, int w, int h,
                    void (*draw_walker)(uint16_t *px, int w, int h, int x, int y, void *user), void *user);
+// The same with others on this floor (other players in the same building): their feet at (ox[i], oy[i]) tiles, each
+// drawn by draw_other (its feet at x, y; i: which) in its place among the furniture and the walker.
+void interior_draw_with(const interior_t *in, const fart_t *a, const interior_art_t *art, uint16_t *px, int w, int h,
+                        void (*draw_walker)(uint16_t *px, int w, int h, int x, int y, void *user), void *user,
+                        const float *ox, const float *oy, int nothers,
+                        void (*draw_other)(uint16_t *px, int w, int h, int x, int y, int i, void *user));

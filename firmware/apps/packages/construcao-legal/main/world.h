@@ -78,12 +78,17 @@ typedef struct {
     uint16_t flag_col[4][2];         // in the towers' colours
     uint32_t t;
     int sail_frame;
+    // Each change as it is kept (the newest state of its cell), as it happens: a network host passes them on.
+    void (*on_edit)(const edit_t *e, void *user);
+    void *on_edit_user;
 } world_t;
 
 bool world_init(world_t *w, fart_t *art);
 void world_free(world_t *w);
 // The fixed world: grass and forests, a river, roads, a small village; the player's start.
 void world_make(world_t *w, float *start_u, float *start_v);
+// Back to the fixed world, no changes (in the view it has).
+void world_reset(world_t *w, float *start_u, float *start_v);
 static inline cell_t *world_cell(world_t *w, int c, int r) { return &w->cells[r * WORLD_W + c]; }
 static inline bool world_inside(int c, int r) { return c >= 0 && r >= 0 && c < WORLD_W && r < WORLD_H; }
 // The ground's piece again for a cell and its neighbours (after a road or river changes), and the cache there.
@@ -137,6 +142,9 @@ void world_px(float u, float v, float *x, float *y);
 // A point turned to the screen's columns and rows (the view), and back.
 void world_to_screen(float u, float v, float *su, float *sv);
 void world_from_screen(float su, float sv, float *u, float *v);
+// The same in a view given (another player's, who sees the world turned their own way).
+void world_to_screen_v(int view, float u, float v, float *su, float *sv);
+void world_from_screen_v(int view, float su, float sv, float *u, float *v);
 // Turns the view (0..3: a quarter each, clockwise): every piece chosen again, the cache drawn again.
 void world_view(world_t *w, int view);
 

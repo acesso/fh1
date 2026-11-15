@@ -32,18 +32,20 @@ static void to_world(int sc, int sr, int *c, int *r)
     default: *c = sc, *r = sr; break;
     }
 }
-void world_to_screen(float u, float v, float *su, float *sv)
+void world_to_screen(float u, float v, float *su, float *sv) { world_to_screen_v(s_view, u, v, su, sv); }
+void world_from_screen(float su, float sv, float *u, float *v) { world_from_screen_v(s_view, su, sv, u, v); }
+void world_to_screen_v(int view, float u, float v, float *su, float *sv)
 {
-    switch (s_view) {
+    switch (view & 3) {
     case 1: *su = WORLD_H - v, *sv = u; break;
     case 2: *su = WORLD_W - u, *sv = WORLD_H - v; break;
     case 3: *su = v, *sv = WORLD_W - u; break;
     default: *su = u, *sv = v; break;
     }
 }
-void world_from_screen(float su, float sv, float *u, float *v)
+void world_from_screen_v(int view, float su, float sv, float *u, float *v)
 {
-    switch (s_view) {
+    switch (view & 3) {
     case 1: *u = sv, *v = WORLD_H - su; break;
     case 2: *u = WORLD_W - su, *v = WORLD_H - sv; break;
     case 3: *u = WORLD_W - sv, *v = su; break;
@@ -679,10 +681,12 @@ static bool record(world_t *w, int c, int r)
     for (int i = 0; i < w->nedits; i++)                           // changed before: the newest state replaces it
         if (w->edits[i].c == c && w->edits[i].r == r) {
             w->edits[i] = e;
+            if (w->on_edit) w->on_edit(&e, w->on_edit_user);
             return true;
         }
     if (w->nedits >= EDITS_MAX) return false;
     w->edits[w->nedits++] = e;
+    if (w->on_edit) w->on_edit(&e, w->on_edit_user);
     return true;
 }
 
@@ -1393,4 +1397,12 @@ bool world_building(world_t *w, int c, int r, building_t *b)
         b->joins[i] = b->open ? 15 : (uint8_t)SIDES(world_cell(w, gc[i], gr[i]));
     }
     return true;
+}
+
+void world_reset(world_t *w, float *start_u, float *start_v)
+{
+    w->nedits = 0;
+    world_make(w, start_u, start_v);
+    world_view(w, w->view);
+    w->cache_ok = false;
 }

@@ -52,7 +52,8 @@ Future ideas and pending work; each leaves this list when it lands.
   - spells with art of their own at each tier.
 - **Construção Legal:**
   - more to stack: a storey on houses beyond the 2 x 2 one, on the smithy;
-  - more moving things: smoke from houses with a chimney, water, people in the village.
+  - more moving things: smoke from houses with a chimney, water, people in the village;
+  - with friends: what each one built kept as theirs (only they, or the world's owner, remove it).
 - **Roaming profiles:** a user's saves and settings following them between units: a user who plays on another FH1
   brings their saved states along (fetched from their home unit over Wi-Fi, signed with their key), plays there,
   and their progress goes back; conflicts shown when both sides changed. Today a saved state can be put into a
@@ -75,7 +76,7 @@ Future ideas and pending work; each leaves this list when it lands.
 | `hardware/open-questions.md` | Decisions, and the questions still open |
 | `firmware/PLAN.md` | Firmware design: boards, devices, interface, packages, emulators, music, bridge, users |
 | `firmware/docs/sdk.md` | The SDK guide: writing apps and games for the FH1, the isometric engine, testing, limits |
-| `firmware/docs/construcao-legal.md` | Construção Legal, the exploration (and building) game: its world, drawing, development |
+| `firmware/docs/construcao-legal.md` | Construção Legal, the exploration (and building) game: its world, friends in one world over the network, sounds, drawing, development |
 | `firmware/` | The firmware (ESP-IDF v6.1): build, flash and app notes in `firmware/README.md` |
 | `bridge/` | The Bluetooth bridge's firmware (ESP32 + Bluepad32) |
 | `simulator/` | The web simulator and the site: the FH1 firmware on esp32sim in the browser |

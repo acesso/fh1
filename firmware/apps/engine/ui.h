@@ -39,3 +39,5 @@ enum { UI_SND_MOVE, UI_SND_OK, UI_SND_BACK, UI_SND_NO };
 extern void (*ui_sound)(int what);
 // A line in the middle of the screen, in a box.
 void ui_banner(const ui_t *u, const char *s, uint32_t rgb);
+// Each player's own colour in multiplayer (0..3: blue, red, green, yellow, as the FH1's buttons), RGB.
+uint32_t ui_player_colour(int player);
