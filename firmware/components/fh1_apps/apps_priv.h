@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include "esp_err.h"
 
 #define FH1_USES_MAX 4
@@ -22,6 +23,8 @@ void sfx_shutdown(void);                   // sfx.c: every sound stopped, the mi
 esp_err_t pkg_manifest_parse(const char *json, fh1_manifest_t *m, char *err, size_t n);
 esp_err_t pkg_peek(const char *path, fh1_manifest_t *m, char *err, size_t n);
 esp_err_t pkg_install(const char *path, fh1_manifest_t *m, char *err, size_t n);
+// A package read from `in` as it comes (len bytes; an upload), no copy of it kept.
+esp_err_t pkg_install_stream(FILE *in, size_t len, fh1_manifest_t *m, char *err, size_t n);
 esp_err_t pkg_uninstall(const char *id);
 void pkg_migrate_ids(void);              // ids that carried their publisher ("org.fh1.isotest") to their short ones
 
@@ -70,6 +73,8 @@ void users_trust_arrived(const char *local, const char *from, uint8_t level);
 // apps_net.c: users between units (U4, U5)
 void net_start(void);
 void saves_start(void);                // POST /fh1/state: a saved state from another unit (apps_saves.c)
+void install_start(void);              // POST /fh1/install: a package installed as it is uploaded (apps_install.c)
+void apps_installed_changed(void);     // installed apps changed off the UI task: rescanned there (apps.c)
 void net_kick(void);                    // look for other units and deliver the outbox now
 
 // stress.c (dev tool)

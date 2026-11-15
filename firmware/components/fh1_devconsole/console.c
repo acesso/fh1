@@ -760,7 +760,7 @@ static esp_err_t upload_handler(httpd_req_t *req)
 static void *json_alloc(size_t n) { return heap_caps_malloc(n, MALLOC_CAP_SPIRAM); }
 
 // Pages other components add (user profiles between units): registered when the server starts.
-#define EXTRA_URIS 4
+#define EXTRA_URIS 6
 static httpd_uri_t s_extra[EXTRA_URIS];
 static int s_nextra;
 
@@ -796,7 +796,7 @@ void console_server_start(void)
     cfg.keep_alive_idle = 5;
     cfg.keep_alive_interval = 2;
     cfg.keep_alive_count = 3;
-    cfg.max_uri_handlers = 12;
+    cfg.max_uri_handlers = 14;
     if (httpd_start(&s_server, &cfg) != ESP_OK) {
         ESP_LOGE(TAG, "web server did not start");
         return;

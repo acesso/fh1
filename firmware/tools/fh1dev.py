@@ -5,7 +5,7 @@
   fh1dev.py shot out.png [KEY ...]     tap keys, then save a screenshot (PNG needs Pillow; else .bmp)
   fh1dev.py stats [LINES]              uptime, memory, display health, the last log lines
   fh1dev.py watch SECONDS [KEY ...]    hold keys down and print stats every 2 s (games: watch for 'late'/'odd')
-  fh1dev.py op OP [PATH] [ID]          a console app op, e.g. op delete_rom /sd/roms/x.nes, op rescan
+  fh1dev.py op OP [PATH] [ID]          a console app op, e.g. op delete_rom /sd/roms/x.nes, op rescan, op du /int
 
 Environment: FH1_HOST (default fh1.local; use the IP if another device answers that name), FH1_CODE (the
 6-digit console code from the boot log or the Settings window). Needs: pip install websockets [pillow].

@@ -1349,6 +1349,52 @@ static void console_json(cJSON *root)
     xSemaphoreGive(s_lock);
 }
 
+// Dev: how much each entry of a folder holds, folders counted through (the "du" op: what fills the storage). One
+// path buffer for the whole walk, so the stack stays small however deep it goes.
+static char s_du_path[256];
+
+static uint64_t du_tree(size_t len, int depth)
+{
+    struct stat st;
+    if (stat(s_du_path, &st) != 0) return 0;
+    if (!S_ISDIR(st.st_mode)) return (uint64_t)st.st_size;
+    if (depth > 8) return 0;
+    DIR *d = opendir(s_du_path);
+    if (!d) return 0;
+    uint64_t sum = 0;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        const int k = snprintf(s_du_path + len, sizeof(s_du_path) - len, "/%s", e->d_name);
+        if (k > 0 && len + k < sizeof(s_du_path)) sum += du_tree(len + k, depth + 1);
+        s_du_path[len] = 0;
+    }
+    closedir(d);
+    return sum;
+}
+
+static void du(const char *path, char *out, size_t n)
+{
+    if (strncmp(path, FH1_INT_PATH, strlen(FH1_INT_PATH)) != 0 && strncmp(path, FH1_SD_PATH, strlen(FH1_SD_PATH)) != 0) {
+        snprintf(out, n, "a folder in " FH1_INT_PATH " or " FH1_SD_PATH);
+        return;
+    }
+    DIR *d = opendir(path);
+    if (!d) {
+        snprintf(out, n, "cannot open %s", path);
+        return;
+    }
+    int k = snprintf(out, n, "%s:", path);
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL && k < (int)n) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        const int len = snprintf(s_du_path, sizeof(s_du_path), "%s/%s", path, e->d_name);
+        if (len <= 0 || len >= (int)sizeof(s_du_path)) continue;
+        k += snprintf(out + k, n - k, " %s=%lluK", e->d_name, (unsigned long long)(du_tree((size_t)len, 0) / 1024));
+    }
+    closedir(d);
+}
+
 // Dev: users from the console (System > Users does the same with keys). A user is named by name or id.
 //   users                          the list: name#tag, kind, owner, PIN, player
 //   user_new <name> [visitor]      id = the name, path = "visitor" for a visitor
@@ -1690,6 +1736,8 @@ static void run_cmd(void *arg)
         do_install(c->path, c->reply, sizeof(c->reply));
     } else if (strcmp(c->op, "uninstall") == 0) {
         do_uninstall(c->id, c->reply, sizeof(c->reply));
+    } else if (strcmp(c->op, "du") == 0) {
+        du(c->path[0] ? c->path : FH1_INT_PATH, c->reply, sizeof(c->reply));
     } else if (strcmp(c->op, "delete_pkg") == 0) {
         bool ok = (strncmp(c->path, FH1_INT_PACKAGES "/", strlen(FH1_INT_PACKAGES) + 1) == 0 ||
                    strncmp(c->path, FH1_SD_PACKAGES "/", strlen(FH1_SD_PACKAGES) + 1) == 0) && !strstr(c->path, "..");
@@ -1776,6 +1824,16 @@ static void run_cmd(void *arg)
     xSemaphoreGive(c->done);
 }
 
+static void installed_changed(void *arg)
+{
+    (void)arg;
+    scan_installed();
+    scan_packages();
+    refresh_all(NULL);
+}
+
+void apps_installed_changed(void) { fh1_ui_async(installed_changed, NULL); }
+
 static void console_cmd(const cJSON *msg, char *reply, size_t n)
 {
     cmd_t *c = calloc(1, sizeof(*c));
@@ -1815,6 +1873,7 @@ void fh1_apps_start(void)
     io_claim_init();                          // Menu held on any controller: it takes player 1
     net_start();                              // users between units (apps_net.c)
     saves_start();                            // saved states between units (apps_saves.c)
+    install_start();                          // packages installed as they are uploaded (apps_install.c)
     // Games arriving over the console show as games for the GameBoy Color app.
     fh1_ui_register_file_type("gb", FH1_ICON_GAMEBOY, "Receiving a game", "Game received");
     fh1_ui_register_file_type("gbc", FH1_ICON_GAMEBOY, "Receiving a game", "Game received");

@@ -173,19 +173,28 @@ static void hex(const uint8_t *b, char *out)
     for (int i = 0; i < 32; i++) sprintf(out + 2 * i, "%02x", b[i]);
 }
 
-// Unpack every file into dir, hashing as it goes.
-static esp_err_t extract(const char *path, const char *dir, file_sum_t *sums, int *nsums, char *err, size_t n)
+// Reads and drops `bytes` (a stream from the network cannot seek).
+static bool drop(FILE *f, uint32_t bytes, uint8_t *buf)
 {
-    FILE *f = fopen(path, "rb");
-    if (!f) {
-        snprintf(err, n, "cannot open the package");
-        return ESP_FAIL;
+    while (bytes) {
+        const uint32_t k = bytes < 4096 ? bytes : 4096;
+        if (fread(buf, 1, k, f) != k) return false;
+        bytes -= k;
     }
+    return true;
+}
+
+// Unpack every file left in the archive f into dir, hashing as it goes (adding to sums).
+static esp_err_t extract_from(FILE *f, const char *dir, file_sum_t *sums, int *nsums, char *err, size_t n)
+{
     uint8_t *buf = malloc(4096);
+    if (!buf) {
+        snprintf(err, n, "no memory");
+        return ESP_ERR_NO_MEM;
+    }
     tar_entry_t e;
     esp_err_t ret = ESP_OK;
-    int r;
-    *nsums = 0;
+    int r = 0;
     while (ret == ESP_OK && (r = tar_next(f, &e)) == 1) {
         if (!safe_name(e.name)) {
             snprintf(err, n, "unsafe file name in the package: %.40s", e.name);
@@ -199,7 +208,7 @@ static esp_err_t extract(const char *path, const char *dir, file_sum_t *sums, in
             continue;
         }
         if (e.type != '0') {
-            tar_skip(f, e.size);
+            if (!drop(f, (e.size + 511) & ~511u, buf)) r = -1, ret = ESP_FAIL;
             continue;
         }
         if (*nsums >= MAX_FILES) {
@@ -234,13 +243,28 @@ static esp_err_t extract(const char *path, const char *dir, file_sum_t *sums, in
         psa_hash_finish(&op, sums[*nsums].sha, 32, &hl);
         strlcpy(sums[*nsums].name, e.name, sizeof(sums[0].name));
         (*nsums)++;
-        fseek(f, ((e.size + 511) & ~511u) - e.size, SEEK_CUR);
+        if (ret == ESP_OK && !drop(f, ((e.size + 511) & ~511u) - e.size, buf)) {
+            snprintf(err, n, "not a valid package (tar)");
+            ret = ESP_FAIL;
+        }
     }
     if (ret == ESP_OK && r < 0) {
         snprintf(err, n, "not a valid package (tar)");
         ret = ESP_FAIL;
     }
     free(buf);
+    return ret;
+}
+
+static esp_err_t extract(const char *path, const char *dir, file_sum_t *sums, int *nsums, char *err, size_t n)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        snprintf(err, n, "cannot open the package");
+        return ESP_FAIL;
+    }
+    *nsums = 0;
+    const esp_err_t ret = extract_from(f, dir, sums, nsums, err, n);
     fclose(f);
     return ret;
 }
@@ -372,6 +396,131 @@ esp_err_t pkg_install(const char *path, fh1_manifest_t *m, char *err, size_t n)
             manifest_renew(dest, m->id);
             ESP_LOGI(TAG, "installed %s %s (a package of its old id, %s)", m->id, m->version, was);
         } else ESP_LOGI(TAG, "installed %s %s", m->id, m->version);
+    }
+    return ret;
+}
+
+// A package as it comes in (an upload over Wi-Fi: no copy of it kept, so it needs room for the app only). Its
+// manifest first (fpk.py writes it first), then the rest unpacked and checked as pkg_install does. Where there is
+// not room for the new one beside the old, the old one's files go first (its users' data stays): a unit without an
+// SD card, its storage nearly full, still takes a new version.
+esp_err_t pkg_install_stream(FILE *in, size_t len, fh1_manifest_t *m, char *err, size_t n)
+{
+    psa_crypto_init();
+    tar_entry_t e;
+    if (tar_next(in, &e) != 1 || e.type != '0' || strcmp(e.name, "manifest.json") != 0 || e.size >= 4096) {
+        snprintf(err, n, "the package must start with its manifest.json");
+        return ESP_FAIL;
+    }
+    char *json = calloc(1, 4096 + 512);
+    if (!json) {
+        snprintf(err, n, "no memory");
+        return ESP_ERR_NO_MEM;
+    }
+    const uint32_t padded = (e.size + 511) & ~511u;
+    if (fread(json, 1, padded, in) != padded) {
+        free(json);
+        snprintf(err, n, "the upload ended early");
+        return ESP_FAIL;
+    }
+    json[e.size] = 0;
+    const size_t mlen = e.size;
+    if (pkg_manifest_parse(json, m, err, n) != ESP_OK) {
+        free(json);
+        return ESP_FAIL;
+    }
+    const char *to = renamed(m->id);
+    char old_id[sizeof(m->id)] = "";
+    if (to) {
+        strlcpy(old_id, m->id, sizeof(old_id));
+        strlcpy(m->id, to, sizeof(m->id));
+        if (!m->publisher[0]) strlcpy(m->publisher, "org.fh1", sizeof(m->publisher));
+    }
+    fh1_sd_info_t sd;
+    fh1_sd_info(&sd);
+    const bool to_sd = m->assets && m->on_sd && sd.mounted;
+    const char *base = !m->assets ? FH1_APPS_DIR : to_sd ? FH1_SD_PATH "/assets" : FH1_INT_PATH "/assets";
+    char tmp[96], dest[96];
+    snprintf(tmp, sizeof(tmp), "%s/.tmp-%s", base, m->id);
+    snprintf(dest, sizeof(dest), "%s/%s", base, m->id);
+    fh1_manifest_t old;
+    const bool had = read_manifest(dest, &old);
+    if (had && old.publisher[0] && m->publisher[0] && strcmp(old.publisher, m->publisher) != 0) {
+        free(json);
+        snprintf(err, n, "%s is installed from another publisher (%s)", m->id, old.publisher);
+        return ESP_FAIL;
+    }
+    // Room: the package's size (its files, a little less) and a margin; the old version's files freed first if
+    // that makes it.
+    const uint64_t need = (uint64_t)len + 64 * 1024;
+    uint64_t room = 0;
+    fh1_rmtree(tmp);                                              // (a failed install's leftovers)
+    fh1_int_info_changed();
+    if (to_sd) room = sd.free;
+    else {
+        fh1_fs_info_t fi;
+        if (fh1_int_info(&fi) == ESP_OK) room = fi.total - fi.used;
+    }
+    if (room < need && had) {
+        ESP_LOGW(TAG, "%s: %llu KB free, %llu KB needed: the old version's files go first", m->id,
+                 (unsigned long long)room / 1024, (unsigned long long)need / 1024);
+        fh1_rmtree(dest);
+        fh1_int_info_changed();
+        if (to_sd) {
+            fh1_sd_info(&sd);
+            room = sd.free;
+        } else {
+            fh1_fs_info_t fi;
+            if (fh1_int_info(&fi) == ESP_OK) room = fi.total - fi.used;
+        }
+    }
+    if (room < need) {
+        free(json);
+        snprintf(err, n, to_sd ? "not enough space on the SD card" : "not enough internal storage");
+        return ESP_FAIL;
+    }
+    fh1_mkdirs(base);
+    fh1_mkdirs(tmp);
+    file_sum_t *sums = calloc(MAX_FILES, sizeof(file_sum_t));
+    int nsums = 0;
+    esp_err_t ret = sums ? ESP_OK : ESP_ERR_NO_MEM;
+    if (ret == ESP_OK) {                                           // the manifest, as it came
+        char p[128];
+        snprintf(p, sizeof(p), "%s/manifest.json", tmp);
+        FILE *o = fopen(p, "wb");
+        if (!o || fwrite(json, 1, mlen, o) != mlen) ret = ESP_FAIL;
+        if (o) fclose(o);
+        psa_hash_operation_t op = PSA_HASH_OPERATION_INIT;
+        size_t hl;
+        psa_hash_setup(&op, PSA_ALG_SHA_256);
+        psa_hash_update(&op, (const uint8_t *)json, mlen);
+        psa_hash_finish(&op, sums[0].sha, 32, &hl);
+        strlcpy(sums[0].name, "manifest.json", sizeof(sums[0].name));
+        nsums = 1;
+        if (ret != ESP_OK) snprintf(err, n, "cannot write the manifest");
+    }
+    free(json);
+    if (ret == ESP_OK) ret = extract_from(in, tmp, sums, &nsums, err, n);
+    if (ret == ESP_OK) ret = verify(tmp, sums, nsums, err, n);
+    free(sums);
+    struct stat st;
+    char elf[128];
+    snprintf(elf, sizeof(elf), "%s/app.elf", tmp);
+    if (ret == ESP_OK && !m->assets && stat(elf, &st) != 0) {
+        snprintf(err, n, "no app.elf in the package");
+        ret = ESP_FAIL;
+    }
+    if (ret == ESP_OK) {
+        fh1_rmtree(dest);
+        if (rename(tmp, dest) != 0) {
+            snprintf(err, n, "could not move the app into place");
+            ret = ESP_FAIL;
+        }
+    }
+    if (ret != ESP_OK) fh1_rmtree(tmp);
+    else {
+        if (old_id[0]) manifest_renew(dest, m->id);
+        ESP_LOGI(TAG, "installed %s %s (streamed, %u bytes)", m->id, m->version, (unsigned)len);
     }
     return ret;
 }
