@@ -10,7 +10,7 @@ It runs on the **Guition ESP32-4848S040** dev board; the FH1 hardware is not bui
 - **Devices:** a registry with probing, enable/disable saved, capabilities and events; Devices windows by kind.
 - **Storage:** internal LittleFS (`/int`); the SD card as a hot-plug device with mount, eject, format.
 - **Apps:** GameBoy Color, NES and Master System emulators at full speed, a music player, and packaged apps (`.fpk`) loaded into PSRAM.
-- **Network:** Wi-Fi with an on-screen keyboard, network time, the web dev console at `http://fh1.local/`, firmware updates over Wi-Fi and from the SD card with rollback.
+- **Network:** Wi-Fi with an on-screen keyboard, network time, the web dev console at `http://fh1.local/` (the Guition: `http://fh0.local/`), firmware updates over Wi-Fi and from the SD card with rollback.
 - **Controllers:** Bluetooth controllers through an ESP32 bridge (`../bridge`), up to two players.
 - **Users:** identities with keys, avatars, PINs, backups, people nearby and friends.
 
@@ -36,9 +36,9 @@ idf.py -B build-fh1 -D SDKCONFIG=build-fh1/sdkconfig -D SDKCONFIG_DEFAULTS="sdkc
 The FH1 board does not yet set up the ES8311's registers or read the micro-SD card, the battery or the IMU.
 
 `tools/build-board.sh guition|fh1 OUT_DIR` does either build and writes one image to flash at 0x0,
-`fh1-firmware-<board>.bin`, plus its parts. A third argument, `psram120`, builds the Guition with PSRAM and flash at
-120 MHz (`sdkconfig.defaults.psram120`): about 20-30% faster on memory-bound work, experimental (its timing is set
-once at power-on, so a large temperature change can make it fail), for the dev unit only; releases stay at 80 MHz. Each release builds both in CI
+`fh1-firmware-<board>.bin`, plus its parts. Every board runs PSRAM and flash at 120 MHz (`sdkconfig.defaults`):
+about 20-30% faster on memory-bound work, experimental in ESP-IDF (the timing is set once at power-on, so a large
+temperature change can make it fail). Each release builds both in CI
 (`.github/workflows/pages.yml`) and carries both images on GitHub. To write a release image:
 
 ```sh
@@ -72,7 +72,7 @@ To update a board that is set up, keep its settings:
    Other serial commands: `!bl <percent>`, `!mode <native|fh1>` (screen mode, restarts: native is 320 × 320 filling the Guition's panel, fh1 the FH1's
    320 × 240, both at 1.5 times), `!theme <gen1|gen2|hex|garden|scifi>` (at once), `!sounds <on|off>` (system sounds).
    Without credentials the device opens an access point, `FH1-setup` (password `fh1-setup`), at 192.168.4.1.
-2. Open `http://fh1.local/`. It asks for the 6-digit code, which is printed in the boot log and shown in the System window.
+2. Open `http://fh1.local/` (the Guition: `http://fh0.local/`). It asks for the 6-digit code, which is printed in the boot log and shown in the System window.
 
 ## Controls on the dev board
 
@@ -120,7 +120,7 @@ APPS > GameBoy Color lists the games in `/int/roms` and `/sd/roms` by the title 
 palette for original Game Boy games (green, grey, sepia, ocean), drawing (auto / every frame / half),
 speed (normal / turbo), FPS (emulated / shown, above the picture), save and load state, reset, quit. B or MENU
 resumes. Options are saved; battery saves and save states go to `/int/data/gb/`. Upload `.gb`/`.gbc` (and `.nes`) files from
-the console. The test ROM was Tobu Tobu Girl Deluxe (Tangram Games; MIT code, CC BY 4.0 assets), from Homebrew Hub.
+the console (several at once: pick them together or drop them on its Apps section). The test ROM was Tobu Tobu Girl Deluxe (Tangram Games; MIT code, CC BY 4.0 assets), from Homebrew Hub.
 
 ## Games: GameBoy Color, NES, Master System
 

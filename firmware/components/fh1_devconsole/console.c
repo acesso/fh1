@@ -810,6 +810,7 @@ void console_server_start(void)
     };
     for (size_t i = 0; i < sizeof(uris) / sizeof(uris[0]); i++) httpd_register_uri_handler(s_server, &uris[i]);
     for (int i = 0; i < s_nextra; i++) httpd_register_uri_handler(s_server, &s_extra[i]);
-    xTaskCreatePinnedToCore(push_task, "console_push", 6144, NULL, 1, NULL, 0);
+    // 4.5 KB: its deepest use measured 2.4 KB (stats with every list, clients joining); internal RAM is scarce.
+    xTaskCreatePinnedToCore(push_task, "console_push", 4608, NULL, 1, NULL, 0);
     ESP_LOGI(TAG, "dev console on port 80, code %s", fh1_console_token());
 }

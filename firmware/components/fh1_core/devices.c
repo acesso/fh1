@@ -149,7 +149,7 @@ void fh1_dev_start_all(void)
         }
     }
     unlock();
-    xTaskCreatePinnedToCore(poll_task, "dev_poll", 4096, NULL, 2, NULL, 0);
+    xTaskCreatePinnedToCore(poll_task, "dev_poll", 3072, NULL, 2, NULL, 0);   // deepest use measured ~0.8 KB
 }
 
 esp_err_t fh1_dev_set_enabled(const char *id, bool enabled)

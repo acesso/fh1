@@ -96,7 +96,8 @@ int fh1_sfx_play(const int16_t *pcm, uint32_t frames, uint32_t rate, uint8_t vol
     if (!pcm || !frames || !rate) return -1;
     if (!s_task) {
         s_quit = false;
-        if (xTaskCreatePinnedToCore(mixer, "sfx", 6144, NULL, 5, &s_task, 0) != pdPASS) {
+        // 4 KB: its deepest use measured 2.3 KB (8 voices, music); it stays in internal RAM (it must not stall).
+        if (xTaskCreatePinnedToCore(mixer, "sfx", 4096, NULL, 5, &s_task, 0) != pdPASS) {
             s_task = NULL;
             return -1;
         }

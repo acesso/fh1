@@ -54,6 +54,10 @@ Future ideas and pending work; each leaves this list when it lands.
   - more to stack: a storey on houses beyond the 2 x 2 one, on the smithy;
   - more moving things: smoke from houses with a chimney, water, people in the village;
   - with friends: what each one built kept as theirs (only they, or the world's owner, remove it).
+- **Probe tools (an app):** a logic probe and frequency counter on a pin, a logic analyzer (8 or 16 pins captured
+  through the S3's LCD_CAM into PSRAM, tens of MHz in bursts) and an audio-range oscilloscope (the ADC by DMA, about
+  80,000 samples a second, 0-3.1 V; other ranges need an input stage). Needs an SDK capability that grants a few
+  designated pins to an app, and a small probe header (the FH1 board has almost no free GPIOs).
 - **Roaming profiles:** a user's saves and settings following them between units: a user who plays on another FH1
   brings their saved states along (fetched from their home unit over Wi-Fi, signed with their key), plays there,
   and their progress goes back; conflicts shown when both sides changed. Today a saved state can be put into a

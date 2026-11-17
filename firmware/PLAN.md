@@ -353,9 +353,10 @@ any while it runs:
   (`CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY`) and its pools are sized for small use. It is off unless adding a bridge.
 
 **Speed settings.** CPU 240 MHz; caches at their maximum (32 KB instruction, 64 KB data, 64-byte lines);
-octal PSRAM at 80 MHz (120 MHz, with the flash at 120 MHz too, is an opt-in for the Guition dev unit:
-`sdkconfig.defaults.psram120`; experimental, its timing set once at power-on since the temperature retuning supports
-GD and XMC flash only, and the Guition's is Boya);
+octal PSRAM and the flash at 120 MHz on every board (one clock for both on N16R8; experimental in ESP-IDF, its timing
+set once at power-on since the temperature retuning supports GD and XMC flash only: the Guition's is Boya, the FH1
+board's is to be checked; it needs QIO flash: a DIO board (the S3 bridge used as a test unit) panicked on flash writes
+at 120 MHz and stays at 80; screen bench numbers in `docs/display-bench.md`);
 code runs from PSRAM, faster than the quad flash; `-O2`.
 
 ## Display path
@@ -453,8 +454,8 @@ A bridge that beacons is taken over Wi-Fi. A link with nothing for 3 s is droppe
 up to 2 bridges at once and remembers 4 (NVS `bridges`: address and alias, the alias being the address's last
 4 hex digits). Over Wi-Fi the input goes when it changes (a button change sent twice, 16 ms apart), at most
 every 16 ms, with a 50 ms heartbeat while a controller is connected; motion streams only while something asks
-(`fh1_gamepad_want_motion`), at most every 25 ms. Bridges answer mDNS as `fh1-bridge-<4 hex>.local` and take
-firmware updates over Wi-Fi (`POST /ota`).
+(`fh1_gamepad_want_motion`), at most every 25 ms. Bridges answer mDNS by their board (`a1s.local`, `wroom.local`) and take
+firmware updates over Wi-Fi (`POST /ota`). FH1 units answer by theirs too (`fh1.local`, the Guition `fh0.local`).
 
 ### Protocol
 

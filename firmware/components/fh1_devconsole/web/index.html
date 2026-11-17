@@ -94,7 +94,9 @@
     <table><thead><tr><th>app</th><th>version</th><th>needs</th><th>wants</th><th></th></tr></thead><tbody id="apps"></tbody></table>
     <h2 style="margin-top:12px">Packages <span class="hint">staged on the device or on the SD card</span></h2>
     <table><thead><tr><th>file</th><th>where</th><th>app</th><th>version</th><th></th></tr></thead><tbody id="pkgs"></tbody></table>
-    <p><input type="file" id="file" accept=".fpk,.bin,.gb,.gbc,.nes,.sms,.gg,.sg,.mp3,.flac,.ogg,.oga,.wav,.mod"> to <select id="dest"><option value="sd">SD card</option><option value="int">internal storage</option></select> <button id="upload">Upload</button></p>
+    <p><input type="file" id="file" multiple accept=".fpk,.bin,.gb,.gbc,.nes,.sms,.gg,.sg,.mp3,.flac,.ogg,.oga,.wav,.mod"> to <select id="dest"><option value="sd">SD card</option><option value="int">internal storage</option></select> <button id="upload">Upload</button> <span id="upprog" class="hint"></span></p>
+    <p class="hint">Several files at once, one after another; or drop them on this section.</p>
+    <ul id="uplist" class="hint"></ul>
   </section>
   <section class="wide">
     <h2>Tasks</h2>
@@ -193,14 +195,50 @@ document.addEventListener('click', e => {
   }
 });
 $('intfmt').onclick = () => { if (confirm('Format the internal storage? Installed apps, their data and staged packages are erased.')) send({ t: 'app', op: 'int_format' }); };
-$('upload').onclick = async () => {
-  const f = $('file').files[0];
-  if (!f) return say('pick a .fpk file first');
-  say('uploading…');
-  const dest = $('dest').value;
-  const r = await fetch(`/upload?name=${encodeURIComponent(f.name)}&dest=${dest}`, { method: 'POST', headers: { 'X-FH1-Code': code }, body: f });
-  say(r.ok ? `${f.name}: ${await r.text()}` : `upload failed: ${await r.text()}`);
-};
+// Uploads, one file after another (the device writes one at a time), each with its progress; a line per file.
+function upload_one(f, dest) {
+  return new Promise(done => {
+    const x = new XMLHttpRequest();
+    x.open('POST', `/upload?name=${encodeURIComponent(f.name)}&dest=${dest}`);
+    x.setRequestHeader('X-FH1-Code', code);
+    x.upload.onprogress = e => { if (e.lengthComputable) $('upprog').textContent = `${f.name}: ${Math.round(100 * e.loaded / e.total)}%`; };
+    x.onload = () => done({ ok: x.status === 200, text: x.responseText });
+    x.onerror = () => done({ ok: false, text: 'connection lost' });
+    x.send(f);
+  });
+}
+let uploading = false;
+async function upload_files(files) {
+  if (!files.length) return say('pick one or more files first');
+  if (uploading) return say('an upload is under way');
+  uploading = true;
+  const dest = $('dest').value, list = $('uplist');
+  list.innerHTML = '';
+  let ok = 0;
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i], li = document.createElement('li');
+    li.textContent = `${f.name}: waiting`;
+    list.appendChild(li);
+  }
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i], li = list.children[i];
+    li.textContent = `${f.name}: uploading…`;
+    say(`uploading ${i + 1} of ${files.length}…`);
+    const r = await upload_one(f, dest);
+    li.textContent = `${f.name}: ${r.ok ? r.text : 'failed: ' + r.text}`;
+    if (r.ok) ok++;
+  }
+  $('upprog').textContent = '';
+  uploading = false;
+  say(`${ok} of ${files.length} uploaded`);
+}
+$('upload').onclick = () => upload_files($('file').files);
+{
+  const zone = $('upload').closest('section');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.outline = '2px dashed currentColor'; });
+  zone.addEventListener('dragleave', () => { zone.style.outline = ''; });
+  zone.addEventListener('drop', e => { e.preventDefault(); zone.style.outline = ''; upload_files(e.dataTransfer.files); });
+}
 
 $('fwgo').onclick = () => {
   const f = $('fwfile').files[0];
