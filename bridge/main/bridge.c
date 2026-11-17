@@ -305,7 +305,7 @@ static void info_build(fh1b_info_t *info)
     info->caps = FH1B_CAP_GAMEPAD | FH1B_CAP_MOTION | FH1B_CAP_RUMBLE | FH1B_CAP_LIGHTBAR | FH1B_CAP_WIFI_LINK |
                  FH1B_CAP_TRIGGERS | FH1B_CAP_LEDS;
     strncpy(info->board, BRIDGE_BOARD_NAME, sizeof(info->board));
-    strncpy(info->firmware, "bridge-b13", sizeof(info->firmware));
+    strncpy(info->firmware, "bridge-b14", sizeof(info->firmware));
 }
 
 static void beacon_update(void)

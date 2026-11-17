@@ -9,7 +9,7 @@ idf_component_register(SRCS "main.c" "bridge.c" "wifi.c" "udp.c" "ota.c" ${board
                        INCLUDE_DIRS "." "../../firmware/components/fh1_bridge/include"
                        REQUIRES "bluepad32" "btstack" "esp_timer" "app_update" "bootloader_support" "spi_flash" "nvs_flash" "esp_wifi" "esp_netif" "esp_event" "lwip" "esp_driver_i2c" "esp_driver_gpio" "esp_driver_i2s" "esp_driver_sdmmc" "sdmmc" "esp_http_server" "espressif__mdns")
 if(BRIDGE_BOARD STREQUAL "A1S")
-    target_compile_definitions(${COMPONENT_LIB} PRIVATE BRIDGE_BOARD_NAME="ESP32-A1S")
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE BRIDGE_BOARD_NAME="ESP32-A1S" BRIDGE_HOST="a1s")
 else()
-    target_compile_definitions(${COMPONENT_LIB} PRIVATE BRIDGE_BOARD_NAME="ESP32-WROOM-32")
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE BRIDGE_BOARD_NAME="ESP32-WROOM-32" BRIDGE_HOST="wroom")
 endif()

@@ -46,8 +46,8 @@ idf.py -B build-a1s -p /dev/ttyUSBx -b 230400 flash
 
 The A1S Audio Kit's USB-serial is a CP2102 on its "UART" micro-USB socket (the other socket is power only).
 
-**Its name on the network:** `fh1-bridge-<last four hex digits of its Bluetooth address>.local` (mDNS; the
-A1S is `fh1-bridge-cb5a.local`), so its address does not matter. mDNS is the FH1 firmware's copy of
+**Its name on the network:** its board's, `a1s.local` or `wroom.local` (mDNS and DHCP; `BRIDGE_HOST` in
+`main/CMakeLists.txt`), so its address does not matter. mDNS is the FH1 firmware's copy of
 espressif/mdns (`firmware/managed_components`): build the FH1 once before the bridge.
 
 **Updates over Wi-Fi (OTA):** a bridge on Wi-Fi takes its firmware at `POST http://<bridge>/ota` with the
@@ -56,7 +56,7 @@ header `X-FH1-Bridge-Code` (six digits, made once by the bridge). Both are in th
 which slot. The new firmware is kept after 10 s of running; a crash before that rolls it back.
 
 ```sh
-curl -H "X-FH1-Bridge-Code: <code>" --data-binary @build-a1s/fh1_bridge.bin http://fh1-bridge-cb5a.local/ota
+curl -H "X-FH1-Bridge-Code: <code>" --data-binary @build-a1s/fh1_bridge.bin http://a1s.local/ota
 ```
 
 The partition table has two 1.5 MB app slots (`partitions.csv`); NVS is at 0x9000 (pairings and Wi-Fi).

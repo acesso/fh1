@@ -923,7 +923,7 @@ static void open_about(void)
     fh1_ui_value_set(fh1_ui_value(body, T("Built on")), v);
     s_ab_up = fh1_ui_value(body, T("Up"));
     s_ab_wifi = fh1_ui_value(body, "Wi-Fi");
-    snprintf(v, sizeof(v), "fh1.local · %s %s", T("Code"), fh1_console_token());
+    snprintf(v, sizeof(v), "%s.local · %s %s", fh1_board_hostname(), T("Code"), fh1_console_token());
     fh1_ui_value_set(fh1_ui_value(body, "Console"), v);
     s_about_timer = lv_timer_create(about_update, 1000, NULL);
     about_update(NULL);

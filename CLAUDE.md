@@ -50,10 +50,10 @@ idf.py build                        # -O2 for the whole firmware; a full rebuild
 - **Device:** a CH340 (USB id 1a86); its USB port (1-1, 1-3) and `/dev/ttyUSB*` number move when other boards
   (the bridges) are plugged or off: map ports by chip first (the bridges are the other CH340 and the A1S's CP2102). Opening the
   serial port resets the board. Flash at 460800 baud at most (reads above 230400 were unreliable).
-- **Network:** DHCP, and the address changes. Use names: `fh1.local`
-  for the FH1, `fh1-bridge-<4 hex>.local` for bridges (the A1S: `fh1-bridge-cb5a.local`). An old FH1 build
-  elsewhere on the network once also answered `fh1.local`: after an update, check the dev console's stats
-  (`fw`, `up`) to be sure it reached this board.
+- **Network:** DHCP, and the address changes. Use names, one per board (`fh1_board_hostname`, the bridge's
+  `BRIDGE_HOST`): `fh0.local` the Guition, `fh1.local` the FH1 board, `a1s.local` and `wroom.local` the bridges. Two
+  units of one board share a name (mDNS makes the second `-2`): after an update, check the dev console's stats
+  (`fw`, `up`) to be sure it reached the board meant.
 - **Update over Wi-Fi:** `curl -X POST -H "X-FH1-Code: <code>" --data-binary @build/fh1.bin http://<ip>/ota`.
   The device shows an overlay, then restarts gracefully into the other slot (ota_0/ota_1), rollback after 10 s.
 - **Update over USB** when Wi-Fi is poor: `idf.py -p /dev/ttyUSB0 -b 460800 flash`. It writes the bootloader, partition table, the OTA

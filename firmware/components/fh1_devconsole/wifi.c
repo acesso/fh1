@@ -8,6 +8,7 @@
 #include "console_priv.h"
 #include "esp_wifi.h"
 #include "fh1_bridge.h"
+#include "fh1_board.h"
 #include "esp_netif.h"
 #include "esp_event.h"
 #include "mdns.h"
@@ -38,7 +39,7 @@ static void on_event(void *arg, esp_event_base_t base, int32_t id, void *data)
             sc.wait_for_sync = false;
             sntp_started = esp_netif_sntp_init(&sc) == ESP_OK;
         }
-        ESP_LOGI(TAG, "connected, http://%s/ or http://fh1.local/ (code %s)", s_ip, fh1_console_token());
+        ESP_LOGI(TAG, "connected, http://%s/ or http://%s.local/ (code %s)", s_ip, fh1_board_hostname(), fh1_console_token());
         if (s_dev) snprintf(s_dev->info, sizeof(s_dev->info), "station, %s", s_ip);
     }
 }
@@ -56,13 +57,14 @@ static esp_err_t wifi_start(fh1_device_t *d)
         ESP_ERROR_CHECK(esp_netif_init());
         s_sta = esp_netif_create_default_wifi_sta();
         s_ap = esp_netif_create_default_wifi_ap();
+        esp_netif_set_hostname(s_sta, fh1_board_hostname());   // the same name to the router (DHCP)
         wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
         ESP_ERROR_CHECK(esp_wifi_init(&cfg));
         esp_wifi_set_storage(WIFI_STORAGE_RAM);
         esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, on_event, NULL);
         esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, on_event, NULL);
         if (mdns_init() == ESP_OK) {
-            mdns_hostname_set("fh1");
+            mdns_hostname_set(fh1_board_hostname());   // fh1.local, fh0.local (the Guition)...
             mdns_instance_name_set("FH1 dev console");
             mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
         }

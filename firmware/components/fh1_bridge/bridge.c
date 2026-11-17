@@ -106,10 +106,17 @@ static uint32_t now_ms(void) { return (uint32_t)(esp_timer_get_time() / 1000); }
 
 #define BLE_SILENT_MS 3000              // input flows at 125 Hz over BLE: this long without anything is a stall
 
+// Kept off Wi-Fi for BLE: to send it credentials, or (while Bluetooth runs) because its Wi-Fi link was poor.
+static bool held_for_ble(const br_t *b)
+{
+    if (b->ble_pref) return s_running;
+    return esp_timer_get_time() < b->ble_until;
+}
+
 // Seen beaconing over Wi-Fi lately: reachable that way, so BLE leaves it alone (unless held for BLE).
 static bool on_wifi(const br_t *b)
 {
-    return s_udp_on && b->beacon_ms && now_ms() - b->beacon_ms < 6000 && esp_timer_get_time() >= b->ble_until;
+    return s_udp_on && b->beacon_ms && now_ms() - b->beacon_ms < 6000 && !held_for_ble(b);
 }
 
 // Linked over BLE (the controller's connections are few).
@@ -183,15 +190,18 @@ static void save(void)
 {
     saved_t list[FH1_BRIDGES_KNOWN];
     int n = 0;
+    uint8_t ble = 0;                   // bit k: list entry k prefers BLE (its Wi-Fi link was poor)
     for (int i = 0; i < FH1_BRIDGES_KNOWN; i++) {
         if (!s_br[i].known) continue;
         list[n].addr = s_br[i].addr;
         memcpy(list[n].alias, s_br[i].alias, sizeof(list[n].alias));
+        if (s_br[i].ble_pref) ble |= (uint8_t)(1u << n);
         n++;
     }
     nvs_handle_t h;
     if (nvs_open("bridges", NVS_READWRITE, &h) != ESP_OK) return;
     nvs_set_blob(h, "list", list, n * sizeof(saved_t));
+    nvs_set_u8(h, "ble", ble);
     nvs_commit(h);
     nvs_close(h);
 }
@@ -213,6 +223,14 @@ static void load(void)
             if (sp && strlen(sp + 1) == 4 && (strncmp(s_br[i].alias, "Ponte ", 6) == 0 || strncmp(s_br[i].alias, "Bridge ", 7) == 0))
                 memmove(s_br[i].alias, sp + 1, 5);
         }
+        // Those whose Wi-Fi link was poor stay on BLE from the start (no seconds of a bad link after each boot).
+        uint8_t ble = 0;
+        nvs_get_u8(h, "ble", &ble);
+        for (int i = 0; i < FH1_BRIDGES_KNOWN && i < 8; i++)
+            if (s_br[i].known && (ble >> i & 1)) {
+                s_br[i].ble_pref = true;
+                s_br[i].ble_until = INT64_MAX;
+            }
     }
     nvs_close(h);
 }
@@ -743,6 +761,7 @@ static void timer_cb(void *arg)
             else if (!b->none_ms) b->none_ms = t;
             else if (t - b->none_ms > 60000) {
                 b->ble_pref = false;
+                save();
                 b->ble_until = 0;
                 b->none_ms = 0;
                 ESP_LOGW(TAG, "%s: not reachable over BLE for a minute: Wi-Fi may take it again", b->alias);
@@ -781,6 +800,7 @@ static void timer_cb(void *arg)
                 ESP_LOGW(TAG, "%s: Wi-Fi link poor (round trip up to %u ms, %lu lost in 5 s): moving it to BLE", b->alias,
                          v.rtt_max_ms, lost);
                 b->ble_pref = true;
+                save();
                 b->ble_until = INT64_MAX;
                 b->none_ms = 0;
                 b->drop_wifi = true;
@@ -1217,7 +1237,7 @@ static void on_beacon(uint32_t ip, const uint8_t *buf, int n)
         if (!(b = add_known(&addr))) return;
     }
     b->beacon_ms = now_ms();
-    if (esp_timer_get_time() < b->ble_until) return;           // held for BLE (to send a network)
+    if (held_for_ble(b)) return;                                // held for BLE
     if (b->link == FH1_BRIDGE_LINK_BLE) {
         // Wi-Fi first: drop BLE; the next beacon links it here.
         if (s_running && b->conn != BLE_HS_CONN_HANDLE_NONE) {

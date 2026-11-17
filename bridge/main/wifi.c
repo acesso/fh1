@@ -112,12 +112,9 @@ static void apply(void)
         ESP_ERROR_CHECK(esp_netif_init());
         esp_err_t err = esp_event_loop_create_default();
         if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) ESP_ERROR_CHECK(err);
-        // A name on the network (DHCP): fh1-bridge-<the last four hex digits of its Bluetooth address>.
+        // A name on the network (DHCP and mDNS): its board's (a1s, wroom: BRIDGE_HOST).
         esp_netif_t *sta = esp_netif_create_default_wifi_sta();
-        uint8_t mac[6];
-        char host[24];
-        esp_read_mac(mac, ESP_MAC_BT);
-        snprintf(host, sizeof(host), "fh1-bridge-%02x%02x", mac[4], mac[5]);
+        const char *host = BRIDGE_HOST;
         esp_netif_set_hostname(sta, host);
         // And by mDNS: <host>.local (the router did not publish the DHCP name), with its update page.
         if (mdns_init() == ESP_OK) {
