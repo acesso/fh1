@@ -37,9 +37,12 @@
 
 - **Display on SPI2 (FSPI), its own bus.** MOSI, SCK, CS, DC; reset from the expander or tied to the S3's EN through an RC. No MISO.
   - **Pins:** SCK and MOSI on SPI2's IO_MUX pins (GPIO12, GPIO11), which take the bus past the GPIO matrix's 40 MHz; CS (GPIO38), DC and RST through the matrix, where timing is not the limit.
-  - **Speed:** the firmware runs 40 MHz, 5 MB/s. A full 320 × 240 RGB565 screen is 1.23 Mbit, about 31 ms, so full-screen motion (games, emulators) runs at about 30 fps; the driver sends at most every 33 ms. A 1.5× scaled Game Boy frame alone (240 × 216) is about 21 ms.
+  - **Speed:** the firmware runs 80 MHz, 10 MB/s. A full 320 × 240 RGB565 screen is 1.23 Mbit, 16.8 ms measured on the chosen module, so the driver sends up to 60 changed screens a second (every 16 ms); measured full-screen motion about 52 fps, small changes about 62 (`firmware/docs/display-bench.md`). A 1.5× scaled Game Boy frame alone (240 × 216) is about 11 ms.
+  - **Colours:** the chosen module shows true colours without INVON (the firmware leaves inversion off), RGB order.
   - **What the panel's own memory buys:** the ST7789 refreshes itself from its frame memory, so only changed rectangles go over the bus and static screens cost nothing. The dev board's RGB panel (16-bit at 10 MHz, 20 MB/s) has no frame memory and must be streamed every frame, about 38 times a second.
-  - **No tearing sync:** the module's 9-pin header has no TE line, so fast motion can tear.
+  - **No tearing sync:** the module has no TE line out (not on the 9-pin header nor the 8080 sockets; only on the
+    panel's own 40-pin flex), so fast motion tears, and its SDA-O does not answer reads in its serial mode. A module
+    with TE out is the fix (open question 25).
   - **Faster options:** 80 MHz on these pins, about 15 ms a full screen (open question 22), and an 8-bit 8080 parallel bus (open question 23). The 8080 bus takes 11 pins and does not fit the current GPIO budget.
 - **micro-SD on SDMMC, 1-bit.** CLK, CMD and D0 on the SPI/SDIO breakout (`modules/micro-sd-sdio-board.md`). D1, DAT2 and D3 stay unconnected, held high by its pull-ups. It runs alongside the display without sharing a bus.
   - **4-bit later:** 3 more GPIOs (D1, DAT2, D3).

@@ -13,6 +13,7 @@ typedef struct {
 } fh1_display_mode_t;
 
 const char *fh1_board_name(void);
+const char *fh1_board_hostname(void);       // its name on the network: <name>.local (mDNS) and its DHCP name
 esp_err_t fh1_board_init(void);                 // display, backlight, buses; registers candidate devices
 
 void fh1_board_backlight(uint8_t pct);           // 0..100, saved
@@ -34,6 +35,10 @@ uint16_t *fh1_board_framebuffer(int *w, int *h);
 void fh1_board_direct(bool on);
 // Rows y1..y2 of the framebuffer were drawn directly (the POST screen).
 void fh1_board_changed(int y1, int y2);
+// Around writing one whole frame into the framebuffer (a full-screen app's frame): a panel that is scanned from
+// memory shows a frame only once it is complete, never half of one (no tearing). No-ops elsewhere.
+void fh1_board_frame_begin(void);
+void fh1_board_frame_end(void);
 
 // How well the panel is being fed (for the dev console and the stress test).
 typedef struct {

@@ -347,8 +347,8 @@ index 00000000..2d35ec1e
 +    pub fn new() -> Self { Fh1 { panel: DcsPanel::st7789(), mcp: Default::default(), gpio_events: 0 } }
 +
 +    /// The glass, landscape, as the firmware addresses it: logical (x, y) is the controller's column and page
-+    /// counters, mapped through MADCTL exactly as the controller wrote them. The module is IPS: without INVON
-+    /// it shows every colour inverted. Blank while the panel is off or asleep.
++    /// counters, mapped through MADCTL exactly as the controller wrote them. The FH1's module shows true colours
++    /// without INVON (INVON inverts them). Blank while the panel is off or asleep.
 +    pub fn glass(&self) -> Vec<u16> {
 +        let p = &self.panel;
 +        let mut out = vec![0u16; LCD_W * LCD_H];
@@ -361,7 +361,7 @@ index 00000000..2d35ec1e
 +                if p.madctl & 0x80 != 0 { row = p.rows - 1 - row.min(p.rows - 1); }
 +                if col < p.cols && row < p.rows {
 +                    let px = p.gram[row * p.cols + col];
-+                    out[y * LCD_W + x] = if p.inverted { px } else { !px };
++                    out[y * LCD_W + x] = if p.inverted { !px } else { px };
 +                }
 +            }
 +        }

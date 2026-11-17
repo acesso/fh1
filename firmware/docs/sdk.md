@@ -40,6 +40,7 @@ build/<name>.app.elf  ──tools/fpk.py pack──▶  <id>_<version>.fpk  (man
 | [`apps/packages/duel`](../apps/packages/duel) | Duelo: a two-player game on the canvas, gamepads with motion, the players' avatars, network play |
 | [`apps/packages/taticas-da-ilha`](../apps/packages/taticas-da-ilha) | Táticas da Ilha: a full-screen tactics game, the isometric engine, art and sound packs, a PC host |
 | [`apps/packages/construcao-legal`](../apps/packages/construcao-legal) | Construção Legal: explore and build, alone or with friends in one world over the network, a PC host |
+| [`apps/packages/screentest`](../apps/packages/screentest) | Teste de tela: a test card and the screen's speed (patterns, frames a second), for `tools/fh1bench.py` ([`display-bench.md`](display-bench.md)) |
 | `tools/pkgbuild.sh` | Builds a package from scratch (art pack, ELF, symbol check, `.fpk`) |
 | `tools/fpk.py` | Packs, checks, lists and uploads packages |
 | `tools/elfcheck.py` | Checks that every symbol an app needs is exported |
@@ -185,7 +186,9 @@ controller's buttons by position) becomes one of the host's players: `fh1_pad`, 
 `fh1_user_look` answer for it as for a local player (`fh1_user_face` gives none; `fh1_net_remote` tells which
 players are guests), so a game made for two local players plays over the network as it is. What the guests see,
 the host sends them as a blob of the game's own making, up to 1 KB (`fh1_net_state_send`, as often as it likes;
-the newest wins); a guest draws what it gets (`fh1_net_state_recv`). Both sides know the session's players
+the newest wins); a guest draws what it gets (`fh1_net_state_recv`). Wi-Fi stays fully awake during a session (no modem sleep, even
+while Bluetooth LE runs for the bridges): asleep, it got the radio round the router's beacons only, and a guest saw
+the host's states in clumps 100 ms apart. Keep states small (a few hundred bytes): Wi-Fi loses big datagrams first. Both sides know the session's players
 (`fh1_net_player`, `fh1_net_look`, numbered as the host has them; `fh1_net_me` is a guest's number). A guest only
 finds games of its own app. Everything ends when the app closes. Underneath (`components/fh1_apps/netplay.c`):
 UDP on port 47720; a guest broadcasts FIND, hosts answer, JOIN gets a seat; then the guest's controls go about 60

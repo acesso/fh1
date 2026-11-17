@@ -21,6 +21,9 @@
 #include "esp_cpu.h"
 #include "esp_timer.h"
 #include <time.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
 #include <sys/time.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -53,7 +56,18 @@ static int s_x0, s_y0;
 #define BORDER 0x10A2
 
 static esp_lcd_panel_handle_t s_panel;
-static uint16_t *s_src;                       // the logical screen, PSRAM
+static uint16_t *s_src;                       // the logical screen, PSRAM: what the UI and apps draw into
+// No tearing: the panel is fed from a second copy of the screen (s_shown), into which the rows that changed are
+// copied just after each v-sync, top first (the copy runs well ahead of the scan), and only between whole frames
+// (writers hold s_wlock while they write). A program drawing into the screen by itself (fh1_board_direct: the
+// emulators) is shown straight from s_src, as it reports no changes.
+static uint16_t *s_shown;
+static DRAM_ATTR uint16_t *volatile s_scan;    // what bounce_fill reads: s_shown, or s_src in direct mode
+static SemaphoreHandle_t s_wlock;
+static TaskHandle_t s_copy_task;
+static portMUX_TYPE s_dirty_mux = portMUX_INITIALIZER_UNLOCKED;
+static int s_dirty_y1 = 1 << 20, s_dirty_y2 = -1;
+static volatile bool s_direct_on;
 static DRAM_ATTR uint16_t s_xmap[LCD_W];      // panel column -> screen column, 0xFFFF outside
 static DRAM_ATTR int16_t s_ymap[LCD_H];       // panel row -> screen row, -1 outside
 static DRAM_ATTR int s_src_w;
@@ -89,6 +103,7 @@ void fh1_board_display_set_mode(const char *id)
 }
 
 const char *fh1_board_name(void) { return "Guition ESP32-4848S040 (dev)"; }
+const char *fh1_board_hostname(void) { return "fh0"; }
 
 // ── ST7701S init over 9-bit 3-wire SPI (first bit: 0 command, 1 data), bit-banged ──
 
@@ -221,7 +236,36 @@ static bool IRAM_ATTR on_vsync(esp_lcd_panel_handle_t panel, const esp_lcd_rgb_p
     st_frame_fills = 0;
     st_first_in_frame = true;
     st_frames++;
-    return false;
+    BaseType_t woke = pdFALSE;
+    if (s_copy_task && !s_direct_on) vTaskNotifyGiveFromISR(s_copy_task, &woke);
+    return woke == pdTRUE;
+}
+
+static void dirty(int y1, int y2)
+{
+    taskENTER_CRITICAL(&s_dirty_mux);
+    if (y1 < s_dirty_y1) s_dirty_y1 = y1;
+    if (y2 > s_dirty_y2) s_dirty_y2 = y2;
+    taskEXIT_CRITICAL(&s_dirty_mux);
+}
+
+// After each v-sync: the rows changed since the last copy, into the shown screen, unless a frame is being written
+// (then at the next v-sync: a frame later, never half of it).
+static void copy_task(void *arg)
+{
+    for (;;) {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        if (s_direct_on || xSemaphoreTake(s_wlock, 0) != pdTRUE) continue;
+        taskENTER_CRITICAL(&s_dirty_mux);
+        const int y1 = s_dirty_y1, y2 = s_dirty_y2;
+        s_dirty_y1 = 1 << 20, s_dirty_y2 = -1;
+        taskEXIT_CRITICAL(&s_dirty_mux);
+        if (y2 >= y1) {
+            const int w = s_mode->w;
+            memcpy(s_shown + y1 * w, s_src + y1 * w, (size_t)(y2 - y1 + 1) * w * 2);
+        }
+        xSemaphoreGive(s_wlock);
+    }
 }
 
 // A task's name, if it still exists (the handle was taken in the interrupt; the task may be gone since).
@@ -311,7 +355,7 @@ static bool IRAM_ATTR bounce_fill(esp_lcd_panel_handle_t panel, void *buf, int p
             memcpy(out, prev_out, LCD_W * 2);
             continue;
         }
-        const uint16_t *src = s_src + sy * s_src_w;
+        const uint16_t *src = s_scan + sy * s_src_w;
         if (s_double) {
             uint32_t *w = (uint32_t *)out;
             for (int x = 0; x < LCD_W / 2; x++) {
@@ -358,8 +402,13 @@ static esp_err_t rgb_init_here(void)
         .flags.no_fb = 1,                        // bounce_fill() makes every line
     };
     s_src = heap_caps_malloc(s_mode->w * s_mode->h * 2, MALLOC_CAP_SPIRAM);
-    if (!s_src) return ESP_ERR_NO_MEM;
-    for (int i = 0; i < s_mode->w * s_mode->h; i++) s_src[i] = BORDER;
+    s_shown = heap_caps_malloc(s_mode->w * s_mode->h * 2, MALLOC_CAP_SPIRAM);
+    s_wlock = xSemaphoreCreateMutex();
+    if (!s_src || !s_shown || !s_wlock) return ESP_ERR_NO_MEM;
+    for (int i = 0; i < s_mode->w * s_mode->h; i++) s_src[i] = s_shown[i] = BORDER;
+    s_scan = s_shown;
+    // On core 0, above the app's tasks, below Wi-Fi: it wakes just after each v-sync and copies a frame in ~3 ms.
+    xTaskCreatePinnedToCore(copy_task, "lcd_copy", 2048, NULL, 19, &s_copy_task, 0);
     esp_err_t err = esp_lcd_new_rgb_panel(&cfg, &s_panel);
     if (err != ESP_OK) return err;
     s_late_cyc = 240 * 900;
@@ -406,15 +455,45 @@ uint16_t *fh1_board_framebuffer(int *w, int *h)
     return s_src;
 }
 
-// The RGB panel scans the framebuffer by itself: nothing to send.
-void fh1_board_direct(bool on) {}
-void fh1_board_changed(int y1, int y2) {}
+// A program drawing into the screen by itself is shown straight from it; back to the copy, the copy first made whole.
+void fh1_board_direct(bool on)
+{
+    if (!s_shown || on == s_direct_on) return;
+    if (on) {
+        s_direct_on = true;
+        s_scan = s_src;
+        return;
+    }
+    xSemaphoreTake(s_wlock, portMAX_DELAY);
+    memcpy(s_shown, s_src, (size_t)s_mode->w * s_mode->h * 2);
+    taskENTER_CRITICAL(&s_dirty_mux);
+    s_dirty_y1 = 1 << 20, s_dirty_y2 = -1;
+    taskEXIT_CRITICAL(&s_dirty_mux);
+    s_scan = s_shown;
+    s_direct_on = false;
+    xSemaphoreGive(s_wlock);
+}
+
+void fh1_board_changed(int y1, int y2) { dirty(y1, y2); }
+
+void fh1_board_frame_begin(void)
+{
+    if (s_wlock) xSemaphoreTake(s_wlock, portMAX_DELAY);
+}
+
+void fh1_board_frame_end(void)
+{
+    if (s_wlock) xSemaphoreGive(s_wlock);
+}
 
 void fh1_board_flush(int x1, int y1, int x2, int y2, const uint16_t *px)
 {
     // The panel reads the screen through the CPU cache (bounce_fill), so a plain copy is enough.
     const int w = x2 - x1 + 1;
+    fh1_board_frame_begin();
     for (int y = y1; y <= y2; y++) memcpy(s_src + y * s_mode->w + x1, px + (y - y1) * w, w * 2);
+    dirty(y1, y2);
+    fh1_board_frame_end();
 }
 
 // ── Backlight (display.backlight) ──

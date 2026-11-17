@@ -503,6 +503,7 @@ static void screen_present(bool all)
 {
     const int w = s_scr.w, row = w * 2;
     int run = -1;                      // first row of the current run of changed rows
+    fh1_board_frame_begin();           // a panel scanned from memory shows the frame only once it is whole
     for (int y = 0; y < s_scr.h; y++) {
         uint16_t *d = s_scr.fb + y * w;
         const uint16_t *b = s_scr.bb + y * w;
@@ -515,6 +516,7 @@ static void screen_present(bool all)
         }
     }
     if (run >= 0) fh1_board_changed(run, s_scr.h - 1);
+    fh1_board_frame_end();
 }
 
 static void screen_task(void *arg)

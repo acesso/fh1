@@ -53,9 +53,12 @@ static const char *TAG = "board";
 #define LCD_W 320
 #define LCD_H 240
 #define BAND 20                         // lines per SPI transfer: two bands in internal RAM, 25 KB
-#define FRAME_MS 33
-// The display's SPI clock. 40 MHz until 60 and 80 MHz are tried on the built board (hardware/open-questions.md, 22).
-#define LCD_SPI_HZ (40 * 1000 * 1000)
+// The display's SPI clock: 80 MHz on SPI2's IO_MUX pins (the chosen ST7789 module ran clean at 80 MHz even through
+// the GPIO matrix: a full frame in 16.8 ms; hardware/open-questions.md, 22).
+#define LCD_SPI_HZ (80 * 1000 * 1000)
+// The shortest time between two sends to the panel: what the link carries a full frame in (31 ms at 40 MHz, 17 at
+// 80), so at 80 MHz up to 60 changed screens a second, 30 at 40.
+#define FRAME_MS (LCD_SPI_HZ >= 80 * 1000 * 1000 ? 16 : 33)
 
 static const fh1_display_mode_t s_modes[] = { { "native", "FH1 320x240", LCD_W, LCD_H, 1, 1, 1 } };
 
@@ -67,6 +70,9 @@ int fh1_board_display_modes(const fh1_display_mode_t **modes)
 const fh1_display_mode_t *fh1_board_display_mode(void) { return &s_modes[0]; }
 void fh1_board_display_set_mode(const char *id) {}
 const char *fh1_board_name(void) { return "FH1"; }
+const char *fh1_board_hostname(void) { return "fh1"; }
+void fh1_board_frame_begin(void) {}
+void fh1_board_frame_end(void) {}
 
 // ── Display (display): the ST7789 and the task that keeps it fed ──
 
@@ -185,7 +191,7 @@ static esp_err_t lcd_init(void)
     ESP_RETURN_ON_ERROR(esp_lcd_new_panel_st7789(io, &pc, &s_panel), TAG, "st7789");
     esp_lcd_panel_reset(s_panel);
     esp_lcd_panel_init(s_panel);
-    esp_lcd_panel_invert_color(s_panel, true);           // IPS modules show true colours inverted
+    esp_lcd_panel_invert_color(s_panel, false);          // the chosen 2.8" module shows true colours without INVON
     esp_lcd_panel_swap_xy(s_panel, true);                // the 240 x 320 module, landscape
     esp_lcd_panel_mirror(s_panel, false, true);
     esp_lcd_panel_disp_on_off(s_panel, true);
