@@ -2,7 +2,7 @@
   "id": "construcao-legal",
   "publisher": "org.fh1",
   "name": "Construção Legal",
-  "version": "0.9.1",
+  "version": "0.9.3",
   "sdk": "0.9",
   "entry": "app.elf",
   "needs": [],

@@ -18,17 +18,23 @@ void netrep_changed(netrep_t *r, const void *rec)
     memcpy(r->ring[r->rev % NETREP_RING], rec, (size_t)r->size);
 }
 
-int netrep_pack(netrep_t *r, uint8_t *buf, int max, int ring_max, const void *table, int n)
+int netrep_pack(netrep_t *r, uint8_t *buf, int max, int ring_max, int car_max, const void *table, int n)
 {
     if (max < HEAD) return 0;
     int room = (max - HEAD) / r->size;
-    int nr = r->rev < NETREP_RING ? r->rev : NETREP_RING;
+    // The ring: the changes since the oldest of the last NETREP_RECENT packs (all of them until there were that many).
+    const uint16_t since = r->nhist < NETREP_RECENT ? 0 : r->hist[r->nhist % NETREP_RECENT];
+    r->hist[r->nhist % NETREP_RECENT] = r->rev;
+    r->nhist++;
+    int nr = (uint16_t)(r->rev - since);
+    if (nr > NETREP_RING) nr = NETREP_RING;
     if (nr > ring_max) nr = ring_max;
     if (nr > room) nr = room;
     room -= nr;
     if (r->car >= n) r->car = 0;
     int nc = n - r->car;
     if (nc > room) nc = room;
+    if (nc > car_max) nc = car_max;
     if (nc > 255) nc = 255;
     if (nr > 255) nr = 255;
     buf[0] = (uint8_t)r->rev, buf[1] = (uint8_t)(r->rev >> 8), buf[2] = (uint8_t)nr;
@@ -57,14 +63,16 @@ int netrep_unpack(netrep_t *r, const uint8_t *buf, int len, void (*apply)(const 
     }
     r->seen = rev;
     r->have_seen = true;
-    // The carousel: every record (the newest state, so applying again does no harm); caught up once a whole turn of
-    // it has come in order.
-    for (int i = 0; i < nc; i++, p += r->size) apply(p, user);
-    if (!r->synced) {
-        if (start == 0) r->want = nc;
-        else if (r->want >= 0 && start == r->want) r->want += nc;
-        else r->want = -1;
-        if (n == 0 || (r->want >= 0 && r->want >= n)) r->synced = true;
+    // The carousel: every record (the newest state, so applying again does no harm); caught up once every record of
+    // the table has come, in whatever blobs (a lost one only delays it).
+    for (int i = 0; i < nc; i++, p += r->size) {
+        apply(p, user);
+        const int k = start + i;
+        if (!r->synced && k < NETREP_TABLE_MAX && !(r->seen_rec[k >> 3] & (1 << (k & 7)))) {
+            r->seen_rec[k >> 3] |= (uint8_t)(1 << (k & 7));
+            r->nseen++;
+        }
     }
+    if (!r->synced && (n == 0 || r->nseen >= (n < NETREP_TABLE_MAX ? n : NETREP_TABLE_MAX))) r->synced = true;
     return (int)(p - buf);
 }

@@ -17,6 +17,8 @@
 #include "esp_timer.h"
 #include "esp_random.h"
 #include "esp_log.h"
+#include "esp_wifi.h"
+#include "fh1_bridge.h"
 
 static const char *TAG = "play";
 
@@ -62,6 +64,9 @@ bool np_port_task_start(void)
     np_port_unlock();
     xSemaphoreTake(s_done, 0);
     s_run = true;
+    // Wi-Fi awake for the session: with modem sleep (on while Bluetooth LE runs, for the bridges) it gets the radio
+    // round the router's beacons only, and a guest saw the host's states in clumps 100 ms apart, half of them lost.
+    esp_wifi_set_ps(WIFI_PS_NONE);
     if (xTaskCreatePinnedToCore(play_task, "netplay", STACK, NULL, 4, NULL, 0) != pdPASS) {
         s_run = false;
         ESP_LOGE(TAG, "no memory for the network play task");
@@ -75,6 +80,7 @@ void np_port_task_stop(void)
     if (!s_run) return;
     s_run = false;
     xSemaphoreTake(s_done, pdMS_TO_TICKS(1000));
+    esp_wifi_set_ps(fh1_bridge_ble_on() ? WIFI_PS_MIN_MODEM : WIFI_PS_NONE);
 }
 
 // A guest's player 1: their controller, or the unit's keys as a controller's buttons by position (as the web

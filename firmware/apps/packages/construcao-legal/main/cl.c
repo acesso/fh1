@@ -46,6 +46,7 @@ static uint32_t s_pad_prev, s_pad_edge;
 enum { MODE_START, MODE_FIND, MODE_OWN, MODE_GUEST };
 static int s_mode = MODE_START;
 static int s_me;                     // the player this FH1 is (0 in its own world; its seat in a friend's)
+static uint32_t s_catchup_until;     // a guest just came: the whole list of changes goes round quickly till then
 
 enum { T_ROAD, T_HOUSE, T_SMITH, T_MILL, T_WALL, T_TOWER, T_STAIR, T_TREE, T_FIELD, T_REMOVE };
 // The tools (Y: the next), each with its variants (L1 / R1): a house's roof and walls, the
@@ -88,6 +89,7 @@ typedef struct {
     bool arriving, hidden;
     uint32_t arrive_t;
     float ex, ev;
+    float tu, tv, tz;                // a guest's FH1: where the owner's last state put them (u, v, z ease toward it)
     uint8_t gate_axis;               // the way out of it: 0 along the world's columns (+u), 1 along its rows (+v)
     char name[24];
 } player_t;
@@ -1041,6 +1043,7 @@ static void join(int i)
                 }
             }
 placed:
+    s_catchup_until = s_t + 15000;            // the whole list (2048 changes at most) about six times over
     fh1_net_player(i, p->name, sizeof(p->name));
     char l[48];
     snprintf(l, sizeof(l), "%s entrou no seu mundo", p->name[0] ? p->name : "Alguém");
@@ -1203,13 +1206,20 @@ static void send_state(void)
         }
     }
     const int head = 2 + NP * (int)sizeof(wire_pl_t);
-    const int n = netrep_pack(&s_rep, buf + head, (int)sizeof(buf) - head, 40, s_world.edits, s_world.nedits);
+    // Small states (Wi-Fi loses big datagrams first, more so where it shares the radio with Bluetooth): the recent
+    // changes, and the whole list going round fast only while a guest catches up, a few records otherwise.
+    const int n = netrep_pack(&s_rep, buf + head, (int)sizeof(buf) - head, 40, s_t < s_catchup_until ? 40 : 8,
+                              s_world.edits, s_world.nedits);
     fh1_net_state_send(buf, (size_t)(head + n));
 }
 
 // ── A guest's FH1: the friend's world as their FH1 sends it ──
 
 static bool s_got;                   // a state has come
+// Measuring network play ("netlog"): every 2 s in the log, frames and the slowest, states that came and the
+// longest wait between two.
+static bool s_netlog;
+static uint32_t s_nl_t, s_nl_frames, s_nl_slow, s_nl_states, s_nl_gap, s_nl_last;
 static uint8_t s_prev_flags[NP];
 
 static void apply_remote(const void *rec, void *user)
@@ -1263,7 +1273,10 @@ static void take_state(void)
             snd(SN_JOIN, 170);
         }
         const uint8_t f = w->flags, pf = s_prev_flags[i];
-        p->u = w->u / 256.0f, p->v = w->v / 256.0f, p->z = w->z;
+        // Where they are: eased toward between states (smooth at the states' 30 a second, through lost ones); a jump
+        // (coming in, a teleport, a door) is taken at once.
+        p->tu = w->u / 256.0f, p->tv = w->v / 256.0f, p->tz = w->z;
+        if (!was || fabsf(p->tu - p->u) + fabsf(p->tv - p->v) > 1.5f) p->u = p->tu, p->v = p->tv, p->z = p->tz;
         p->oct = w->ov & 7;
         p->view = (w->ov >> 3) & 3;
         // Coming in: their portal, opened here as it opened at the owner's (where they stand while hidden; else the
@@ -1307,6 +1320,10 @@ static void take_state(void)
     }
     netrep_unpack(&s_rep, buf + head, n - head, apply_remote, NULL);
     s_got = true;
+    const uint32_t now = fh1_millis();
+    if (s_nl_last && now - s_nl_last > s_nl_gap) s_nl_gap = now - s_nl_last;
+    s_nl_last = now;
+    s_nl_states++;
 }
 
 // ── The start menu: play in your own world, find a friend's, leave ──
@@ -1600,6 +1617,12 @@ static int frame(uint16_t *px, int w, int h, uint32_t dt, void *user)
         } else if (s_got && me->on && me->view != s_world.view && !viewturn_active(&s_turn) && !s_turn_to)
             s_turn_to = ((me->view - s_world.view) % 4 + 4) % 4;    // their view turned at the owner's: shown here
         if (s_got) steps(me, dt);
+        const float k = dt >= 50 ? 1.0f : dt / 50.0f;             // about 50 ms behind the newest state
+        for (int i = 0; i < NP; i++) {
+            player_t *q = &s_pl[i];
+            if (!q->on) continue;
+            q->u += (q->tu - q->u) * k, q->v += (q->tv - q->v) * k, q->z += (q->tz - q->z) * k;
+        }
     } else {
         // One's own world: its owner here, guests over the network.
         for (int i = 1; i < NP; i++) {
@@ -1683,6 +1706,15 @@ static int frame(uint16_t *px, int w, int h, uint32_t dt, void *user)
         ui_text(&u, 4, me->build ? 18 : h - 12, l, 0xffffff);            // above the bar while building
     }
     s_frame_ms = fh1_millis() - t0;
+    if (s_netlog) {
+        s_nl_frames++;
+        if (s_frame_ms > s_nl_slow) s_nl_slow = s_frame_ms;
+        if ((s_nl_t += dt) >= 2000) {
+            fh1_log("net %s: %u frames, slowest %u ms; %u states, longest wait %u ms", s_mode == MODE_GUEST ? "guest" : "host",
+                    (unsigned)s_nl_frames, (unsigned)s_nl_slow, (unsigned)s_nl_states, (unsigned)s_nl_gap);
+            s_nl_t = s_nl_frames = s_nl_slow = s_nl_states = s_nl_gap = 0;
+        }
+    }
     if (s_frame_ms > s_max_ms) s_max_ms = s_frame_ms;            // the slowest frame of the last 2 s (strips drawn)
     if ((s_max_t += dt) >= 2000) {
         s_max_shown = s_max_ms;
@@ -1721,6 +1753,24 @@ bool dev_command(const char *text)
     }
     if (!strncmp(line, "info", 4)) {
         s_info = !s_info;
+        return true;
+    }
+    if (!strcmp(line, "netlog")) {
+        s_netlog = !s_netlog;
+        return true;
+    }
+    if (!strcmp(line, "repcheck")) {                              // changes a guest would apply again each pass
+        int bad = 0;
+        for (int i = 0; i < s_world.nedits; i++) {
+            const edit_t *e = &s_world.edits[i];
+            const cell_t *x = world_cell(&s_world, e->c, e->r);
+            if (x->ground != e->ground || x->var != e->var || x->obj != e->obj || x->ovar != e->ovar ||
+                (x->flags & F_BUILT) != (e->flags & F_BUILT)) {
+                if (bad++ < 8) fh1_log("  %d,%d kept g%d v%d o%d ov%d f%d, cell g%d v%d o%d ov%d f%d", e->c, e->r, e->ground,
+                                       e->var, e->obj, e->ovar, e->flags, x->ground, x->var, x->obj, x->ovar, x->flags);
+            }
+        }
+        fh1_log("repcheck: %d of %d change(s) differ from their cells", bad, s_world.nedits);
         return true;
     }
     if (s_mode != MODE_OWN) return false;

@@ -141,10 +141,11 @@ it can change without flashing firmware, then moved into the firmware once its A
   the package every play is silent, so a game needs no other check.
 - **Network worlds (`engine/netrep.c`):** a host's table of records (a world's changes) copied to its network
   guests inside the state the SDK sends them (one blob, the newest winning, nothing resent): each blob carries the
-  latest changes (a ring of 64, so a guest keeps up through a few lost blobs) and the next stretch of the whole
-  table, going round (a guest that joins late, or missed too much, catches up), with no answers needed.
-  `netrep_changed` (host: a record's newest state), `netrep_pack`, `netrep_unpack` (guest: each record new to it
-  applied; `synced` once the whole table has come).
+  changes of its last 32 blobs (about a second: a guest keeps up through lost blobs) and the next stretch of the
+  whole table, going round (a guest that joins late, or missed too much, catches up), with no answers needed. The
+  game says how long a stretch: long while a guest catches up, a few records otherwise (small blobs: Wi-Fi loses
+  big ones first). `netrep_changed` (host: a record's newest state), `netrep_pack`, `netrep_unpack` (guest: each
+  record new to it applied; `synced` once every record of the table has come, in whatever blobs).
 - **Player colours (`engine/ui.c`):** `ui_player_colour` (blue, red, green, yellow): one per player of a game,
   the same in every game.
 - **View turns (`engine/viewturn.c`):** a quarter turn of the view shown as a cube turning: `viewturn_begin` keeps

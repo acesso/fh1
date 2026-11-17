@@ -33,8 +33,9 @@ the owner's data. A guest's FH1 keeps nothing of it (back home, its own world is
   The owner's own menu (Start) pauses only them; the others play on.
 - **What goes over the network** (about 30 times a second, at most 1 KB, the newest winning): each player (place,
   height, facing, view, coming in through a portal, how they move, build mode, tool and variants, a swing under way, inside: the door they
-  went in by, the floor and where they are) and the world's changes through the engine's `netrep.c` (the latest
-  ones, and the whole list going round for a guest that joins late or missed some). A guest's FH1 draws the world
+  went in by, the floor and where they are) and the world's changes through the engine's `netrep.c`: those of the
+  last second, and the whole list going round, 40 changes a state for 15 s after someone joins (they catch up),
+  8 otherwise. States stay small (about 200 bytes): Wi-Fi loses big datagrams first. A guest's FH1 draws the world
   from that: it applies the changes to its own copy of the fixed world and lays out a building's rooms as the
   owner's FH1 does (the same plan from the same door and view).
 
@@ -213,6 +214,8 @@ a 3 x 3 block, a U, a big house with its storey and a keep with its tower; `host
 three levels; `host/tests/stairs.script` climbs a wall and walks along it; `host/tests/interior.script` goes into a
 house, an L of three houses from its side (and turns the view, a shot half way through), a 2 x 2 house, a smithy
 and a keep. On the FH1 the same commands come from the console, and `net host`, `net find`, `net join N` and
-`net close` drive the start menu (two units: one hosts, the other finds and joins). The game prints no
+`net close` drive the start menu (two units: one hosts, the other finds and joins); `netlog` logs every 2 s the
+frames and the slowest, and on a guest the states that came and the longest wait between two; `repcheck` logs the
+kept changes that differ from their cells (a guest would apply them again on every pass). The game prints no
 floats (hundredths as whole numbers): a float through printf needs double helpers the firmware does not export, and
 the package check refuses it.
