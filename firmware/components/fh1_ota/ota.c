@@ -57,7 +57,9 @@ esp_err_t fh1_ota_begin(size_t size, fh1_ota_t **out, char *err, size_t n)
         free(o);
         return ESP_ERR_INVALID_SIZE;
     }
-    esp_err_t e = esp_ota_begin(o->part, size ? size : OTA_SIZE_UNKNOWN, &o->h);
+    // Erased as it is written, a sector at a time, not the whole image first: one long erase (2.6 MB, ~15 s with the
+    // flash busy) crashed a board whose flash could not take it at 120 MHz, and stalls every board meanwhile.
+    esp_err_t e = esp_ota_begin(o->part, OTA_WITH_SEQUENTIAL_WRITES, &o->h);
     if (e != ESP_OK) {
         snprintf(err, n, "esp_ota_begin: %s", esp_err_to_name(e));
         free(o);

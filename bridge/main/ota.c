@@ -41,7 +41,9 @@ static esp_err_t ota_post(httpd_req_t *req)
     }
     const esp_partition_t *part = esp_ota_get_next_update_partition(NULL);
     esp_ota_handle_t h;
-    if (!part || esp_ota_begin(part, OTA_SIZE_UNKNOWN, &h) != ESP_OK) {
+    // Erased as it is written (a sector at a time), not the whole slot first: that erase held the link silent for
+    // seconds, too long for a weak Wi-Fi.
+    if (!part || esp_ota_begin(part, OTA_WITH_SEQUENTIAL_WRITES, &h) != ESP_OK) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "no slot for an update");
         return ESP_FAIL;
     }
