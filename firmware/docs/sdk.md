@@ -30,7 +30,7 @@ build/<name>.app.elf  ──tools/fpk.py pack──▶  <id>_<version>.fpk  (man
 - **The installer and launcher** are in [`components/fh1_apps/apps.c`](../components/fh1_apps/apps.c): packages
   from `/sd/packages` or `/int/packages`, checked (manifest, SDK version, checksums), unpacked into
   `/int/apps/<id>/`, listed in the APPS menu.
-- **Versions:** `FH1_SDK_MAJOR.FH1_SDK_MINOR` (now 0.9). A minor version only adds functions; a major one
+- **Versions:** `FH1_SDK_MAJOR.FH1_SDK_MINOR` (now 0.10). A minor version only adds functions; a major one
   means rebuilding apps. The installer refuses an app built for another major, or for a newer minor than the
   firmware has. The table of what each version added is in [`PLAN.md`](../PLAN.md) ("App packages").
 
@@ -130,6 +130,9 @@ and write `manifest.json`. An app that draws in loops sets `CONFIG_COMPILER_OPTI
   and friends on the same network join it from "Mundos de amigos" with up to four players in all: the owner's
   FH1 runs the game for everyone and keeps what they build. A world bigger than the 1 KB state goes to the guests
   through the engine's `netrep.c` ([`construcao-legal.md`](construcao-legal.md)).
+- **Doom** ([`apps/packages/doom`](../apps/packages/doom), SDK 0.10): PrBoom (retro-go's prboom-go) as a
+  package, with its own FH1 layer ([`doom.md`](doom.md)): a port of a C game of 100 000 lines, its WAD from the
+  SD card or from a computer over the network, in the 256-colour full screen.
 
 ## What the SDK gives
 
@@ -149,9 +152,13 @@ and write `manifest.json`. An app that draws in loops sets `CONFIG_COMPILER_OPTI
 | Controller pictures | `fh1_pad_style`, `fh1_px_key` (a key's icon in player 1's controller's style) | 0.8 |
 | Looks | `fh1_user_look` (a player's avatar: its choices and colours, to dress a game's character) | 0.9 |
 | Network play | `fh1_net_host`, `_find`, `_games`, `_join`, `_status`, `_me`, `_remote`, `_player`, `_look`, `_state_send`, `_state_recv`, `_close` | 0.9 |
+| Ported games | `fh1_screen_open8` / `fh1_screen_palette` (full screen in 256 colours), `FH1_FRAME_SHOW_REDRAW`, `fh1_sfx_play8` (8-bit samples), more of the C library, `heap_caps_malloc` / `_realloc` / `_free` / `_get_free_size` | 0.10 |
 
 The C library an app may use is listed at the top of `fh1_sdk.h`: memory, strings, formatted text, files
-(`fopen` ... `rename`), `qsort`, `rand`, time, and `sinf cosf sqrtf floorf atan2f fabsf asinf`.
+(`fopen` ... `rename`), `qsort`, `rand`, time, and `sinf cosf sqrtf floorf atan2f fabsf asinf`. SDK 0.10 adds
+what ported C games use: more string and character functions, `sprintf`, `fscanf`, `stat`, `access`, `sqrt`,
+`atan2`, 64-bit division, and `heap_caps_malloc(n, MALLOC_CAP_SPIRAM)` for small blocks in PSRAM (`malloc`
+keeps blocks under 4 KB in internal RAM, which Wi-Fi needs).
 
 **Two kinds of app:**
 - **Windowed:** the FH1's own windows and widgets, or a canvas in a window (`fh1_canvas*`, in window units,
@@ -163,6 +170,13 @@ The C library an app may use is listed at the top of `fh1_sdk.h`: memory, string
   screen: 320 × 240 on the FH1, and on the Guition in `fh1` mode; 320 × 320 in its native mode. Draw for the size
   you are given. `frame()` may read keys and gamepads, play sound and save; it must not touch windows or
   canvases.
+- **Full screen in 256 colours:** `fh1_screen_open8(period_ms, w, h, frame, closed, user)` and
+  `fh1_screen_palette(rgb565[256])`, for ported and retro games. `frame(px, w, h, ...)` draws one byte a pixel
+  (`w × h` of your choosing, centred, black around it); the firmware turns the rows that changed into the screen's
+  pixels through the palette, on core 0 while your next frame is drawn on core 1. `px` is one of two pictures
+  taking turns, each starting as a copy of the one before; return `FH1_FRAME_SHOW_REDRAW` when your next frame
+  draws every pixel again, and the copy (3 ms for 320 × 240) is skipped. Doom drew at 28 fps converting to RGB565
+  itself and 31 fps this way.
 
 **Users** need nothing from an app: the system shows who plays when it starts (their faces, over it). An app that
 wants more asks `fh1_user` (who plays as a player), shows `fh1_user_face` (their animated face, 16 or 32 units) or
@@ -327,6 +341,10 @@ levels. The recipe format is in the tool's docstring. The packs' sources are in 
   `pc - 0x422b7b84 + 0x3394` in its ELF. Build once with `idf.py -DELF_LOADER_KEEP_DEBUG_ELF=ON elf` for
   `build/<name>.app.elf.debug` (the same code with symbols and lines), then
   `xtensa-esp32s3-elf-addr2line -f -e build/<name>.app.elf.debug <address>`.
+- **A crash on a unit with no serial port:** the core dump stays in flash.
+  `curl "http://<unit>/coredump?code=<code>" -o x.core` fetches it (`&erase=1` clears it), and
+  `esp-coredump info_corefile -t raw -c x.core build-<board>/fh1.elf` shows the crash (a stack overflow is
+  named there); the app's own addresses map as above.
 - **Memory:** `fh1dev.py stats` shows internal RAM free, its lowest and its largest block. While a game runs,
   watch it: Wi-Fi and the console need internal RAM, and stall when its largest free block is down to a few KB
 (seen at 14 KB free, 3 KB the largest).

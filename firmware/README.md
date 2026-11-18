@@ -350,7 +350,7 @@ engine, testing, debugging, rules, known issues, limits and how to change the SD
 | `components/fh1_player/` | The audio player engine and its decoders (minimp3, dr_flac, dr_wav, Tremor, pocketmod; see `VENDORED.md`) |
 | `components/fh1_sdk/` | `fh1_sdk.h`, the app API |
 | `apps/packages/` | Packaged apps |
-| `tools/` | `fh1peer.py` (a pretend FH1 with one user on the PC, to test people nearby and friends), `fpk.py` (pack, check, list, upload), `keys.py` (serial keys), `fh1dev.py` (keys, screenshots, stats and console ops from the PC), `hexfont.py`, `gbc_palettes.py` (generators) |
+| `tools/` | `fh1peer.py` (a pretend FH1 with one user on the PC, to test people nearby and friends), `fpk.py` (pack, check, list, upload), `keys.py` (serial keys), `fh1dev.py` (keys, screenshots, stats and console ops from the PC), `fh1wadserve.py` (Doom WADs over the network, `docs/doom.md`), `fh1doombench.py` (Doom's timed demos on a unit, watched), `hexfont.py`, `gbc_palettes.py` (generators) |
 
 ## Restoring the dev board
 

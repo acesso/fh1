@@ -2,6 +2,40 @@
 
 Releases of the FH1 firmware and its apps, newest first. Each is a tag (`vX.Y.Z`) on `main`.
 
+## 0.9.0 (2026-11-18)
+
+Doom on the FH1, and SDK 0.10 for porting C games to it.
+
+### Doom (new, 0.1.0)
+
+- **PrBoom as a package** (retro-go's prboom-go, GPL-2.0+): Doom, Doom II, Final Doom or Freedoom from their WADs.
+  31 fps on the Guition in the timed demo; normal play is capped at 35 by the game itself.
+- **The WAD:** the web console's Upload takes `.wad` files (up to 64 MB) into a `wads` folder. Doom finds them on
+  the SD card or in internal storage. A unit with no card reads its WAD over the network from a computer
+  (`firmware/tools/fh1wadserve.py`).
+- **Sound effects** come straight from the WAD (8-bit). No music yet.
+- **Speed** in Freedoom's timed demos: 31 to 34 fps on the Guition (14 in demo3's large map); 28 fps on a unit reading
+  its WAD over Wi-Fi.
+- **Big maps after another level:** the tables live in an arena of their own, so a new level's large tables find room.
+- **Development:** the dev commands `fps` (where a frame's time goes), `mem` and `timedemo`, and
+  `tools/fh1doombench.py`, which runs timed demos on a unit and stops at the first stall, error or restart.
+- **Ships as a download** with the release. It is not installed in the simulator, which has nowhere to get a WAD
+  from. Guide: `firmware/docs/doom.md`.
+
+### SDK 0.10
+
+- **Full screen in 256 colours** (`fh1_screen_open8`, `fh1_screen_palette`): the app draws a byte a pixel. The
+  firmware shows the rows that changed, through the palette, on the other core while the next frame is drawn.
+  `FH1_FRAME_SHOW_REDRAW` is for apps that draw every pixel again.
+- **8-bit sound effects** (`fh1_sfx_play8`): half the memory of 16-bit ones.
+- **More of the C library** for ported games, and `heap_caps_malloc` / `_realloc` / `_free` / `_get_free_size` to
+  keep small blocks out of internal RAM.
+
+### Firmware
+
+- **Crash dumps over Wi-Fi:** `GET /coredump` on the dev console, for units without a serial port.
+- **SD card:** seeks in big files use a table of their clusters (FatFs fast seek) instead of walking the FAT.
+
 ## 0.8.0 (2026-11-17)
 
 Táticas da Ilha grows: new creatures and bosses, islands up to three times as wide, battles in two moments from

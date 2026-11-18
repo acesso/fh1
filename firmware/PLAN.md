@@ -270,6 +270,7 @@ last window closes, it is unloaded and its memory freed.
 | 0.7 | Asset packages (`fh1_asset_dir`, `"uses"`) and sound effects (`fh1_sfx_play`, `_stop`, `_stop_all`, `_playing`) |
 | 0.8 | Player 1's controller's button pictures: `fh1_pad_style`, `fh1_px_key`; the data folder follows player 1's user at every call |
 | 0.9 | The players' looks (`fh1_user_look`: their avatar's choices and colours) and network play: `fh1_net_host`, `_find`, `_games`, `_join`, `_status`, `_me`, `_remote`, `_player`, `_look`, `_state_send`, `_state_recv`, `_close`; a guest's controller answers as one of the host's players |
+| 0.10 | Ported games: full screen in 256 colours (`fh1_screen_open8`, `fh1_screen_palette`, `FH1_FRAME_SHOW_REDRAW`), 8-bit sound effects (`fh1_sfx_play8`), more of the C library, `heap_caps_malloc` / `_realloc` / `_free` / `_get_free_size` |
 
 **Limits.**
 - Apps run in the same address space as the firmware, with no isolation. A crashing app reboots the device, and the watchdog catches hangs.

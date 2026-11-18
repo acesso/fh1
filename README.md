@@ -66,6 +66,12 @@ Future ideas and pending work; each leaves this list when it lands.
   brings their saved states along (fetched from their home unit over Wi-Fi, signed with their key), plays there,
   and their progress goes back; conflicts shown when both sides changed. Today a saved state can be put into a
   user's folder by hand (`POST /fh1/state`, `firmware/docs/users.md`).
+- **Doom:**
+  - music (the WAD's MUS songs through an OPL synthesizer on the audio stream);
+  - saved games and the menus on the FH1's keys, a WAD picker;
+  - the FH1's own content for its FPS engine, and play with friends over the network;
+  - on the radio unit: the 256-colour full screen and 8-bit sounds (SDK 0.10) in its firmware;
+  - faster: the masked walls and sprite clipping, the SD card at 40 MHz.
 - **Isometric engine:** ground under a floating slab (a cell with a column and a slab over it), and a shadow
   on it.
 
@@ -84,6 +90,7 @@ Future ideas and pending work; each leaves this list when it lands.
 | `hardware/open-questions.md` | Decisions, and the questions still open |
 | `firmware/PLAN.md` | Firmware design: boards, devices, interface, packages, emulators, music, bridge, users |
 | `firmware/docs/sdk.md` | The SDK guide: writing apps and games for the FH1, the isometric engine, testing, limits |
+| `firmware/docs/doom.md` | Doom (PrBoom) as a package: its WAD from the SD card or over the network, how it runs, its speed, development |
 | `firmware/docs/construcao-legal.md` | Construção Legal, the exploration (and building) game: its world, friends in one world over the network, sounds, drawing, development |
 | `firmware/` | The firmware (ESP-IDF v6.1): build, flash and app notes in `firmware/README.md` |
 | `bridge/` | The Bluetooth bridge's firmware (ESP32 + Bluepad32) |
