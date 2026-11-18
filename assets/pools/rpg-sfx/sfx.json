@@ -1,10 +1,16 @@
 {
   "out": "assets/rpg.fsfx",
   "previews": "build/preview",
-  "sources": ["../../packs/rpg-essentials-sfx"],
-  "rate": 44100,
+  "sources": [
+    "../../packs/rpg-essentials-sfx"
+  ],
+  "rate": 22050,
   "trim_db": -48,
   "fade_ms": 15,
   "peak_db": -3,
-  "gain": {"12_Player_Movement_SFX": -9, "10_UI_Menu_SFX": -6, "8_Buffs_Heals_SFX": -3}
+  "gain": {
+    "12_Player_Movement_SFX": -9,
+    "10_UI_Menu_SFX": -6,
+    "8_Buffs_Heals_SFX": -3
+  }
 }
