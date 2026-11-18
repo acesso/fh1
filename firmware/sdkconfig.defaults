@@ -66,6 +66,8 @@ CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
 
 # SD card
 CONFIG_FATFS_LFN_HEAP=y
+# Seeks in a big file (a Doom WAD, a ROM, music) from a table of its clusters, not by walking the FAT chain
+CONFIG_FATFS_USE_FASTSEEK=y
 
 # Packaged apps
 CONFIG_ELF_LOADER=y

@@ -16,6 +16,7 @@
 
 typedef struct {
     const int16_t *pcm;
+    const uint8_t *pcm8;               // unsigned 8-bit samples instead (SDK 0.10: fh1_sfx_play8)
     uint32_t frames;
     uint64_t pos;                      // 32.16 frames (16.16 in 32 bits wrapped after 65 536 frames, 1.5 s: a longer
                                        // sound replayed its start forever)
@@ -48,14 +49,26 @@ static void mixer(void *arg)
             if (!v[k].on) continue;
             any = true;
             uint64_t pos = v[k].pos;
-            for (int i = 0; i < BLOCK; i++) {
-                const uint64_t f = pos >> 16;
-                if (f >= v[k].frames) {
-                    v[k].on = false;
-                    break;
+            if (v[k].pcm8) {
+                for (int i = 0; i < BLOCK; i++) {
+                    const uint64_t f = pos >> 16;
+                    if (f >= v[k].frames) {
+                        v[k].on = false;
+                        break;
+                    }
+                    acc[i] += ((v[k].pcm8[f] - 128) * (int32_t)v[k].volume);   // (<< 8 >> 8)
+                    pos += v[k].step;
                 }
-                acc[i] += (v[k].pcm[f] * (int32_t)v[k].volume) >> 8;
-                pos += v[k].step;
+            } else {
+                for (int i = 0; i < BLOCK; i++) {
+                    const uint64_t f = pos >> 16;
+                    if (f >= v[k].frames) {
+                        v[k].on = false;
+                        break;
+                    }
+                    acc[i] += (v[k].pcm[f] * (int32_t)v[k].volume) >> 8;
+                    pos += v[k].step;
+                }
             }
             v[k].pos = pos;
         }
@@ -91,9 +104,8 @@ static void mixer(void *arg)
     vTaskDelete(NULL);
 }
 
-int fh1_sfx_play(const int16_t *pcm, uint32_t frames, uint32_t rate, uint8_t volume)
+static int play(const int16_t *pcm, const uint8_t *pcm8, uint32_t frames, uint32_t rate, uint8_t volume)
 {
-    if (!pcm || !frames || !rate) return -1;
     if (!s_task) {
         s_quit = false;
         // 4 KB: its deepest use measured 2.3 KB (8 voices, music); it stays in internal RAM (it must not stall).
@@ -113,10 +125,20 @@ int fh1_sfx_play(const int16_t *pcm, uint32_t frames, uint32_t rate, uint8_t vol
                 oldest = s_v[i].pos;
                 k = i;
             }
-    s_v[k] = (voice_t){ .pcm = pcm, .frames = frames, .pos = 0, .step = (uint32_t)(((uint64_t)rate << 16) / RATE),
+    s_v[k] = (voice_t){ .pcm = pcm, .pcm8 = pcm8, .frames = frames, .pos = 0, .step = (uint32_t)(((uint64_t)rate << 16) / RATE),
                         .volume = (uint16_t)(volume + (volume >> 7)), .serial = ++s_serial, .on = true };
     portEXIT_CRITICAL(&s_mux);
     return k;
+}
+
+int fh1_sfx_play(const int16_t *pcm, uint32_t frames, uint32_t rate, uint8_t volume)
+{
+    return pcm && frames && rate ? play(pcm, NULL, frames, rate, volume) : -1;
+}
+
+int fh1_sfx_play8(const uint8_t *pcm, uint32_t frames, uint32_t rate, uint8_t volume)
+{
+    return pcm && frames && rate ? play(NULL, pcm, frames, rate, volume) : -1;
 }
 
 void fh1_sfx_stop(int voice)

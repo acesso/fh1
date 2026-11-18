@@ -14,13 +14,14 @@
 #include <stddef.h>
 
 #define FH1_SDK_MAJOR 0
-#define FH1_SDK_MINOR 9               // 2: gamepads with motion, a canvas to draw on. 3: triangles, text width.
+#define FH1_SDK_MINOR 10              // 2: gamepads with motion, a canvas to draw on. 3: triangles, text width.
                                       // 4: users (who plays, their face), notifications, settings, saved states
                                       // 5: full screen, the app's own folder
                                       // 6: development commands from the console
                                       // 7: asset packages, sound effects
                                       // 8: the controller's button pictures; data follows player 1
                                       // 9: the players' looks, network play
+                                      // 10: more of the C library for ported games (string, ctype, stdio, 64-bit division)
 
 #ifdef __cplusplus
 extern "C" {
@@ -154,12 +155,23 @@ enum {
     FH1_FRAME_END = 0,                    // leave full screen; closed(user) then runs as the windows come back
     FH1_FRAME_SHOW = 1,                   // show px
     FH1_FRAME_SAME = 2,                   // nothing changed: px is not copied to the screen
+    FH1_FRAME_SHOW_REDRAW = 3,            // show px; the next frame draws every pixel again (SDK 0.10, 256 colours:
+                                          // px then need not start as this picture, which saves a copy of it)
 };
 typedef int (*fh1_frame_fn)(uint16_t *px, int w, int h, uint32_t dt_ms, void *user);
 // From the app's own code (app_main, a timer, a key callback): false if full screen is already open or there is
 // no memory. frame() may read keys and gamepads, play sound and save; it must not touch windows or canvases.
 // The app stays loaded while full screen is open. An overlay (a file arriving) pauses frames for a moment.
 bool fh1_screen_open(uint32_t period_ms, fh1_frame_fn frame, void (*closed)(void *user), void *user);
+// In 256 colours (SDK 0.10), for ported and retro games: the app draws w x h pixels of one byte each (centred on
+// the screen, black around it), and the firmware turns them into the screen's own pixels through the palette as
+// it shows them: only the rows that changed, on the other core while the app draws its next frame. px is one of
+// two pictures taking turns, each starting as a copy of the one before (kept between frames), unless frame()
+// returned FH1_FRAME_SHOW_REDRAW. frame() returns as above. The palette: 256 RGB565 colours, set from frame() or
+// before the screen opens; a new one is shown with the next frame, all of it.
+typedef int (*fh1_frame8_fn)(uint8_t *px, int w, int h, uint32_t dt_ms, void *user);
+bool fh1_screen_open8(uint32_t period_ms, int w, int h, fh1_frame8_fn frame, void (*closed)(void *user), void *user);
+void fh1_screen_palette(const uint16_t rgb565[256]);
 void fh1_screen_close(void);              // frame() is not called again; closed(user) follows
 // The app's installed folder, /int/apps/<id>: its package's assets/ are there.
 const char *fh1_app_dir(void);
@@ -181,6 +193,8 @@ const char *fh1_asset_dir(const char *id);
 // by the firmware at 44.1 kHz (other rates are resampled). play returns the voice, or -1; when 8 play, the one
 // furthest along stops for the new one. volume: 0..255. Everything stops when the app closes.
 int fh1_sfx_play(const int16_t *pcm, uint32_t frames, uint32_t rate, uint8_t volume);
+// The same from unsigned 8-bit samples (128 is silence), as old games keep them (SDK 0.10): half the memory.
+int fh1_sfx_play8(const uint8_t *pcm, uint32_t frames, uint32_t rate, uint8_t volume);
 void fh1_sfx_stop(int voice);
 void fh1_sfx_stop_all(void);
 bool fh1_sfx_playing(int voice);

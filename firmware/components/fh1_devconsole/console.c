@@ -33,6 +33,8 @@
 #include "freertos/task.h"
 #include "freertos/freertos_debug.h"
 #include "esp_memory_utils.h"
+#include "esp_core_dump.h"
+#include "esp_flash.h"
 
 static const char *TAG = "console";
 
@@ -657,9 +659,46 @@ static bool is_music(const char *name)
            ends_with(name, ".wav") || ends_with(name, ".mod");
 }
 
+// GET /coredump?code=NNNNNN[&erase=1]: the last crash's core dump as it is in flash (an ELF), for a unit with no
+// serial port; erase=1 clears it once sent. Read on a computer with the firmware's ELF:
+//   esp-coredump info_corefile -t raw -c dump.bin build/fh1.elf
+static esp_err_t coredump_handler(httpd_req_t *req)
+{
+    char query[64] = "", code[12] = "", erase[4] = "";
+    httpd_req_get_url_query_str(req, query, sizeof(query));
+    httpd_query_key_value(query, "code", code, sizeof(code));
+    httpd_query_key_value(query, "erase", erase, sizeof(erase));
+    if (strcmp(code, fh1_console_token()) != 0) {
+        httpd_resp_send_err(req, HTTPD_403_FORBIDDEN, "code needed");
+        return ESP_FAIL;
+    }
+    size_t addr, size;
+    if (esp_core_dump_image_get(&addr, &size) != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "no core dump");
+        return ESP_FAIL;
+    }
+    uint8_t *buf = malloc(2048);
+    if (!buf) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "no memory");
+        return ESP_FAIL;
+    }
+    httpd_resp_set_type(req, "application/octet-stream");
+    esp_err_t e = ESP_OK;
+    for (size_t off = 0; off < size && e == ESP_OK; off += 2048) {
+        const size_t n = size - off < 2048 ? size - off : 2048;
+        e = esp_flash_read(NULL, buf, addr + off, n);
+        if (e == ESP_OK) e = httpd_resp_send_chunk(req, (const char *)buf, n);
+    }
+    free(buf);
+    httpd_resp_send_chunk(req, NULL, 0);
+    if (e == ESP_OK && erase[0] == '1') esp_core_dump_image_erase();
+    return e;
+}
+
 // POST /upload?name=<file>.fpk&dest=sd|int with header X-FH1-Code: stores the package in /sd/packages
 // (the default, when a card is mounted) or /int/packages. A <file>.bin is firmware: /sd/firmware;
-// a game (.gb .gbc .nes .sms .gg .sg): <storage>/roms; music (.mp3 .flac .ogg .oga .wav .mod): <storage>/music.
+// a game (.gb .gbc .nes .sms .gg .sg): <storage>/roms; music (.mp3 .flac .ogg .oga .wav .mod): <storage>/music;
+// a Doom WAD (.wad): <storage>/wads.
 static esp_err_t upload_handler(httpd_req_t *req)
 {
     char code[12] = "", query[256] = "", name[96] = "", dest[8] = "sd";
@@ -674,9 +713,9 @@ static esp_err_t upload_handler(httpd_req_t *req)
     }
     if (!name[0] || strchr(name, '/') || strchr(name, '\\') || strstr(name, "..") || strlen(name) < 4 || strlen(name) > 60 ||
         !(ends_with(name, ".fpk") || ends_with(name, ".bin") || ends_with(name, ".gb") || ends_with(name, ".gbc") || ends_with(name, ".nes") ||
-          ends_with(name, ".sms") || ends_with(name, ".gg") || ends_with(name, ".sg") || is_music(name))) {
+          ends_with(name, ".sms") || ends_with(name, ".gg") || ends_with(name, ".sg") || ends_with(name, ".wad") || is_music(name))) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
-                            "name must end in .fpk, .bin, .gb, .gbc, .nes, .sms, .gg, .sg, .mp3, .flac, .ogg, .oga, .wav or .mod");
+                            "name must end in .fpk, .bin, .gb, .gbc, .nes, .sms, .gg, .sg, .wad, .mp3, .flac, .ogg, .oga, .wav or .mod");
         return ESP_FAIL;
     }
     bool firmware = ends_with(name, ".bin");     // goes to /sd/firmware
@@ -697,14 +736,17 @@ static esp_err_t upload_handler(httpd_req_t *req)
     const bool music = is_music(name);           // <storage>/music, up to 64 MB (a long FLAC)
     const size_t len = strlen(name);
     const bool package = len > 4 && strcmp(name + len - 4, ".fpk") == 0;   // asset packages are large too
-    if (req->content_len > (music || package ? 64 : 4) * 1024 * 1024) {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, music || package ? "too big (64 MB max)" : "too big (4 MB max)");
+    const bool wad = ends_with(name, ".wad");    // <storage>/wads (Freedoom's is 28 MB)
+    const bool big = music || package || wad;
+    if (req->content_len > (big ? 64 : 4) * 1024 * 1024) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, big ? "too big (64 MB max)" : "too big (4 MB max)");
         return ESP_FAIL;
     }
     char path[128];
     const char *dir = firmware ? FH1_SD_PATH "/firmware"
                     : rom ? (to_sd ? FH1_SD_PATH "/roms" : FH1_INT_PATH "/roms")
                     : music ? (to_sd ? FH1_SD_PATH "/music" : FH1_INT_PATH "/music")
+                    : wad ? (to_sd ? FH1_SD_PATH "/wads" : FH1_INT_PATH "/wads")
                     : to_sd ? FH1_SD_PACKAGES : FH1_INT_PACKAGES;
     fh1_mkdirs(dir);
     snprintf(path, sizeof(path), "%s/%s", dir, name);
@@ -807,6 +849,7 @@ void console_server_start(void)
         { .uri = "/upload", .method = HTTP_POST, .handler = upload_handler },
         { .uri = "/shot.bmp", .method = HTTP_GET, .handler = shot_handler },
         { .uri = "/ota", .method = HTTP_POST, .handler = ota_handler },
+        { .uri = "/coredump", .method = HTTP_GET, .handler = coredump_handler },
     };
     for (size_t i = 0; i < sizeof(uris) / sizeof(uris[0]); i++) httpd_register_uri_handler(s_server, &uris[i]);
     for (int i = 0; i < s_nextra; i++) httpd_register_uri_handler(s_server, &s_extra[i]);

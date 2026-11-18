@@ -7,6 +7,9 @@
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <math.h>
+#include <ctype.h>
+#include <assert.h>
+#include <unistd.h>
 #include <time.h>
 #include "fh1_sdk.h"
 #include "apps_priv.h"
@@ -57,7 +60,20 @@ static struct {
     uint16_t *fb, *bb;
     int w, h;
     char app_dir[64];
+    // SDK 0.10, in 256 colours: two pictures (iw x ih bytes, centred on the screen), the app drawing into ib[cur]
+    // while the other is being shown on core 0 (app_present); the last one shown (to find the rows that changed)
+    // and the palette
+    fh1_frame8_fn frame8;
+    uint8_t *ib[2], *shown8;
+    int iw, ih, cur;
+    volatile bool pal_changed;
+    TaskHandle_t present_task;
+    SemaphoreHandle_t present_idle;    // given when app_present has shown its picture
+    volatile int present_buf;
+    volatile bool present_all, present_quit;
 } s_scr;
+static uint16_t s_pal8[256];           // internal RAM: read for every pixel shown (app_present's)
+static uint16_t s_pal_app[256];        // the app's newest (fh1_screen_palette), taken with the next picture
 
 // ── SDK functions that exist only for apps ──
 
@@ -519,6 +535,114 @@ static void screen_present(bool all)
     fh1_board_frame_end();
 }
 
+// 256 colours: the rows of the app's picture that changed, through the palette into the screen (one pass: the
+// app keeps a byte a pixel, the screen gets its own pixels), and black around it when the picture is smaller.
+static void present8_row(uint16_t *d, const uint8_t *b, int n)
+{
+    int i = 0;
+    if (!((uintptr_t)d & 3)) {
+        uint32_t *d32 = (uint32_t *)d;
+        for (; i + 4 <= n; i += 4) {
+            uint32_t q;
+            memcpy(&q, b + i, 4);
+            *d32++ = s_pal8[q & 255] | (uint32_t)s_pal8[(q >> 8) & 255] << 16;
+            *d32++ = s_pal8[(q >> 16) & 255] | (uint32_t)s_pal8[q >> 24] << 16;
+        }
+    }
+    for (; i < n; i++) d[i] = s_pal8[b[i]];
+}
+
+static void screen_present8(const uint8_t *ib, bool all)
+{
+    const int w = s_scr.w, iw = s_scr.iw, ih = s_scr.ih, x0 = (w - iw) / 2, y0 = (s_scr.h - ih) / 2;
+    int run = -1;
+    fh1_board_frame_begin();
+    for (int y = 0; y < s_scr.h; y++) {
+        uint16_t *d = s_scr.fb + y * w;
+        const int iy = y - y0;
+        bool changed = false;
+        if (iy < 0 || iy >= ih) {
+            if (all) {
+                memset(d, 0, w * 2);
+                changed = true;
+            }
+        } else {
+            const uint8_t *b = ib + iy * iw;
+            uint8_t *p = s_scr.shown8 + iy * iw;
+            if (all || memcmp(b, p, iw)) {
+                if (all && x0 > 0) {
+                    memset(d, 0, x0 * 2);
+                    memset(d + x0 + iw, 0, (w - x0 - iw) * 2);
+                }
+                present8_row(d + x0, b, iw);
+                memcpy(p, b, iw);
+                changed = true;
+            }
+        }
+        if (changed) {
+            if (run < 0) run = y;
+        } else if (run >= 0) {
+            fh1_board_changed(run, y - 1);
+            run = -1;
+        }
+    }
+    if (run >= 0) fh1_board_changed(run, s_scr.h - 1);
+    fh1_board_frame_end();
+}
+
+void fh1_screen_palette(const uint16_t rgb565[256])
+{
+    memcpy(s_pal_app, rgb565, sizeof(s_pal_app));
+    s_scr.pal_changed = true;
+}
+
+// Core 0: shows each picture handed over while the app draws the next one on core 1.
+static void present_task(void *arg)
+{
+    for (;;) {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        if (s_scr.present_quit) break;
+        screen_present8(s_scr.ib[s_scr.present_buf], s_scr.present_all);
+        xSemaphoreGive(s_scr.present_idle);
+    }
+    xSemaphoreGive(s_scr.present_idle);
+    vTaskDelete(NULL);
+}
+
+static void present8_wait(void)
+{
+    xSemaphoreTake(s_scr.present_idle, portMAX_DELAY);
+    xSemaphoreGive(s_scr.present_idle);
+}
+
+// The picture just drawn to app_present; the app's next one starts as a copy of it (pictures are kept between
+// frames), unless it said it draws all of it again (FH1_FRAME_SHOW_REDRAW). The palette goes with it.
+static void present8_hand_over(bool all, bool keep)
+{
+    xSemaphoreTake(s_scr.present_idle, portMAX_DELAY);
+    if (s_scr.pal_changed) {
+        s_scr.pal_changed = false;
+        memcpy(s_pal8, s_pal_app, sizeof(s_pal8));
+        all = true;
+    }
+    const int done = s_scr.cur;
+    s_scr.present_buf = done;
+    s_scr.present_all = all;
+    xTaskNotifyGive(s_scr.present_task);
+    // (3 ms: PSRAM to PSRAM while core 0 reads it too; skipped for an app that draws every pixel again)
+    if (keep) memcpy(s_scr.ib[!done], s_scr.ib[done], (size_t)s_scr.iw * s_scr.ih);
+    s_scr.cur = !done;
+}
+
+static void screen_free(void)
+{
+    heap_caps_free(s_scr.bb);
+    heap_caps_free(s_scr.ib[0]);
+    heap_caps_free(s_scr.ib[1]);
+    heap_caps_free(s_scr.shown8);
+    s_scr.bb = NULL, s_scr.ib[0] = s_scr.ib[1] = s_scr.shown8 = NULL;
+}
+
 static void screen_task(void *arg)
 {
     bool show_all = true;              // the first frame, and after an overlay drew over the screen
@@ -528,16 +652,21 @@ static void screen_task(void *arg)
     while (!s_scr.stop) {
         if (fh1_app_quit_requested()) break;
         if (fh1_app_should_yield()) {
+            if (s_scr.frame8) present8_wait();
             fh1_ui_lend_screen();
             show_all = true;
             wake = xTaskGetTickCount();
             continue;
         }
         const uint32_t now = fh1_millis();
-        const int r = s_scr.frame(s_scr.bb, s_scr.w, s_scr.h, now - last, s_scr.user);
+        const int r = s_scr.frame8 ? s_scr.frame8(s_scr.ib[s_scr.cur], s_scr.iw, s_scr.ih, now - last, s_scr.user)
+                                   : s_scr.frame(s_scr.bb, s_scr.w, s_scr.h, now - last, s_scr.user);
         last = now;
         if (r == FH1_FRAME_END || s_scr.stop) break;
-        if (r == FH1_FRAME_SHOW || show_all) screen_present(show_all);
+        if (r == FH1_FRAME_SHOW || r == FH1_FRAME_SHOW_REDRAW || show_all || (s_scr.frame8 && s_scr.pal_changed)) {
+            if (s_scr.frame8) present8_hand_over(show_all, r != FH1_FRAME_SHOW_REDRAW);
+            else screen_present(show_all);
+        }
         show_all = false;
         // Block every frame, even when late, so core 1's idle task (and the watchdog) are fed.
         if (xTaskDelayUntil(&wake, pdMS_TO_TICKS(s_scr.period_ms)) == pdFALSE) {
@@ -545,14 +674,23 @@ static void screen_task(void *arg)
             wake = xTaskGetTickCount();
         }
     }
-    heap_caps_free(s_scr.bb);
-    s_scr.bb = NULL;
+    if (s_scr.frame8) {                // app_present done with its picture, and gone
+        xSemaphoreTake(s_scr.present_idle, portMAX_DELAY);
+        s_scr.present_quit = true;
+        xTaskNotifyGive(s_scr.present_task);
+        xSemaphoreTake(s_scr.present_idle, portMAX_DELAY);
+        vSemaphoreDelete(s_scr.present_idle);
+        s_scr.present_idle = NULL, s_scr.present_task = NULL;
+    }
+    screen_free();
     fh1_ui_pause(false, true);
     if (!s_scr.unloading) fh1_ui_async(screen_closed, s_scr.user);
     else s_scr.closed_pending = true;
     s_scr.task = NULL;
     vTaskDelete(NULL);
 }
+
+static bool screen_start(uint32_t period_ms, void (*closed)(void *user), void *user);
 
 bool fh1_screen_open(uint32_t period_ms, fh1_frame_fn frame, void (*closed)(void *user), void *user)
 {
@@ -562,6 +700,52 @@ bool fh1_screen_open(uint32_t period_ms, fh1_frame_fn frame, void (*closed)(void
     s_scr.bb = heap_caps_calloc((size_t)s_scr.w * s_scr.h, 2, MALLOC_CAP_SPIRAM);
     if (!s_scr.bb) return false;
     s_scr.frame = frame;
+    s_scr.frame8 = NULL;
+    return screen_start(period_ms, closed, user);
+}
+
+bool fh1_screen_open8(uint32_t period_ms, int w, int h, fh1_frame8_fn frame, void (*closed)(void *user), void *user)
+{
+    if (!s_app.loaded || s_scr.task || !frame) return false;
+    s_scr.fb = fh1_board_framebuffer(&s_scr.w, &s_scr.h);
+    if (!s_scr.fb || w <= 0 || h <= 0 || w > s_scr.w || h > s_scr.h) return false;
+    s_scr.ib[0] = heap_caps_calloc((size_t)w * h, 1, MALLOC_CAP_SPIRAM);
+    s_scr.ib[1] = heap_caps_calloc((size_t)w * h, 1, MALLOC_CAP_SPIRAM);
+    s_scr.shown8 = heap_caps_calloc((size_t)w * h, 1, MALLOC_CAP_SPIRAM);
+    s_scr.present_idle = xSemaphoreCreateBinary();
+    if (!s_scr.ib[0] || !s_scr.ib[1] || !s_scr.shown8 || !s_scr.present_idle) {
+        screen_free();
+        if (s_scr.present_idle) vSemaphoreDelete(s_scr.present_idle);
+        s_scr.present_idle = NULL;
+        return false;
+    }
+    xSemaphoreGive(s_scr.present_idle);
+    s_scr.present_quit = false;
+    s_scr.cur = 0;
+    // 3 KB of internal RAM while the screen is open; core 0, above the UI, below Wi-Fi and the panel's copy
+    if (xTaskCreatePinnedToCore(present_task, "app_present", 3072, NULL, 5, &s_scr.present_task, 0) != pdPASS) {
+        screen_free();
+        vSemaphoreDelete(s_scr.present_idle);
+        s_scr.present_idle = NULL;
+        return false;
+    }
+    s_scr.iw = w, s_scr.ih = h;
+    s_scr.frame8 = frame;
+    s_scr.frame = NULL;
+    s_scr.pal_changed = true;
+    if (screen_start(period_ms, closed, user)) return true;
+    s_scr.present_quit = true;
+    xTaskNotifyGive(s_scr.present_task);
+    xSemaphoreTake(s_scr.present_idle, portMAX_DELAY);
+    xSemaphoreTake(s_scr.present_idle, portMAX_DELAY);
+    vSemaphoreDelete(s_scr.present_idle);
+    s_scr.present_idle = NULL, s_scr.present_task = NULL, s_scr.frame8 = NULL;
+    screen_free();
+    return false;
+}
+
+static bool screen_start(uint32_t period_ms, void (*closed)(void *user), void *user)
+{
     s_scr.closed = closed;
     s_scr.user = user;
     s_scr.period_ms = period_ms < 10 ? 10 : period_ms;
@@ -569,8 +753,7 @@ bool fh1_screen_open(uint32_t period_ms, fh1_frame_fn frame, void (*closed)(void
     fh1_ui_pause(true, false);
     if (xTaskCreatePinnedToCore(screen_task, "app_screen", 8192, NULL, 4, &s_scr.task, 1) != pdPASS) {
         s_scr.task = NULL;
-        heap_caps_free(s_scr.bb);
-        s_scr.bb = NULL;
+        if (!s_scr.frame8) screen_free();   // (open8 tidies its own: app_present first)
         fh1_ui_pause(false, true);
         return false;
     }
@@ -661,6 +844,14 @@ int fh1_px_text(uint16_t *px, int w, int h, int x, int y, const char *text, uint
 int fh1_pad_style(void) { return fh1_gamepad_style(0); }
 
 extern float __divsf3(float a, float b);
+// For ported C games (Doom): 64-bit integer division and double helpers from libgcc, picolibc's ctype table.
+extern long long __divdi3(long long a, long long b);
+extern unsigned long long __udivdi3(unsigned long long a, unsigned long long b);
+extern double __muldf3(double a, double b);
+extern double __floatsidf(int a);
+extern int __fixdfsi(double a);
+extern double __extendsfdf2(float a);
+extern const char _ctype_b[];
 
 // ── The exported symbol table: SDK 0.1 to 0.4 ──
 
@@ -679,6 +870,7 @@ static const struct esp_elfsym s_sdk_syms[] = {
     ESP_ELFSYM_EXPORT(fh1_app_dir),
     ESP_ELFSYM_EXPORT(fh1_screen_open),
     ESP_ELFSYM_EXPORT(fh1_screen_close),
+    ESP_ELFSYM_EXPORT(fh1_screen_open8), ESP_ELFSYM_EXPORT(fh1_screen_palette),
     ESP_ELFSYM_EXPORT(fh1_px_text),
     ESP_ELFSYM_EXPORT(fh1_dev_command),
     ESP_ELFSYM_EXPORT(fh1_asset_dir),
@@ -686,6 +878,7 @@ static const struct esp_elfsym s_sdk_syms[] = {
     ESP_ELFSYM_EXPORT(fh1_sfx_stop),
     ESP_ELFSYM_EXPORT(fh1_sfx_stop_all),
     ESP_ELFSYM_EXPORT(fh1_sfx_playing),
+    ESP_ELFSYM_EXPORT(fh1_sfx_play8),
     ESP_ELFSYM_EXPORT(fh1_pad_style),
     ESP_ELFSYM_EXPORT(fh1_px_key),
     ESP_ELFSYM_EXPORT(fh1_user_look),
@@ -752,6 +945,17 @@ static const struct esp_elfsym s_sdk_syms[] = {
     ESP_ELFSYM_EXPORT(atoi), ESP_ELFSYM_EXPORT(strtoul), ESP_ELFSYM_EXPORT(qsort), ESP_ELFSYM_EXPORT(rand),
     ESP_ELFSYM_EXPORT(srand), ESP_ELFSYM_EXPORT(time),
     ESP_ELFSYM_EXPORT(sinf), ESP_ELFSYM_EXPORT(cosf), ESP_ELFSYM_EXPORT(sqrtf), ESP_ELFSYM_EXPORT(floorf),
+    // SDK 0.10: what a ported C game needs (Doom: apps/packages/doom)
+    ESP_ELFSYM_EXPORT(strcpy), ESP_ELFSYM_EXPORT(strcat), ESP_ELFSYM_EXPORT(strtok), ESP_ELFSYM_EXPORT(strcasecmp),
+    ESP_ELFSYM_EXPORT(strncasecmp), ESP_ELFSYM_EXPORT(memchr), ESP_ELFSYM_EXPORT(tolower), ESP_ELFSYM_EXPORT(toupper),
+    ESP_ELFSYM_EXPORT(_ctype_b), ESP_ELFSYM_EXPORT(atol), ESP_ELFSYM_EXPORT(sprintf), ESP_ELFSYM_EXPORT(fscanf),
+    ESP_ELFSYM_EXPORT(feof), ESP_ELFSYM_EXPORT(setbuf), ESP_ELFSYM_EXPORT(stdout), ESP_ELFSYM_EXPORT(stat),
+    ESP_ELFSYM_EXPORT(access), ESP_ELFSYM_EXPORT(__assert_func), ESP_ELFSYM_EXPORT(sqrt), ESP_ELFSYM_EXPORT(atan2),
+    ESP_ELFSYM_EXPORT(__divdi3), ESP_ELFSYM_EXPORT(__udivdi3), ESP_ELFSYM_EXPORT(__muldf3),
+    ESP_ELFSYM_EXPORT(__floatsidf), ESP_ELFSYM_EXPORT(__fixdfsi), ESP_ELFSYM_EXPORT(__extendsfdf2),
+    // Small blocks in PSRAM (malloc keeps those under 4 KB in internal RAM, which Wi-Fi needs)
+    ESP_ELFSYM_EXPORT(heap_caps_malloc), ESP_ELFSYM_EXPORT(heap_caps_realloc), ESP_ELFSYM_EXPORT(heap_caps_free),
+    ESP_ELFSYM_EXPORT(heap_caps_get_free_size),
     ESP_ELFSYM_END
 };
 
