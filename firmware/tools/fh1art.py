@@ -66,7 +66,14 @@ about its hub in a tilted plane (screen x = c * p, y = q + k * p): a windmill's 
 "scale" below 1 shrinks pixel art: integer factors (1/2, 1/3) keep the most frequent colour of each block;
 other factors average by area and snap each pixel to the source's nearest colour; whole numbers above 1 repeat
 pixels. "files" gives a facing per PNG (a row of frames each; "frames" or as many as fit), "pick" keeps some
-frames, "recolor" turns the hues within [centre, half width] (degrees) to "to", keeping light and saturation
+frames, "creatures": [{"name", "sheet", "scale" (0.5), "death": [extra frames], "ms": {...}, "recolor"}] reads a creature's
+sheet laid out as games' rips are (bands of frames at a pitch: standing, walking, attack, front then back, hurt and
+dying, extras; labels and an effects panel left out) and makes NAME.idle, .run, .bite, .hit, .death (`fh1art.py
+creature SHEET` prints what it finds there); with "frames": {"idle.sw": "0-5", ...} (and "split": [y...]) from any
+sheet, its frames numbered by `fh1art.py frames SHEET OUT.png [--split Y...]`), "rows" a facing's row of a "png" sheet: its index on the grid, or frames placed freely (a sheet ripped
+from a game, laid out by hand): {"at": [x, y] the first frame's cell, "pitch" between frames (the grid's width if
+left out), "frames": n or "pick": [i...], "band": [y0, y1] the sheet's rows that belong to it (the rest of the cell
+cleared: frames above and below, labels)}, or a list of these, played in turn; "recolor" turns the hues within [centre, half width] (degrees) to "to", keeping light and saturation
 ("sat" and "light" multiply saturation and lightness): a red slime from a purple one, its golden crown kept.
 
 The pack (little-endian), read by the engine:
@@ -669,7 +676,8 @@ def tint(img, bands):
 
 
 def recolor(img, spec):
-    """Hues within spec["hue"] = [centre, half width] (degrees) turned to spec["to"]; light and saturation kept."""
+    """Hues within spec["hue"] = [centre, half width] (degrees) turned to spec["to"]; light and saturation kept (or
+    multiplied by "light", "sat"); pixels paler than "min_sat" (0.15) are left alone (lower: pale art tinted too)."""
     import colorsys
     if not spec:
         return img
@@ -684,7 +692,7 @@ def recolor(img, spec):
                 continue
             h, l, s = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
             d = abs((h * 360 - centre + 180) % 360 - 180)
-            if s < 0.15 or d > half:
+            if s < spec.get("min_sat", 0.15) or d > half:        # (greys and whites stay: highlights)
                 continue
             r2, g2, b2 = colorsys.hls_to_rgb(to, l * spec.get("light", 1.0), min(1.0, s * spec.get("sat", 1.0)))
             px[x, y] = (round(r2 * 255), round(g2 * 255), round(b2 * 255), a)
@@ -839,6 +847,287 @@ class Pack:
         return len(blob)
 
 
+# ── Creatures from a hand-laid sheet ──
+#
+# A creature's sheet as games' rips lay them out (Ragnarok Online's on The Spriters Resource): bands of frames on a
+# transparent background at a fixed pitch, a label and a bracket at the end of some bands, in the order standing
+# (front, back), walking (front, back), attack (front, back), hurt and dying (the front's frames then the back's,
+# each ending with its dying frame), then extras (a death's pieces), and maybe an effects panel on black. measure()
+# finds the bands, the frames in each, each band's floor (where the body stands) and the body's middle;
+# creature_anims() turns that into NAME.idle, .run, .bite, .hit, .death with two facings (sw front, ne back), the
+# others mirrored.
+
+ROLES = ["idle.sw", "idle.ne", "run.sw", "run.ne", "bite.sw", "bite.ne", "hurt", "extra"]
+CELL = (96, 96)                                              # a frame's cell, its feet at ANCHOR
+ANCHOR = (46, 90)
+
+
+def measure(path):
+    """The sheet's frame bands: [{"band": [y0, y1], "pitch", "frames": [(x0, x1, bottom)...], "floor", "mid"}]."""
+    import numpy as np
+    im = Image.open(path).convert("RGBA")
+    W, H = im.size
+    px = im.load()
+    a = np.asarray(im).astype(int)
+    opaque = a[..., 3] > 0
+    rgb = a[..., :3]
+    dark = rgb.sum(axis=2) < 60
+    grey = rgb.max(axis=2) - rgb.min(axis=2) < 24
+    coloured = opaque & ~dark & ~grey                        # what is no label, bracket or outline
+    # The effects panel (on black) ends the sheet: rows mostly opaque dark.
+    end = H
+    for y in range(H):
+        if (opaque[y] & dark[y]).sum() > W * 0.3:
+            end = y
+            break
+    rows = coloured[:end].any(axis=1)
+    spans, y = [], 0
+    while y < end:                                           # bands of coloured rows, gaps of 3 joined
+        if not rows[y]:
+            y += 1
+            continue
+        y0 = y
+        while y < end and rows[y:y + 4].any():
+            y += 1
+        if y - y0 >= 12:
+            spans.append([y0, y])
+    for i, s in enumerate(spans):                            # a few rows more each way (outlines), not into the next
+        s[0] = max(s[0] - 8, spans[i - 1][1] if i else 0)          # (white sparks, dark outlines)
+        s[1] = min(s[1] + 8, spans[i + 1][0] if i + 1 < len(spans) else end)
+    found = []
+    for y0, y1 in spans:
+        cols = coloured[y0:y1].any(axis=0)
+        runs, x = [], 0
+        while x < W:
+            if not cols[x]:
+                x += 1
+                continue
+            x0 = x
+            while x < W and cols[x:x + 3].any():
+                x += 1
+            runs.append([x0, x])
+        found.append((y0, y1, runs))
+    steps = []
+    for y0, y1, runs in found:                               # one pitch for the sheet: the frames' usual spacing
+        st = sorted(r[0] for r in runs if r[1] - r[0] >= 16)
+        steps += [b - a for a, b in zip(st, st[1:]) if b - a > 40]
+    pitch = sorted(steps)[len(steps) // 2] if steps else W
+    bands = []
+    for y0, y1, runs in found:
+        big = [r for r in runs if r[1] - r[0] >= 16]
+        if not big:
+            continue
+        c0 = (big[0][0] + big[0][1]) / 2
+        frames = {}
+        for r in runs:                                       # each run to the frame whose middle is nearest
+            k = round(((r[0] + r[1]) / 2 - c0) / pitch)
+            if k >= 0:
+                f = frames.setdefault(k, [r[0], r[1]])
+                f[0], f[1] = min(f[0], r[0]), max(f[1], r[1])
+        out = []
+        for k in sorted(frames):
+            x0, x1 = frames[k]
+            ys = np.nonzero(opaque[y0:y1, x0:x1].any(axis=1))[0]
+            out.append((x0, x1, y0 + int(ys[-1]) + 1))
+        bottoms = [f[2] for f in out]
+        # The body's middle: the frames' usual one (a frame leaning or throwing something counts for little).
+        mids = sorted((f[0] + f[1]) / 2 - k * pitch for k, f in zip(sorted(frames), out))
+        bands.append({"band": [y0, y1], "pitch": pitch, "frames": out,
+                      "floor": max(set(bottoms), key=bottoms.count), "mid": round(mids[len(mids) // 2])})
+    return bands
+
+
+def creature_anims(e, path):
+    """A "creatures" entry's animations: {"name", "sheet", "scale", "ms": {...}, "death": [extra frames...],
+    "roles": [...], "hurt": [front, back] frame counts}."""
+    bands = measure(path)
+    roles = e.get("roles", ROLES)
+    by = {}
+    for role, b in zip(roles, bands):
+        by[role] = b
+    def seg(b, pick):
+        x0 = b["mid"] - ANCHOR[0]
+        first = b["frames"][0][0]
+        k0 = round((b["mid"] - (first + b["frames"][0][1]) / 2) / b["pitch"])   # (0: the first frame's middle)
+        return {"at": [x0 - k0 * b["pitch"], b["floor"] - ANCHOR[1]], "pitch": b["pitch"],
+                "pick": [round(((f[0] + f[1]) / 2 - b["mid"]) / b["pitch"]) for f in [b["frames"][i] for i in pick]],
+                "band": b["band"]}
+    def all_of(b):
+        return seg(b, list(range(len(b["frames"]))))
+    ms = {"idle": 140, "run": 100, "bite": 70, "hit": 120, "death": 130}
+    ms.update(e.get("ms", {}))
+    common = {"png": e["sheet"], "grid": list(CELL), "anchor": list(ANCHOR), "scale": e.get("scale", 0.5),
+              "recolor": e.get("recolor")}
+    name = e["name"]
+    anims = []
+    for what in ("idle", "run", "bite"):
+        rows = {d: all_of(by[f"{what}.{d}"]) for d in ("sw", "ne") if f"{what}.{d}" in by}
+        if rows:
+            anims.append(dict(common, name=f"{name}.{what}", ms=ms[what], rows=rows))
+    if "hurt" in by:
+        h = by["hurt"]
+        n = len(h["frames"])
+        nf, nb = e.get("hurt", [n // 2, n - n // 2])
+        front, back = list(range(nf)), list(range(nf, nf + nb))
+        anims.append(dict(common, name=f"{name}.hit", ms=ms["hit"],
+                          rows={"sw": seg(h, front[:-1]), "ne": seg(h, back[:-1])}))
+        tail = [seg(by["extra"], e["death"])] if "extra" in by and e.get("death") else []
+        anims.append(dict(common, name=f"{name}.death", ms=ms["death"],
+                          rows={"sw": [seg(h, front[-1:])] + tail, "ne": [seg(h, back[-1:])] + tail}))
+    return anims
+
+
+def show_creature(path):
+    """What measure() finds on a sheet, to check a new one before writing its entry."""
+    for i, b in enumerate(measure(path)):
+        role = ROLES[i] if i < len(ROLES) else "-"
+        print(f"{role:8} rows {b['band'][0]}-{b['band'][1]}  floor {b['floor']}  pitch {b['pitch']}  "
+              f"{len(b['frames'])} frames, middles " + " ".join(str((f[0] + f[1]) // 2) for f in b["frames"]))
+
+
+# ── Frames of any sheet ──
+#
+# A sheet laid out any way (bosses' rips: rows of frames, labels, boxes round effects, separator lines): find_frames
+# finds every frame (rows of what is drawn, frames along them; straight lines and pure black left out of the
+# search, as they join rows), numbered in reading order; a recipe then names which make each animation
+# ("frames": {"idle.sw": "0-5", ...}). Each frame is cut from its row, anchored at the row's floor (where most of its
+# frames stand) and at the middle of its own base (its lowest third), which stays put while arms and blades move.
+
+def _ranges(spec):
+    """"0-5,8" or [0, 1, 2] as a list of numbers."""
+    if isinstance(spec, list):
+        return spec
+    out = []
+    for part in str(spec).split(","):
+        a, _, b = part.strip().partition("-")
+        out += list(range(int(a), int(b) + 1)) if b else [int(a)]
+    return out
+
+
+def find_frames(path, split=()):
+    """[{"n", "box": (x0, y0, x1, y1), "row", "floor", "mid"}], in reading order. split: rows (y) where rows of frames
+    part though something crosses them (sparse frames, a label between two rows)."""
+    import numpy as np
+    im = Image.open(path).convert("RGBA")
+    a = np.asarray(im).astype(int)
+    H, W = a.shape[:2]
+    opaque = a[..., 3] > 0
+    mask = opaque & (a[..., :3].sum(axis=2) >= 30)
+    # Straight lines (separators, boxes): long runs of one colour along a row or a column.
+    rgb = a[..., 0] * 65536 + a[..., 1] * 256 + a[..., 2]
+    for y in range(H):
+        row, x = rgb[y], 0
+        while x < W:
+            x1 = x
+            while x1 < W and opaque[y, x1] and rgb[y, x1] == row[x]:
+                x1 += 1
+            if x1 - x >= 120:
+                mask[y, x:x1] = False
+            x = max(x1, x + 1)
+    for x in range(W):
+        col, y = rgb[:, x], 0
+        while y < H:
+            y1 = y
+            while y1 < H and opaque[y1, x] and rgb[y1, x] == col[y]:
+                y1 += 1
+            if y1 - y >= 90:
+                mask[y:y1, x] = False
+            y = max(y1, y + 1)
+    rows_on = mask.any(axis=1)
+    for y in split:
+        rows_on[max(0, y - 1):y + 2] = False
+    spans, y = [], 0
+    while y < H:
+        if not rows_on[y]:
+            y += 1
+            continue
+        y0 = y
+        while y < H and rows_on[y:y + 3].any():
+            y += 1
+        spans.append((y0, y))
+    frames = []
+    for ri, (y0, y1) in enumerate(spans):
+        cols = mask[y0:y1].any(axis=0)
+        runs, x = [], 0
+        while x < W:
+            if not cols[x]:
+                x += 1
+                continue
+            x0 = x
+            while x < W and cols[x:x + 7].any():               # (gaps under 7 pixels inside a frame)
+                x += 1
+            runs.append([x0, x])
+        big = [r for r in runs if r[1] - r[0] >= 14]
+        out = []
+        for r in runs:                                       # bits beside a frame join it
+            if r[1] - r[0] < 14 and big:
+                near = min(big, key=lambda b: abs((b[0] + b[1]) / 2 - (r[0] + r[1]) / 2))
+                if abs((near[0] + near[1]) / 2 - (r[0] + r[1]) / 2) < 50:
+                    near[0], near[1] = min(near[0], r[0]), max(near[1], r[1])
+                    continue
+            out.append(r)
+        row = []
+        for x0, x1 in out:
+            ys = np.nonzero(opaque[y0:y1, x0:x1].any(axis=1))[0]
+            fy0, fy1 = y0 + int(ys[0]), y0 + int(ys[-1]) + 1
+            base = opaque[fy1 - max(1, (fy1 - fy0) // 3):fy1, x0:x1]
+            xs = np.nonzero(base)[1]
+            mid = x0 + (float(xs.mean()) if len(xs) else (x1 - x0) / 2)
+            row.append({"box": (x0, fy0, x1, fy1), "row": ri, "mid": mid})
+        bottoms = [f["box"][3] for f in row]
+        if not row:
+            continue
+        floor = max(set(bottoms), key=bottoms.count)
+        for f in row:
+            f["floor"] = floor
+        frames += row
+    for i, f in enumerate(frames):
+        f["n"] = i
+    return frames
+
+
+def show_frames(path, out, split=()):
+    """A picture of the sheet with each frame's box and number, to write a recipe's "frames" from."""
+    from PIL import ImageDraw
+    frames = find_frames(path, split)
+    im = Image.open(path).convert("RGBA")
+    bg = Image.new("RGBA", im.size, (40, 42, 56, 255))
+    bg.alpha_composite(im)
+    d = ImageDraw.Draw(bg)
+    for f in frames:
+        x0, y0, x1, y1 = f["box"]
+        d.rectangle((x0, y0, x1 - 1, y1 - 1), outline=(255, 220, 0, 255))
+        d.text((x0 + 2, y0 + 1), str(f["n"]), fill=(255, 255, 0, 255))
+        d.line((round(f["mid"]) - 3, f["floor"], round(f["mid"]) + 3, f["floor"]), fill=(255, 60, 60, 255))
+    bg.convert("RGB").save(out)
+    print(f"{len(frames)} frames in {1 + max((f['row'] for f in frames), default=-1)} rows: {out}")
+
+
+def frame_anims(e, path):
+    """A "creatures" entry with "frames": {"idle.sw": "0-5", "idle.ne": ..., "run.sw": ..., "bite...", "hit...",
+    "death..."}: its animations, each frame cut from its row and anchored at the row's floor and its base's middle.
+    A facing's list may name another one's ("run.sw": "idle.sw": a creature that floats)."""
+    import numpy as np
+    frames = find_frames(path, e.get("split", ()))
+    sheet = Image.open(path).convert("RGBA")
+    spec = e["frames"]
+    ms = {"idle": 140, "run": 100, "bite": 80, "hit": 120, "death": 130}
+    ms.update(e.get("ms", {}))
+    out = {}
+    for key, val in spec.items():
+        what, d = key.split(".")
+        nums = _ranges(spec[val] if isinstance(val, str) and val in spec else val)
+        imgs = []
+        for k in nums:
+            f = frames[k]
+            x0, y0, x1, y1 = f["box"]
+            cut = recolor(sheet.crop((x0, y0, x1, f["floor"] if f["floor"] > y1 else y1)), e.get("recolor"))
+            imgs.append((cut, (round(f["mid"]) - x0, f["floor"] - y0)))
+        out.setdefault(what, {})[d] = imgs
+    return [{"name": f"{e['name']}.{what}", "ms": ms.get(what, 120), "cuts": dirs, "scale": e.get("scale", 0.5)}
+            for what, dirs in out.items()]
+
+
 def build(recipe_path, out=None):
     root = os.path.dirname(os.path.abspath(recipe_path))
     r = json.load(open(recipe_path))
@@ -922,66 +1211,92 @@ def build(recipe_path, out=None):
         for k, (im, grip) in enumerate(rotations(icon, e["grip"], e.get("angle", 45), e.get("n", 16))):
             p.add_image(f"{e['name']}.{k}", im, grip)
 
-    for e in r.get("anims", []):
-        scale = e.get("scale", 1)
-        a = {"name": e["name"], "dirs": {}, "ms": e.get("ms", 100)}
-        if "files" in e:                                     # a PNG per facing, a row of frames each
-            gw, gh = e["grid"]
-            for d, f in e["files"].items():
-                sheet = Image.open(src(f)).convert("RGBA")
-                idx = e.get("pick", list(range(e.get("frames", sheet.width // gw))))
-                a["dirs"][d] = [p.add_image(f"{e['name']}.{d}.{k}",
-                                            recolor(sheet.crop((i * gw, 0, i * gw + gw, gh)), e.get("recolor")),
-                                            e["anchor"], scale, share=True) for k, i in enumerate(idx)]
-        elif "png" in e:
-            sheet = Image.open(src(e["png"])).convert("RGBA")
-            gw, gh = e["grid"]
-            n = e.get("frames", sheet.width // gw)
-            sq = e.get("squash", 1)                          # flattened (a circle on the ground): height times sq
-            anchor = [e["anchor"][0], e["anchor"][1] * sq]
-            def cell(i, row):
-                im = tint(sheet.crop((i * gw, row * gh, i * gw + gw, row * gh + gh)), e.get("tint"))
-                return im if sq == 1 else im.resize((gw, max(1, round(gh * sq))), Image.NEAREST)
-            for d, row in e["rows"].items():
-                a["dirs"][d] = [p.add_image(f"{e['name']}.{d}.{i}", cell(i, row), anchor, scale, share=True,
-                                            aa=e.get("aa", True)) for i in range(n)]
-        else:
-            ase = Ase(src(e["aseprite"]))
-            tags = {t["name"]: t for t in ase.tags}
-            n = None
-            for d, tag in e["tags"].items():
-                # A facing is a tag name, or {"tag", "layers", "anchor"} when the file keeps facings apart
-                # (each in its own layers, in its own part of the canvas).
-                spec = tag if isinstance(tag, dict) else {"tag": tag}
-                t = tags[spec["tag"]]
-                frames = list(range(t["from"], t["to"] + 1))
-                if "pick" in e:                              # some of the tag's frames (a long idle, thinned)
-                    frames = [frames[i] for i in e["pick"] if i < len(frames)]
-                n = len(frames) if n is None else min(n, len(frames))
-                a["ms"] = e.get("ms", ase.durations[t["from"]])
-                anchor = spec.get("anchor", e.get("anchor"))
-                body = e.get("body")                         # the base body's layers: hand and part map
-                if e.get("kneel"):                           # a knock-out made from the tag's first frame
-                    made = kneel_frames(ase, frames[0], body, d)
-                    imgs = [m[0] for m in made]
-                    extras = [(m[1], m[2]) for m in made]
-                    n = len(imgs) if n is None else min(n, len(imgs))
-                else:
-                    imgs = [ase.frame(f, spec.get("layers", e.get("layers"))) for f in frames]
-                    extras = [body_info(ase, f, body) if body else (None, None) for f in frames]
-                a["dirs"][d] = [p.add_image(f"{e['name']}.{d}.{i}", im, anchor, scale, share=True,
-                                            hand=extras[i][0], parts=extras[i][1])
-                                if im.getchannel("A").getbbox() else NONE for i, im in enumerate(imgs)]
-            a["dirs"] = {d: v for d, v in a["dirs"].items() if any(i != NONE for i in v)}
+    def creature_entries(e):
+        return frame_anims(e, src(e["sheet"])) if "frames" in e else creature_anims(e, src(e["sheet"]))
+
+    def add_anims(p, entries):                          # (the main pack, or a creatures pack)
+        for e in entries:
+            scale = e.get("scale", 1)
+            a = {"name": e["name"], "dirs": {}, "ms": e.get("ms", 100)}
+            if "cuts" in e:                                      # frames cut already (frame_anims), each its anchor
+                for d, cuts in e["cuts"].items():
+                    a["dirs"][d] = [p.add_image(f"{e['name']}.{d}.{k}", im, list(anc), scale, share=True)
+                                    for k, (im, anc) in enumerate(cuts)]
+            elif "files" in e:                                     # a PNG per facing, a row of frames each
+                gw, gh = e["grid"]
+                for d, f in e["files"].items():
+                    sheet = Image.open(src(f)).convert("RGBA")
+                    idx = e.get("pick", list(range(e.get("frames", sheet.width // gw))))
+                    a["dirs"][d] = [p.add_image(f"{e['name']}.{d}.{k}",
+                                                recolor(sheet.crop((i * gw, 0, i * gw + gw, gh)), e.get("recolor")),
+                                                e["anchor"], scale, share=True) for k, i in enumerate(idx)]
+            elif "png" in e:
+                sheet = Image.open(src(e["png"])).convert("RGBA")
+                gw, gh = e["grid"]
+                n = e.get("frames", sheet.width // gw)
+                sq = e.get("squash", 1)                          # flattened (a circle on the ground): height times sq
+                anchor = [e["anchor"][0], e["anchor"][1] * sq]
+                def cell(i, row):
+                    im = tint(sheet.crop((i * gw, row * gh, i * gw + gw, row * gh + gh)), e.get("tint"))
+                    return im if sq == 1 else im.resize((gw, max(1, round(gh * sq))), Image.NEAREST)
+                def segments(segs):                          # frames placed freely on the sheet (see the docstring)
+                    ims = []
+                    for s in segs if isinstance(segs, list) else [segs]:
+                        x0, y0 = s["at"]
+                        pitch = s.get("pitch", gw)
+                        for i in s.get("pick", range(s.get("frames", 1))):
+                            im = sheet.crop((x0 + i * pitch, y0, x0 + i * pitch + gw, y0 + gh))
+                            if "band" in s:                      # the sheet's rows outside the band: cleared
+                                b0, b1 = s["band"][0] - y0, s["band"][1] - y0
+                                clear = Image.new("RGBA", (gw, gh))
+                                clear.paste(im.crop((0, max(0, b0), gw, min(gh, b1))), (0, max(0, b0)))
+                                im = clear
+                            ims.append(recolor(tint(im, e.get("tint")), e.get("recolor")))
+                    return ims
+                for d, row in e["rows"].items():
+                    ims = [cell(i, row) for i in range(n)] if isinstance(row, int) else segments(row)
+                    a["dirs"][d] = [p.add_image(f"{e['name']}.{d}.{i}", im, anchor, scale, share=True,
+                                                aa=e.get("aa", True)) for i, im in enumerate(ims)]
+            else:
+                ase = Ase(src(e["aseprite"]))
+                tags = {t["name"]: t for t in ase.tags}
+                n = None
+                for d, tag in e["tags"].items():
+                    # A facing is a tag name, or {"tag", "layers", "anchor"} when the file keeps facings apart
+                    # (each in its own layers, in its own part of the canvas).
+                    spec = tag if isinstance(tag, dict) else {"tag": tag}
+                    t = tags[spec["tag"]]
+                    frames = list(range(t["from"], t["to"] + 1))
+                    if "pick" in e:                              # some of the tag's frames (a long idle, thinned)
+                        frames = [frames[i] for i in e["pick"] if i < len(frames)]
+                    n = len(frames) if n is None else min(n, len(frames))
+                    a["ms"] = e.get("ms", ase.durations[t["from"]])
+                    anchor = spec.get("anchor", e.get("anchor"))
+                    body = e.get("body")                         # the base body's layers: hand and part map
+                    if e.get("kneel"):                           # a knock-out made from the tag's first frame
+                        made = kneel_frames(ase, frames[0], body, d)
+                        imgs = [m[0] for m in made]
+                        extras = [(m[1], m[2]) for m in made]
+                        n = len(imgs) if n is None else min(n, len(imgs))
+                    else:
+                        imgs = [ase.frame(f, spec.get("layers", e.get("layers"))) for f in frames]
+                        extras = [body_info(ase, f, body) if body else (None, None) for f in frames]
+                    a["dirs"][d] = [p.add_image(f"{e['name']}.{d}.{i}", im, anchor, scale, share=True,
+                                                hand=extras[i][0], parts=extras[i][1])
+                                    if im.getchannel("A").getbbox() else NONE for i, im in enumerate(imgs)]
+                a["dirs"] = {d: v for d, v in a["dirs"].items() if any(i != NONE for i in v)}
+                if not a["dirs"]:
+                    print(f"{e['name']}: every frame is empty, skipped")
+                    continue
+                a["dirs"] = {d: v[:n] for d, v in a["dirs"].items()}
             if not a["dirs"]:
-                print(f"{e['name']}: every frame is empty, skipped")
                 continue
-            a["dirs"] = {d: v[:n] for d, v in a["dirs"].items()}
-        if not a["dirs"]:
-            continue
-        a["frames"] = min(len(v) for v in a["dirs"].values())
-        a["dirs"] = {d: v[:a["frames"]] for d, v in a["dirs"].items()}
-        p.anims.append(a)
+            a["frames"] = min(len(v) for v in a["dirs"].values())
+            a["dirs"] = {d: v[:a["frames"]] for d, v in a["dirs"].items()}
+            p.anims.append(a)
+
+    add_anims(p, [a for e in r.get("creatures", []) if not e.get("pack") for a in creature_entries(e)] +
+              [e for e in r.get("anims", []) if not e.get("pack")])
 
     names = {im["name"]: i for i, im in enumerate(p.images)}
     for e in r.get("tile_anims", []):
@@ -1025,6 +1340,20 @@ def build(recipe_path, out=None):
     if r.get("previews"):
         preview(p, os.path.join(root, r["previews"]))
     json.dump(sources, open(out + ".sources.json", "w"), indent=1, sort_keys=True)
+    # Creatures packs ("pack": NAME on a creature or an animation): their own files (pack_out, "assets/{}.fart"), loaded beside the
+    # main pack when needed (fart_extend): a realm's creatures only while its battle is on.
+    groups = {}
+    for e in r.get("creatures", []):
+        if e.get("pack"):
+            groups.setdefault(e["pack"], []).extend(creature_entries(e))
+    for e in r.get("anims", []):                             # (animations may name a pack too)
+        if e.get("pack"):
+            groups.setdefault(e["pack"], []).append(e)
+    for name, entries in groups.items():
+        q = Pack()
+        add_anims(q, entries)
+        qout = os.path.join(root, r.get("pack_out", "assets/{}.fart").format(name))
+        print(f"{qout}: {len(q.images)} images, {len(q.anims)} animations, {q.write(qout)} bytes")
 
 
 def preview(p, prefix):
@@ -1078,7 +1407,14 @@ def main():
     s = sub.add_parser("info"); s.add_argument("file")
     s = sub.add_parser("build"); s.add_argument("recipe"); s.add_argument("-o", "--out")
     s = sub.add_parser("show"); s.add_argument("file")
+    s = sub.add_parser("creature"); s.add_argument("sheet")
+    s = sub.add_parser("frames"); s.add_argument("sheet"); s.add_argument("out")
+    s.add_argument("--split", type=int, nargs="*", default=[], help="rows (y) where rows of frames part")
     a = ap.parse_args()
+    if a.cmd == "creature":
+        return show_creature(a.sheet)
+    if a.cmd == "frames":
+        return show_frames(a.sheet, a.out, a.split)
     if a.cmd == "info":
         info(a.file)
     elif a.cmd == "build":

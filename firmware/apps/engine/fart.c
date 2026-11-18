@@ -7,6 +7,47 @@
 static uint16_t rd16(const uint8_t *p) { return (uint16_t)(p[0] | p[1] << 8); }
 static uint32_t rd32(const uint8_t *p) { return p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24; }
 
+// A pack file's images and animations into a's tables from (img0, anim0); idx: where its animations' frames go,
+// shifted by img0 (NULL: read in place, a pack's own).
+static void parse(fart_t *a, uint8_t *data, int ver, int img0, int anim0, int nimg, int nanim, uint16_t *idx)
+{
+    const uint8_t *p = data + 12;
+    for (int i = 0; i < nimg; i++, p += ver >= 3 ? 48 : 44) {
+        fart_img_t *im = &a->img[img0 + i];
+        im->name = (const char *)p;
+        im->ox = (int16_t)rd16(p + 24);
+        im->oy = (int16_t)rd16(p + 26);
+        im->w = rd16(p + 28);
+        im->h = rd16(p + 30);
+        im->spans = (const uint16_t *)(data + rd32(p + 32));      // offsets are even
+        im->hx = (int16_t)rd16(p + 36);
+        im->hy = (int16_t)rd16(p + 38);
+        const uint32_t po = rd32(p + 40);
+        im->parts = po ? data + po : NULL;
+        const uint32_t eo = ver >= 3 ? rd32(p + 44) : 0;
+        im->edge = eo ? (const uint16_t *)(data + eo) : NULL;
+    }
+    for (int i = 0; i < nanim; i++) {
+        fart_anim_t *an = &a->anim[anim0 + i];
+        an->name = (const char *)p;
+        an->dirs = p[24];
+        an->frames = p[25];
+        an->ms = rd16(p + 26);
+        const int n = an->dirs * an->frames;
+        if (idx) {
+            for (int k = 0; k < n; k++) {
+                const uint16_t v = rd16(p + 28 + 2 * k);
+                idx[k] = v == FART_NONE ? FART_NONE : (uint16_t)(v + img0);
+            }
+            an->idx = idx;
+            idx += n;
+        } else {
+            an->idx = (const uint16_t *)(p + 28);
+        }
+        p += 28 + n * 2;
+    }
+}
+
 bool fart_load(fart_t *a, const char *path)
 {
     memset(a, 0, sizeof(*a));
@@ -23,46 +64,76 @@ bool fart_load(fart_t *a, const char *path)
         fart_free(a);
         return false;
     }
-    a->nimg = rd16(a->data + 6);
-    a->nanim = rd16(a->data + 8);
-    a->img = calloc(a->nimg, sizeof(fart_img_t));
+    a->nimg = a->own_img = rd16(a->data + 6);
+    a->nanim = a->own_anim = rd16(a->data + 8);
+    a->img = calloc(a->nimg + FART_MORE_IMG, sizeof(fart_img_t));   // (room for fart_extend's)
     // Over 4 KB, so the heap puts it in PSRAM (ESP-IDF serves smaller blocks from internal RAM, Wi-Fi's).
-    const size_t at = (a->nanim ? a->nanim : 1) * sizeof(fart_anim_t);
+    const size_t at = (a->nanim + FART_MORE_ANIM) * sizeof(fart_anim_t);
     a->anim = calloc(at < 4160 ? 4160 : at, 1);
     if (!a->img || !a->anim) {
         fart_free(a);
         return false;
     }
-    const uint8_t *p = a->data + 12;
-    for (int i = 0; i < a->nimg; i++, p += ver >= 3 ? 48 : 44) {
-        fart_img_t *im = &a->img[i];
-        im->name = (const char *)p;
-        im->ox = (int16_t)rd16(p + 24);
-        im->oy = (int16_t)rd16(p + 26);
-        im->w = rd16(p + 28);
-        im->h = rd16(p + 30);
-        im->spans = (const uint16_t *)(a->data + rd32(p + 32));   // offsets are even
-        im->hx = (int16_t)rd16(p + 36);
-        im->hy = (int16_t)rd16(p + 38);
-        const uint32_t po = rd32(p + 40);
-        im->parts = po ? a->data + po : NULL;
-        const uint32_t eo = ver >= 3 ? rd32(p + 44) : 0;
-        im->edge = eo ? (const uint16_t *)(a->data + eo) : NULL;
-    }
-    for (int i = 0; i < a->nanim; i++) {
-        fart_anim_t *an = &a->anim[i];
-        an->name = (const char *)p;
-        an->dirs = p[24];
-        an->frames = p[25];
-        an->ms = rd16(p + 26);
-        an->idx = (const uint16_t *)(p + 28);
-        p += 28 + an->dirs * an->frames * 2;
-    }
+    parse(a, a->data, ver, 0, 0, a->nimg, a->nanim, NULL);
     return true;
+}
+
+bool fart_extend(fart_t *a, const char *path)
+{
+    fart_shrink(a);
+    FILE *f = fopen(path, "rb");
+    if (!f) return false;
+    fseek(f, 0, SEEK_END);
+    const long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    uint8_t *d = size > 12 ? malloc(size) : NULL;
+    const bool ok = d && fread(d, 1, size, f) == (size_t)size;
+    fclose(f);
+    const int ver = ok ? rd16(d + 4) : 0;
+    const int ni = ok ? rd16(d + 6) : 0, na = ok ? rd16(d + 8) : 0;
+    if (!ok || memcmp(d, "FART", 4) != 0 || (ver != 2 && ver != 3) || ni > FART_MORE_IMG || na > FART_MORE_ANIM) {
+        free(d);
+        return false;
+    }
+    // Its frames: every animation's, counted first (they follow each animation in the file).
+    size_t frames = 0;
+    const uint8_t *p = d + 12 + (size_t)ni * (ver >= 3 ? 48 : 44);
+    for (int i = 0; i < na; i++) {
+        const int n = p[24] * p[25];
+        frames += n;
+        p += 28 + n * 2;
+    }
+    uint16_t *idx = malloc((frames ? frames : 1) * 2 < 4160 ? 4160 : (frames ? frames : 1) * 2);   // (PSRAM)
+    if (!idx) {
+        free(d);
+        return false;
+    }
+    parse(a, d, ver, a->nimg, a->nanim, ni, na, idx);
+    a->more = d;
+    a->more_idx = idx;
+    a->nimg += ni;
+    a->nanim += na;
+    return true;
+}
+
+void fart_shrink(fart_t *a)
+{
+    if (!a->more) return;
+    for (int i = a->own_img; a->orig && i < a->nimg; i++) a->orig[i] = NULL;   // (their copies stay in the pool)
+    memset(a->img + a->own_img, 0, (size_t)(a->nimg - a->own_img) * sizeof(fart_img_t));
+    memset(a->anim + a->own_anim, 0, (size_t)(a->nanim - a->own_anim) * sizeof(fart_anim_t));
+    a->nimg = a->own_img;
+    a->nanim = a->own_anim;
+    free(a->more);
+    free(a->more_idx);
+    a->more = NULL;
+    a->more_idx = NULL;
 }
 
 void fart_free(fart_t *a)
 {
+    free(a->more);
+    free(a->more_idx);
     while (a->pool) {
         uint8_t *next = *(uint8_t **)a->pool;
         free(a->pool);
@@ -164,7 +235,8 @@ bool fart_recolor(fart_t *a, int idx, uint16_t (*fn)(uint16_t v, void *user), vo
 {
     if (idx < 0 || idx >= a->nimg) return false;
     // More than 4 KB, so it comes from PSRAM.
-    if (!a->orig && !(a->orig = calloc(a->nimg < 1040 ? 1040 : a->nimg, sizeof(uint16_t *)))) return false;
+    const int cap = a->own_img + FART_MORE_IMG;                  // (the images fart_extend may add too)
+    if (!a->orig && !(a->orig = calloc(cap < 1040 ? 1040 : cap, sizeof(uint16_t *)))) return false;
     fart_img_t *im = &a->img[idx];
     const size_t n = span_words(im);
     if (!a->orig[idx]) {

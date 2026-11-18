@@ -30,11 +30,18 @@ typedef struct {
     const uint16_t *idx;             // dirs x frames image indexes, FART_NONE where missing
 } fart_anim_t;
 
+// Room kept after a pack's own images and animations for one more pack (fart_extend), so what points into them stays.
+#define FART_MORE_IMG 1536
+#define FART_MORE_ANIM 160
+
 typedef struct {
     uint8_t *data;
     int nimg, nanim;
     fart_img_t *img;
     fart_anim_t *anim;
+    int own_img, own_anim;           // the pack's own (nimg, nanim beyond these: the pack added by fart_extend)
+    uint8_t *more;                   // that pack's file
+    uint16_t *more_idx;              // its animations' frames, as indexes into img
     uint16_t **orig;                 // per image: its pixels as loaded, once recoloured (fart_recolor), else NULL
     uint8_t *pool;                   // where those copies live: 16 KB blocks (PSRAM), chained
     size_t pool_used;
@@ -44,6 +51,11 @@ typedef struct { int x0, y0, x1, y1; } fart_clip_t;   // x0 <= x < x1, y0 <= y <
 
 bool fart_load(fart_t *a, const char *path);
 void fart_free(fart_t *a);
+// Another pack's images and animations after the pack's own (one at a time: a level's creatures, loaded while it is
+// on), found by name as the others; what pointed into the pack stays good. false: no file, no memory, no room
+// (FART_MORE_IMG, FART_MORE_ANIM). fart_shrink drops it (what pointed into it goes with it).
+bool fart_extend(fart_t *a, const char *path);
+void fart_shrink(fart_t *a);
 int fart_image(const fart_t *a, const char *name);                       // its index, or -1
 const fart_anim_t *fart_anim(const fart_t *a, const char *name);         // NULL if missing
 // Dissolving: only the pixels whose place on screen passes an ordered 4 x 4 dither at level 0..16 (0: none, 16: all).
