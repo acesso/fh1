@@ -1,0 +1,12 @@
+{
+  "id": "doom",
+  "publisher": "org.fh1",
+  "name": "Doom",
+  "version": "0.1.0",
+  "sdk": "0.10",
+  "entry": "app.elf",
+  "needs": [],
+  "wants": [
+    "AUDIO_OUT"
+  ]
+}

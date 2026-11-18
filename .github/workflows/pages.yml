@@ -83,7 +83,8 @@ jobs:
           (cd esp32sim && tools/wasm-build.sh)
       - name: Flash image and site
         run: |
-          simulator/build-flash.sh dl/firmware-fh1 fh1.bin dl/packages/*.fpk
+          # Every package but Doom: the simulator has no SD card nor network for its WAD
+          simulator/build-flash.sh dl/firmware-fh1 fh1.bin $(ls dl/packages/*.fpk | grep -v /doom_)
           simulator/build-site.sh esp32sim fh1.bin site
       - uses: actions/upload-pages-artifact@v3
         with: { path: site }
