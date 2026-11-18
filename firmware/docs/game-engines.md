@@ -119,7 +119,19 @@ it can change without flashing firmware, then moved into the firmware once its A
   when the view turns. Táticas' map engine leaves what gives off light out of a realm's grade (`iso_lit`).
 - **Whirls and turns (`fh1art.py`'s `tile_anims`):** `"whirl"` keeps a part's rim and winds spiral arms round its
   middle in its own colours (a portal's vortex), `"turn"` turns a part in its tilted plane, both pixel-art crisp;
-  a ripple's `"rows"` keeps it to some rows (a fire's flames). On an image, `"cut"` takes a part out of a whole
+  a ripple's `"rows"` keeps it to some rows (a fire's flames). A sheet laid out by hand (ripped from a game:
+  frames at a pitch in labelled bands) is read by placing each facing's frames (`"rows"` as `{"at", "pitch",
+  "frames" or "pick", "band"}`, or a list of them played in turn). A creature's sheet in the usual rip layout
+  (bands of standing, walking and attack frames, front then back, then hurt and dying, then extras) needs only
+  `"creatures": [{"name", "sheet", "death": [the extras its death plays after its dying frame]}]`: fh1art finds
+  the bands (coloured pixels only, so labels and brackets stay out), the sheet's pitch, each band's floor and the
+  body's usual middle, and writes NAME.idle, .run, .bite, .hit and .death; `fh1art.py creature SHEET` prints what it
+  found, to check a new sheet first. A sheet laid out any way (a boss's: rows of different lengths, labels, boxes,
+  separator lines, pale art): `fh1art.py frames SHEET OUT.png` finds and numbers every frame (straight lines and pure
+  black left out of the search; `--split Y` parts two rows a sparse frame or a label joins), and `"frames": {"idle.sw":
+  "0-5", ...}` names them, each frame anchored at its row's floor and the middle of its base. `"recolor"` (with
+  `"min_sat"` for pale art) ports a creature to another colour; `"pack": NAME` writes it to its own pack (`pack_out`,
+  `assets/{}.fart`) instead of the main one. On an image, `"cut"` takes a part out of a whole
   picture (the rest, what stands in front of it, or the light it casts) and `"anchor_in"` places a part as it sits
   in the whole.
 - **Portals (`engine/portal.c`):** `portal_load` (a pack's whirl frames; its reference colours from them),
@@ -152,6 +164,10 @@ it can change without flashing firmware, then moved into the firmware once its A
   the frame shown, `viewturn_update`, `viewturn_draw` folds it away over the new view as that one turns in (each
   face darker and narrower at its far side as it faces away). A frame counts at most 40 ms toward it, so the slow
   first frame of a new view does not cut it short.
+- **More art while needed (`engine/fart.c`):** `fart_extend` adds another pack's images and animations after a
+  pack's own (one at a time: Táticas' realm's creatures while its battle is on), found by name like the rest;
+  `fart_load` keeps room for them (`FART_MORE_IMG`, `FART_MORE_ANIM`), so pointers into the pack stay good.
+  `fart_shrink` drops them.
 - **Flags (`engine/flag.c`):** `flag_load` (a pack's `flag.0..`, `flag.key`), `flag_frame` (the frame at a time,
   `FLAG_MS` each), `flag_draw` (its cloth in any two colours, through `fart_map`): a team's, a realm's, a tower's.
 - **Output:** one binary pack in the package's `assets/`, and preview sheets (PNG) to check by eye.
@@ -169,6 +185,7 @@ it can change without flashing firmware, then moved into the firmware once its A
 | Medieval Free Pack, Free Modern Pack (Dev Essentials, a-something.itch.io; `assets/packs/interior-medieval/`, `interior-modern/`) | Top-down interiors on 16 x 16 tiles: walls with doors and windows, floors, beds, tables, chairs, fireplaces, an oven, shelves, chests, barrels, rugs (medieval; a modern set alike), one sheet and its Aseprite file each | Free | None given in the archives (the sheet points to the full pack): the user's call to use them |
 | Isometric Portal (MRPI; `assets/packs/isometric-portal/`) | Pixel-art props on 32 x 32 tiles (2 : 1): a campfire (wood or rocks), wall torches, a portal in two facings with its vortex, ruined pillars, rocks, logs, stone platforms; one static frame each (its Aseprite file too) | Free | MIT-style: any use in games, credit kept with the files; the raw files may not be resold or shared as a pack |
 | Isometric character (`assets/packs/isometric-character/`: the sheets in use) | A white chibi template in 460-pixel frames, five directions: idle, walk, run, tool swings, interact (more actions in the pack) | Free | Free for personal use: check before publishing a game built with it |
+| Ragnarok Online enemies (Gravity; sheets from The Spriters Resource; `assets/packs/ragnarok-enemies/`: Sapphilit, Rubylit, Topalit, Mythlit, Ifrit, Aqua Elemental, Ancient Tree, Golem, Fire Golem, Ice Titan) | Creatures in two drawn facings (front and back three-quarters, mirrored for the others), about 45 x 60: standing, walking, attack, hurt, dying, a death that shatters, attack effects, laid out by hand with labels | - | Ripped from the game; kept in this private repository |
 
 - The first two licences allow the art inside our games, modified, but not the files on their own: they are kept in
   this private repository only, and the converted art travels inside a game's package.
@@ -321,6 +338,16 @@ it can change without flashing firmware, then moved into the firmware once its A
     onto a cell, after units on it, and shatters), each with a delay, telling `on_change` when they hit.
   - **A layer check:** `iso_check_layer` builds the layer afresh into a spare buffer and counts the pixels that
     differ under the camera; every test runs it after its changes.
+  - **Big maps:** a map whose layer would pass 640 KB (`ISO_LAYER_MAX`; a 24 × 24 one does) keeps a window of it
+    round the camera: the screen and 128 × 96 pixels more each way, about 0.5 MB whatever the map's size. When the
+    camera nears its edge the window is centred again: the part kept moves in the buffer and only the strips coming
+    in are drawn. An animated cell is drawn whole again when it comes into view (a neighbour's redraw may have
+    drawn part of it at another frame while it was out of view).
+  - **The map growing:** `iso_resize` makes the map bigger, its cells and units moved by an offset and the rest
+    sea, the view kept where it was; `iso_emerge` lists cells that rise out of the water in turn (each its delay,
+    the same rise time): until its turn the layer shows sea there, while it rises it is drawn each frame among the
+    units, its foot cut at the water line, with a splash; once up it joins the layer. Táticas' `map_grow` grows its
+    island this way (the old land kept, the new land in waves from the old shore).
   - **The whole screen** (`fx.c`): `fx_screen` starts a negative flash (fully inverted, then easing back), a wave
     (each row slid by a sine of its height) or a shake (an offset the game adds to the camera while drawing), at a
     strength 1–3; `fx_screen_apply` draws the first two over the frame, before the game's panels.

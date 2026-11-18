@@ -46,10 +46,14 @@ Future ideas and pending work; each leaves this list when it lands.
 - **FH1 board firmware:** the ES8311 codec setup, the micro-SD slot, the battery level, the IMU, the L and R buttons (wired; the input set has no L/R keys yet).
 - **Táticas da Ilha:**
   - difficulty that adapts to the player;
-  - the shadow villain: a humanoid figure (the banado base body, dark, its eyes lit), never seen until the
-    battle with him, as the game's last boss;
+  - the shadow villain (he first shows himself when the island grows: a hero's body in dark violet) fought as
+    the game's last boss, his own art and attacks;
+  - something new for the party in fase 3, as the fourth hero is in fase 2;
   - bosses with skills of their own and sizes beyond twice (a boss's own entrance and attacks, drawn for it);
-  - spells with art of their own at each tier.
+  - spells with art of their own at each tier;
+  - Mythlit (the rainbow crystal spirit, its sheet already in `assets/packs/ragnarok-enemies/`) somewhere: a rare
+    creature, or the Elementals' guard;
+  - the fase 3 Elementals with art of their own (the fase 2 spirits' kind).
 - **Construção Legal:**
   - more to stack: a storey on houses beyond the 2 x 2 one, on the smithy;
   - more moving things: smoke from houses with a chimney, water, people in the village;

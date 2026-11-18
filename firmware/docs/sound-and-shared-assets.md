@@ -112,8 +112,9 @@ Events, mapped by name in the game's recipe:
 
 ## Decided and built (2026-11-08)
 
-- **Format:** mono, 44.1 kHz, 16-bit PCM (the user's choice: the best quality), trimmed and levelled as above:
-  `assets/pools/rpg-sfx/` (`sfx.json`, built by `tools/fh1sfx.py`): 48 sounds, 53.4 s, 4.7 MB.
+- **Format:** mono, 22.05 kHz, 16-bit PCM (half the first pack's 44.1 kHz: room for bigger games on a unit with no
+  card, the user's choice), trimmed and levelled as above: `assets/pools/rpg-sfx/` (`sfx.json`, built by
+  `tools/fh1sfx.py`), version 2: 48 sounds, 53 s, 2.3 MB. The mixer resamples to 44.1 kHz.
 - **Where:** asset packages with `"where": "sd"` are installed to `/sd/assets/<id>/` (internal storage when there
   is no card). Packages may be up to 64 MB over the dev console's upload.
 - **Loading per state:** the menus' sounds when the game starts (about 0.3 MB); a battle's sounds before it,

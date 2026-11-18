@@ -296,7 +296,7 @@ levels. The recipe format is in the tool's docstring. The packs' sources are in 
 - **The test suite:** `host/suite.sh [GROUP...]` runs Táticas da Ilha's end-to-end tests on the test field (dev
   `test REALM`: heights 0–6, a tower, a channel, objects, floating and bobbing slabs, two creatures and a boss
   waiting), one script per group under `host/tests/`. Groups: `views`, `water`, `scenery`, `float`, `facing`,
-  `cutaway`, `effects`, `fx`, `spells`, `overlays`, `boss`, `colors`, `summary`, `show`, `stress`, and `regress`
+  `cutaway`, `effects`, `fx`, `spells`, `overlays`, `boss`, `colors`, `summary`, `show`, `grow`, `stress`, and `regress`
   (the older scripts); sets `quick` (the default: views, scenery, float, facing, effects, a few seconds), `engine`,
   `game` and `all`. Each group leaves its screenshots and a contact sheet in `host/out/suite/GROUP/` and fails on a
   write outside the frame, a command the game did not take, a layer that differs from a full build (`checklayer`),

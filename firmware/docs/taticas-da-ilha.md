@@ -12,25 +12,51 @@ crosses each realm's fases and faces its Elemental. The title screen's "Históri
 
 ## Realms, fases and battles
 
-| Realm | Element | Ground | Creatures | Fase 1 boss | Elemental |
+| Realm | Element | Ground | Creatures | Fase 2 spirit | Elemental |
 |---|---|---|---|---|---|
-| Fogo | fire | rocks, lava for water, scorched colours | Lobo, Javali, Slime | Lobo Alfa | Ignis |
-| Água | water | meadow, smaller islands (more sea), cold blue | Slime, Texugo, Lobo | Javali Rei | Maris |
-| Terra | earth | forest, deeper green | Texugo, Cervo, Javali, Slime | Cervo Rei | Gaia |
-| Ar | air | rocks, taller hills, pale colours | Cervo, Lobo, Slime | Lobo do Vento | Zéfiro |
+| Fogo | fire | rocks, lava for water, scorched colours; lava pits | Lobo, Javali, Slime, Rubylit, Golem de Fogo | Ifrit | Ignis |
+| Água | water | meadow, smaller islands (more sea), cold blue; lakes | Slime, Texugo, Lobo, Sapphilit, Titã de Gelo | Ondina | Maris |
+| Terra | earth | forest, deeper green; rocky hills | Texugo, Cervo, Javali, Slime, Esmeralit, Golem | Árvore Ancestral | Gaia |
+| Ar | air | rocks, taller hills, pale colours; chasms | Cervo, Lobo, Slime, Topalit, Titã do Vento | Sílfide | Zéfiro |
 
 - **Fases:** each realm has three, of 3, 6 and 9 battles in a row. The last battle of a fase is its boss: the
-  realm's alpha creature (fase 1), the Rei Slime (fase 2), the Elemental (fase 3). Bosses are drawn at twice the
-  size and fight in arenas drawn by hand (the den, the king's pool, the shrine); the other battles are islands
-  made from a seed (the same island every time).
-- **Opening:** a fase's first battle is open; winning a battle opens the next. Clearing a fase opens the realm's
-  next fase. Realms are independent: any realm can be chosen at any time, and any battle already won (in any
+  Rei Slime (fase 1, "Lago do Rei Slime"), the realm's spirit (fase 2, "Covil: NAME"), the Elemental (fase 3).
+  The king and the Elemental are drawn at twice the size (a spirit at its own: big already); bosses fight in arenas
+  drawn by hand (the king's lake, the den, the shrine); the other battles are islands made from a seed (the same
+  island every time).
+- **Two moments** from fase 2: a battle begins on a small island, as in fase 1 (11 or 12 × 12; a boss battle in
+  its arena, the boss's guards only). Once its creatures are down the island grows ("A ilha cresce!": the ground
+  shaking, the new land rising from the sea in waves) to its fase's size, 24 × 24 in fase 2, 36 × 36 in fase 3,
+  and the second wave teleports in ("Reforços!"): three creatures in fase 2, four in fase 3 (a boss battle: the
+  boss and its others), one by one, each in a circle of the realm's element at the new land's far side, as far as
+  the heroes can walk from where they stand. The camera follows.
+- **Realm ground** on the big islands: a few patches the heroes cannot cross, away from the middle: rocky hills
+  (Terra), lakes (Água: ice in a cold realm), lava pits (Fogo), winding chasms down into the void (Ar).
+- **The party:** three heroes at first; four once every realm's first fase is cleared. Fase 1's battles take the
+  first three of the party (in the roster's order); fases 2 and 3, all four.
+- **The island growing** (when the last realm's fase 1 is cleared, every other one already cleared): after the
+  summary the battle stays. The
+  arena's island rises out of the sea to 24 × 24, its new land in waves from the old shore outward, splashing, the
+  ground shaking ("A ilha desperta..."); a violet portal opens on the new land, eleven steps from the heroes, and
+  a shadow steps out of it (a hero's body all in dark violet, red glints at its eyes: "Uma sombra surge...", "A
+  ilha é minha!"); rune circles of the realm's element round it, and four creatures of the realm's second fase
+  appear on them ("Acabem com eles!"); a golden portal opens by the heroes, the hero left out of the party steps
+  out of it ("NAME: Segurem-se!"), circles of light under each hero, and they vanish into it one by one, the
+  rescuer last; the shadow: "Fujam, por ora...". Dark, then the party screen with all four in the party. A (or
+  Start) skips to the dark.
+- **Opening:** a fase's first battle is open; winning a battle opens the next. Fase 2 opens once every realm's
+  fase 1 is cleared; fase 3 once the realm's own fase 2 is. Realms are independent: any realm can be chosen at any time, and any battle already won (in any
   open fase) can be fought again.
 - **Creatures' levels** rise through the fases: fase 1 from level 1 to 4, fase 2 from 5 to 9, fase 3 from 10 to
   15 (the boss at the top of its fase; in the bigger packs some creatures are a level below). A realm's creatures
   are its own (none cross into another realm); the critters (Scrabling's wolf, boar, badger, stag) are recoloured
   to the realm, the slimes are their own colours (the fire ones made red from the purple pack), and an Elemental
-  glows in its element.
+  glows in its element. Each realm has a crystal spirit of its colour (Rubylit, Sapphilit, Esmeralit: Sapphilit
+  made green, Topalit; a little sturdier than a slime, its crystal shatters when it falls) and, from fase 2, a big
+  one, slow and hard to break (Golem de Fogo, Titã de Gelo, Golem, Titã do Vento: the Ice Titan in pale gold).
+  The fase 2 spirits: Ifrit, Ondina (the Aqua Elemental in blue), Árvore Ancestral (the Ancient Tree), Sílfide (the
+  Aqua Elemental in pale gold, its walk a whirl). A realm's own creatures are a pack of their own
+  (`assets/realm-KEY.fart`), added to the art while one of its battles is on.
 
 ## Heroes
 
@@ -47,6 +73,8 @@ crosses each realm's fases and faces its Elemental. The title screen's "Históri
   gets the party's size over how many stand, times its own: two of three standing get 1.5×). Leaving a battle,
   half; a defeat (every hero down), nothing. One realm's three fases bring a party to about level 4, 10 and 15;
   a second realm's first fase adds little.
+- **Guarda** (from level 5): the hero kneels and holds its ground, its turn over; until its next turn every blow
+  on it does half (rounded up). Its menu shows "Nv5" below level 5.
 - **Gear levels:** every 5 levels a hero can use the next level of its class's gear: level 0 from the start,
   level 1 from hero level 5, level 2 from 10, level 3 from 15. The party's and the battle's equip lists show the
   class's gear only, greyed with the level it needs.
@@ -106,13 +134,16 @@ crosses each realm's fases and faces its Elemental. The title screen's "Históri
 
 ## Screens
 
-Title (Começar, História, Sair) → Equipe (the party; Loja, the shop, from there) → Reinos (a card per realm: its slime, each fase's
+Title (Continuar, a saved game's; Novo jogo, asking "Começar de novo? O jogo salvo será apagado." first when
+there is one; História; Sair) → Equipe (the party; Loja, the shop, from there) → Reinos (a card per realm: its slime, each fase's
 progress, its Elemental; the chosen realm's story) → the realm's path (its fases as tabs, Up/Down; its battles
 along a path, Left/Right; the chosen battle's creatures by kind and level and what it may pay) → loading (the
 battle's sounds) → the battle → the summary (each creature with its coins and XP, standing through its idle once
 and then dying, in its colours; the coins counting up; each hero's XP bar; a hero that levels up cheers twice, and
 a new gear level is announced; a hero knocked out stands, then kneels and shows "sem XP"; a cleared fase says what
-the shop opened) → the party.
+the shop opened; with four heroes their rows closer, a level's gains on the name's line; with more than six
+creatures, no XP under each and their coins staggered) → the party (after the last realm's first fase cleared: the
+island growing, then the party).
 
 In battle, a unit knocked out plays its own death (wolves, slimes) or falls over (heroes, the boar, badger and
 stag), once, and lies still, its colour draining to a dim grey in under a second (back on a revive).
@@ -146,7 +177,7 @@ stag), once, and lies still, its colour draining to a dim grey in under a second
   a rock standing in it; further out it is deep and dark, glinting here and there. In the fire realm it is lava.
 - **Bosses arrive:** in a boss battle with minions, the boss is off the field until they are all down. Then the
   ground rumbles ("Algo se aproxima..."), its shadow grows on its cell (or the nearest free one), and it comes: the
-  Alpha drops from the sky and lands with a shake, the ground cracking round it (looks only); the King Slime lands
+  Alpha drops from the sky and lands with a shake, the ground cracking round it (looks only); the Rei Slime lands
   and bounces once; an Elemental descends slowly in a swirl of its element and lands in a flash. Its name shows,
   and the battle goes on. Its card says "vindo" meanwhile.
 - **Spells grow with their caster:** tier 1 up to level 4, tier 2 up to 9, tier 3 from 10. Fogo: bigger bursts,
@@ -174,6 +205,19 @@ bag (a count per goods, up to 128), the coins, the battles won in each realm's f
 is upgraded when loaded: names, classes, levels (up to 15), the party, the coins and the potions are kept; gear
 goes back to each class's level 0, and the old weapons and armour in the bag are sold at half price.
 
+## Adding a creature
+
+From a sheet in the usual rip layout (`assets/packs/ragnarok-enemies/`): check it with `tools/fh1art.py creature
+SHEET` (eight bands: idle, run and bite front and back, hurt, extras), add `{"name": "NAME", "sheet": ..., "death":
+[...], "pack": "KEY"}` to `art.json`'s `"creatures"`. From a sheet laid out any other way (a boss's): `tools/fh1art.py
+frames SHEET OUT.png` numbers its frames (`--split Y` parts two rows something crosses), then `"frames": {"idle.sw":
+"0-5", "idle.ne": ..., "run.sw": "idle.sw" (one that floats), "bite...", "hit...", "death..."}` names them; `"scale"`
+sizes it, `"recolor"` ports it to another realm's colour (`"min_sat"` low to tint pale art). `"pack"`: its realm's
+pack (`assets/realm-KEY.fart`). Then in `main/`: a kind in `game.h`'s enum (before `E_COUNT`, so saved
+battles keep theirs), its line in `data.c`'s `g_enemies` (name, plural, art name, stats), and the kind in its
+realms' creature lists. Similar sprites in other colours (a creature's elemental kin) are each their own sheet and
+kind.
+
 ## Development commands
 
 `dev_command` in `taticas.c`, from the FH1's console (`op dev "..."`) or a PC host script.
@@ -182,15 +226,16 @@ goes back to each class's level 0, and the old weapons and armour in the bag are
   screen), `go REALM FASE BATTLE` (straight to its loading screen; realms 0 Fogo, 1 Água, 2 Terra, 3 Ar; fases and
   battles from 0), `test REALM` (the test field in a realm's colours), `show` (the heroes' showcase); a battle under way is
   left.
-- **Outside a battle:** `won REALM FASE N`, `level HERO N`, `coins N`, `give GOODS N`,
+- **Outside a battle:** `won REALM FASE N`, `level HERO N`, `inparty HERO 0|1`, `coins N`, `give GOODS N`,
   `screen title|party|realms|path|shop`.
-- **In a battle:** `place`, `act`, `counter`, `target`, `gear`, `ranged`, `cam`, `xp`, `hp`, `win`, `lose`, `log`;
+- **In a battle:** `place`, `act`, `counter`, `guard HERO` (holds its ground), `target`, `gear`, `ranged`, `cam`, `xp`, `hp`, `win`, `lose`, `log`;
   `turn 1|-1` (as Select does), `view 0..3` (at once), `turnstyle 0|1` (spinning, narrowing), `cutaway 0|1`; `obj C
   R TILE FX`, `height C R H FX`, `top C R TILE FX` (the scenery changing: TILE a tile's number, -1 none; FX 0 at
   once, 1 breaking, 2 dropping, 3 rising, 4 fading, 5 teleporting), `float C R BASE BOB`, `crack C R POWER`,
   `dropon C R TILE` (looks only); `cast EL TIER C R` (a spell's looks at a cell; EL 0 healing, 1 fire, 2 water, 3
   earth, 4 air), `tier N` (every spell at a tier; 0: by level), `screen KIND MS STRENGTH` (0 negative, 1 wave, 2
-  shake); `kill UNIT` (-1: every creature but the bosses; a waiting boss then comes), `boss` (a waiting boss called
+  shake); `kill UNIT` (-1: every creature on the field but the bosses; a waiting boss then comes; with a
+  second wave still to come, the next turn's end brings it), `boss` (a waiting boss called
   in now); `relayer` (the layer built again from scratch), `checklayer` (the layer against a fresh build: "check:
   layer ok"), `bench` (what turns, the ripple and scenery changes cost, to the log).
 
@@ -199,7 +244,7 @@ of water, a yard, rocks, plants and stumps, a still floating slab and two groups
 two of the realm's creatures and its Alpha waiting off the field.
 
 **The suite:** `host/suite.sh [--device] [GROUP...]` runs the scripts in `host/tests/` (views, water, scenery,
-float, facing, cutaway, effects, fx, spells, overlays, boss, colors, summary, show, stress) and the older ones (regress), in sets (quick, the default;
+float, facing, cutaway, effects, fx, spells, overlays, boss, colors, summary, party4, show, grow, stress) and the older ones (regress), in sets (quick, the default;
 engine, game, all), and fails on writes outside the frame, commands not taken, layers that differ from a full
 build, checks that never reported, and crashes. Screenshots and a contact sheet per group: `host/out/suite/GROUP/`.
 `--device` runs them on the FH1 (`FH1_CODE`).

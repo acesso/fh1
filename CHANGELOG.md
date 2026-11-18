@@ -2,6 +2,60 @@
 
 Releases of the FH1 firmware and its apps, newest first. Each is a tag (`vX.Y.Z`) on `main`.
 
+## 0.8.0 (2026-11-17)
+
+Táticas da Ilha grows: new creatures and bosses, islands up to three times as wide, battles in two moments from
+fase 2, a party of four and a shadow behind it all. Network play between units (SDK 0.9) and Duelo with players'
+avatars; packages installed as they upload; the FH1 board's display at 80 MHz and the Guition without tearing.
+
+### Táticas da Ilha (0.13.0)
+
+- **New creatures** (from Ragnarok Online sheets): a crystal spirit per realm (Rubylit, Sapphilit, Esmeralit,
+  Topalit) and, from fase 2, a big one (Golem de Fogo, Titã de Gelo, Golem, Titã do Vento). Each realm's creatures
+  are a pack of their own, loaded for its battles only.
+- **Bosses by fase:** the Rei Slime in his lake (fase 1), the realm's spirit in its den (fase 2: Ifrit, Ondina,
+  Árvore Ancestral, Sílfide), the Elemental in its shrine (fase 3).
+- **Bigger islands:** fase 2's grow to 24 × 24, fase 3's to 36 × 36, with ground of their realm the heroes cannot
+  cross: rocky hills (Terra), lakes or ice (Água), lava pits (Fogo), winding chasms (Ar).
+- **Battles in two moments** from fase 2: the first wave on a small island; once it is down the island rises from
+  the sea to its full size and the second wave teleports in at its far side (a boss battle: the boss with it).
+- **Fase 2 opens once every realm's fase 1 is cleared.** Clearing the last one plays a scene: the island grows, a
+  shadow steps out of a portal and calls creatures, the hero left out of the party comes through a golden portal
+  and takes the party away. From then on the party has four.
+- **Guarda** (hero level 5): the hero kneels and takes half damage until its next turn.
+- **Title:** Continuar, or Novo jogo (asks first: it erases the saved game).
+- **The summary** fits four heroes and many creatures.
+- Battle sounds held at half rate in memory (0.9 MB of PSRAM instead of 1.9).
+
+### Duelo (0.4.0)
+
+- Fighters dressed as their players' avatars; play between two units over the network.
+
+### Construção Legal (0.9.3)
+
+- **Friends in one world:** each user's world hosted while they play, guests joining over the network, player
+  colours and names, arrival through a portal in their colour; sounds. Guests no longer lag.
+
+### Platform
+
+- **SDK 0.9:** the players' looks (`fh1_user_look`) and network play (`fh1_net_*`; `tools/nettest.c` plays the other
+  side from a PC). Wi-Fi stays awake during network play.
+- **Packages installed as they upload** (`POST /fh1/install`: no copy kept; the old version's files go first when
+  room is short); `op du` shows what fills a folder.
+- **Saved states between units:** `POST /fh1/state` puts a user's app data on a unit over Wi-Fi.
+- **Engine:** `fart_extend` / `fart_shrink` add another art pack while it is needed; the isometric layer is windowed
+  for big maps, and islands can grow and rise during a battle.
+- **Tools:** `fh1art.py` makes creatures from rip-layout sheets (`fh1art.py creature SHEET`) and from any sheet by
+  numbered frames (`fh1art.py frames SHEET OUT.png`), recolours them to another realm and writes per-realm packs.
+- **Sound pool rpg-sfx 2:** 22.05 kHz, 4.7 MB down to 2.3 (room on a unit with no card).
+- **Display:** the FH1 board at 80 MHz (SCK/MOSI on SPI2's IO_MUX pins), up to 60 frames a second; the Guition
+  without tearing. Teste de tela and `tools/fh1bench.py` measure both.
+- **PSRAM and flash at 120 MHz** on every board; updates erase as they write.
+- **Network names by board** (fh0, fh1, a1s, wroom). Bridges b14: controllers reported to the FH1's log; a bridge
+  on a poor Wi-Fi link moves to BLE and stays there.
+- **Dev console:** several files uploaded at once; internal RAM: three task stacks trimmed (4.5 KB).
+- **Hardware:** L and R on the back of the FH1 board.
+
 ## 0.7.0 (2026-11-14)
 
 A new game, Construção Legal; Táticas da Ilha in eight facings with effects and a showcase; one engine shared by
