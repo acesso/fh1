@@ -76,14 +76,23 @@ static const char *const s_pages[3][4] = {
       "equilíbrio à Ilha." },
 };
 
+// The title's menu: Continuar (a game saved), Novo jogo, História, Sair; Novo jogo over a saved game asks first.
+enum { T_CONTINUE, T_NEW, T_STORY, T_QUIT };
+static int s_title_ids[4];
+static bool s_title_ask;                       // "start again?" open
+static ui_menu_t s_ask;
+
 void title_enter(void)
 {
     memset(&s_title, 0, sizeof(s_title));
-    s_title.items[0] = "Começar";
-    s_title.items[1] = "História";
-    s_title.items[2] = "Sair";
-    s_title.n = 3;
+    int n = 0;
+    if (game_saved()) s_title_ids[n] = T_CONTINUE, s_title.items[n++] = "Continuar";
+    s_title_ids[n] = T_NEW, s_title.items[n++] = "Novo jogo";
+    s_title_ids[n] = T_STORY, s_title.items[n++] = "História";
+    s_title_ids[n] = T_QUIT, s_title.items[n++] = "Sair";
+    s_title.n = n;
     s_story = -1;
+    s_title_ask = false;
 }
 
 // The Konami code on the title (Up Up Down Down Left Right Left Right B A): the heroes' showcase.
@@ -138,15 +147,44 @@ screen_t title_frame(const ui_t *u, uint32_t dt)
         return SCR_TITLE;
     }
     int bw, bh;
+    if (s_title_ask) {                                    // a new game over the saved one: asked once more
+        const int qw = 296, qh = 40, x = (u->w - qw) / 2, y = u->h / 2 - 4;
+        ui_box(u, x, y, qw, qh);
+        ui_text(u, x + 10, y + 8, "Começar de novo? O jogo salvo", 0xf8d870);
+        ui_text(u, x + 10, y + 20, "será apagado.", 0xf8d870);
+        ui_menu_size(&s_ask, &bw, &bh);
+        ui_menu_draw(u, &s_ask, (u->w - bw) / 2, u->h - bh - 10, g_t);
+        const int r = ui_menu_key(&s_ask, menu_key());
+        if (r == 1) {                                     // yes: a new game, saved over the old one at once
+            game_new();
+            game_store();
+            return SCR_PARTY;
+        }
+        if (r == 0 || r == UI_BACK) s_title_ask = false;
+        return SCR_TITLE;
+    }
     ui_menu_size(&s_title, &bw, &bh);
     ui_menu_draw(u, &s_title, (u->w - bw) / 2, u->h - bh - 10, g_t);
     const int r = ui_menu_key(&s_title, menu_key());
-    if (r == 0) {
+    const int id = r >= 0 && r < s_title.n ? s_title_ids[r] : -1;
+    if (id == T_CONTINUE) {
         game_load();
         return SCR_PARTY;
     }
-    if (r == 1) s_story = 0;
-    return r == 2 ? SCR_QUIT : SCR_TITLE;
+    if (id == T_NEW) {
+        if (!game_saved()) {
+            game_new();
+            game_store();
+            return SCR_PARTY;
+        }
+        memset(&s_ask, 0, sizeof(s_ask));
+        s_ask.items[0] = "Não";
+        s_ask.items[1] = "Sim, apagar";
+        s_ask.n = 2;
+        s_title_ask = true;
+    }
+    if (id == T_STORY) s_story = 0;
+    return id == T_QUIT ? SCR_QUIT : SCR_TITLE;
 }
 
 // ── The party: one card per hero, Pronto under them ──
@@ -399,7 +437,7 @@ screen_t party_frame(const ui_t *u, uint32_t dt)
 {
     draw_back(u);
     char l[48];
-    snprintf(l, sizeof(l), "Equipe %d/%d", party_count(), PARTY_MAX);
+    snprintf(l, sizeof(l), "Equipe %d/%d", party_count(), party_limit());
     ui_text(u, 6, 6, l, 0xf8d870);
     snprintf(l, sizeof(l), "%u moedas", (unsigned)g_save.coins);
     ui_text(u, u->w - 6 - len8(l), 6, l, 0xf8d870);
@@ -451,7 +489,7 @@ screen_t party_frame(const ui_t *u, uint32_t dt)
         hero_t *h = &g_save.heroes[s_card];
         if (r == UI_BACK) s_ps = PS_CARDS;
         else if (r == 0) {
-            if (!h->in_party && party_count() >= PARTY_MAX) message("A equipe já tem 3.");
+            if (!h->in_party && party_count() >= party_limit()) message(party_limit() > 3 ? "A equipe já tem 4." : "A equipe já tem 3.");
             else h->in_party = !h->in_party;
             open_pmenu();
         } else if (r == 1) {
@@ -634,6 +672,8 @@ screen_t pick_frame(const ui_t *u, uint32_t dt)
         ui_text(u, x + 6, 22, l, k == t ? 0xf8d870 : open ? 0xc0c0c8 : 0x606880);
         if (tier_cleared(r, k)) ui_text(u, x + 56, 22, "*", 0x60f080);
     }
+    if (tier_cleared(r, 0) && !tier_open(r, 1))                  // the second fase waits for every realm's first
+        ui_text(u, 8, 37, "Fase 2: vença a fase 1 de todos os reinos", 0x8a96b0);
     // The path: dots between the battles, brighter where it has been walked.
     for (int i = 0; i + 1 < n; i++) {
         int x0, y0, x1, y1;

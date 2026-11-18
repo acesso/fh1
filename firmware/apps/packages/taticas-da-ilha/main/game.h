@@ -75,7 +75,7 @@ extern const int g_nspells;
 
 // ── The roster ──
 #define ROSTER 4
-#define PARTY_MAX 3
+#define PARTY_MAX 4                  // from the second fase (the first takes three: party_cap)
 typedef struct {
     char name[24];                   // UTF-8, up to 8 letters
     uint8_t cls;                     // CLS_*
@@ -106,6 +106,7 @@ typedef struct {
 extern save_t g_save;
 void game_new(void);
 void game_load(void);
+bool game_saved(void);               // a game saved for player 1's user (the title's Continuar)
 void game_store(void);
 extern bool g_nosave;
 int xp_next(int level);              // XP to reach the next level
@@ -116,6 +117,12 @@ int hero_defence(const hero_t *h);
 // Whether the hero can use the goods: its class's and its level's (*need: the level it needs).
 bool hero_can_use(const hero_t *h, int g, int *need);
 int party_count(void);
+// How many may be in the party (three; four once a realm's first fase is cleared), and how many of it fight in a
+// battle of a fase (the first three in the first fase).
+int party_limit(void);
+int party_cap(int tier);
+// The shadow's colours (the island's growing): a body all in dark violet, for a unit's shade.
+const uint16_t *villain_shade(void);
 // A spell's addition from the hero's weapon (a staff: magic's level is the staff's): its roll + 1, twice when the
 // staff is of the spell's element (attuned). Then, on a target, twice against the element it beats, half against
 // its own.
@@ -125,16 +132,18 @@ bool spell_attuned(const hero_t *h, int spell);
 // ── Realms, fases and battles ──
 extern const int g_tier_len[TIERS];  // 3, 6, 9 battles; the last a boss (the third fase's: the Elemental)
 enum { THEME_MEADOW, THEME_FOREST, THEME_ROCKS };
-enum { E_WOLF, E_BOAR, E_BADGER, E_STAG, E_SLIME, E_ALPHA, E_KING, E_ELEMENTAL, E_COUNT };
+enum { E_WOLF, E_BOAR, E_BADGER, E_STAG, E_SLIME, E_ALPHA, E_KING, E_ELEMENTAL, E_SAPPHILIT, E_RUBYLIT, E_TOPALIT,
+       E_ESMERALIT, E_GOLEM_FOGO, E_TITA_GELO, E_GOLEM, E_TITA_VENTO, E_SPIRIT, E_COUNT };
 typedef struct {
     const char *name, *key;          // "Fogo", "fogo" (art names: slime.fogo...)
     uint8_t element, theme;
     const char *tiers[TIERS];        // the fases' names
     const char *about[2];
     const char *places[9];
-    uint8_t foes[4], nfoes;          // the creatures that live there
+    uint8_t foes[6], nfoes;          // the creatures that live there (some only from a later fase: enemy_t)
     uint8_t alpha;                   // the first boss: a big one of these (E_WOLF...)
     const char *alpha_name, *elemental;
+    const char *spirit;              // the second fase's boss, its spirit (E_SPIRIT; art "spirit.KEY")
     uint16_t sky;
 } realm_t;
 extern const realm_t g_realms[REALMS];
@@ -147,6 +156,7 @@ typedef struct {
     int hp, hp_level, atk, def, move, jump, range;
     int reward;                      // XP and coins times this (bosses)
     uint8_t zoom;
+    uint8_t from_tier;               // in packs from this fase on (0: from the first)
 } enemy_t;
 extern const enemy_t g_enemies[E_COUNT];
 // An enemy as it stands in a battle: its name and art for its realm, its stats at its level.
@@ -162,6 +172,7 @@ const char *foe_plural(int type, int realm);
 // A battle: its map made from a seed (MAP_RANDOM, foes placed far from the heroes) or drawn by hand (MAP_FIXED:
 // a row of height digits per map row, '0' water; objects in a second set of rows: r rock, p plant, s stump).
 enum { MAP_RANDOM, MAP_FIXED };
+#define FOES_MAX 10                  // creatures in a battle, both waves
 typedef struct {
     char name[32];
     const char *about;
@@ -170,9 +181,12 @@ typedef struct {
     uint16_t seed;
     const char *const *heights, *const *objects;
     int n;
-    struct { uint8_t type, level, c, r; bool caster; } foes[6];   // fixed maps: where they stand (random maps: c, r
-                                                                  // unused); caster: casts its realm's element
-    uint8_t heroes[3][2];                            // fixed maps: where the heroes start
+    struct { uint8_t type, level, c, r; bool caster; } foes[FOES_MAX];   // fixed maps: where they stand (random maps:
+                                                                         // c, r unused); caster: casts its element
+    uint8_t n1;                                      // from the second fase: the first wave (the rest come after it)
+    uint8_t grow;                                    // the island's size once the first wave is down (0: it stays)
+    uint8_t heroes[PARTY_MAX][2];                    // fixed maps: where the heroes start
+    uint8_t acols, arows;                            // fixed maps: the part drawn by hand (0: the whole map)
     bool boss;
     bool show;                                       // the heroes' showcase (battle_show): a scripted show, no save
 } battle_def_t;
@@ -186,7 +200,10 @@ void show_spots(const battle_def_t *b, uint8_t heroes[4][2], uint8_t foes[4][2])
 int item_named(const char *n);       // a good by its name (-1: none)
 extern battle_def_t g_battle;        // the battle chosen (the loading screen, the battle, its summary)
 // Builds the battle's map into m (initialised to its size); spots: the heroes' starting cells, foes: the enemies'.
-void map_build(iso_map_t *m, const battle_def_t *b, uint8_t spots[3][2], uint8_t foes[6][2]);
+void map_build(iso_map_t *m, const battle_def_t *b, uint8_t spots[PARTY_MAX][2], uint8_t foes[FOES_MAX][2]);
+// The first fase's end: the island grows round the arena to size x size, its new land listed to rise (cells, their
+// delays in ms, at most max); then map_grade and iso_emerge. Returns how many cells rise.
+int map_grow(iso_map_t *m, const battle_def_t *b, int size, uint16_t *cells, uint16_t *delay, int max);
 // The realm's colours over the built scenery (lava for water in the fire realm, a cold blue by the sea...).
 // The realm's colours over the map's scenery and its sky (before iso_build_layer).
 void map_grade(iso_map_t *m, int realm);
@@ -195,7 +212,7 @@ void map_grade(iso_map_t *m, int realm);
 typedef struct {
     bool won;
     int nkills;
-    struct { uint8_t type, level; uint16_t coins, xp; } kills[8];   // in order
+    struct { uint8_t type, level; uint16_t coins, xp; } kills[FOES_MAX + 2];   // in order
     int coins;
     int xp[PARTY_MAX];               // per party member
     int hero[PARTY_MAX];             // roster index per party member

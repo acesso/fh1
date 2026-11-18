@@ -1,5 +1,6 @@
-// Battle maps: made from a seed (an island of hills, its tiles and objects by theme; the heroes start in one
-// corner, the enemies in the far one, and a walkable way between them is checked), or drawn by hand. Then the
+// Battle maps: made from a seed (an island of hills, its tiles and objects by theme; on a small island the heroes
+// start in one corner, the enemies in the far one; on a big one near its middle, a fixed way apart; a walkable way
+// between them is checked), or drawn by hand (on a big map, set into an island). Then the
 // realm's colours over the scenery: lava for water in the fire realm, the sea's blue, the forest's green, the
 // heights' pale air.
 #include "game.h"
@@ -62,7 +63,8 @@ static void paint(iso_map_t *m, const theme_t *th, int c, int r, int h, bool obj
 // Cells reachable from (c, r) climbing at most one level a step (the wolves' limit), objects and water excluded.
 static int reach_count(iso_map_t *m, int c, int r, uint8_t *seen)
 {
-    int q[256], head = 0, tail = 0, n = 0;
+    static uint16_t q[36 * 36];                    // (the biggest islands)
+    int head = 0, tail = 0, n = 0;
     memset(seen, 0, m->cols * m->rows);
     q[tail++] = r * m->cols + c;
     seen[r * m->cols + c] = 1;
@@ -76,7 +78,7 @@ static int reach_count(iso_map_t *m, int c, int r, uint8_t *seen)
             const iso_cell_t *a = &m->cells[i], *b = &m->cells[j];
             if (!b->h || b->obj != ISO_NONE || abs((int)a->h - (int)b->h) > 1) continue;
             seen[j] = 1;
-            if (tail < 256) q[tail++] = j;
+            if (tail < (int)(sizeof(q) / sizeof(q[0]))) q[tail++] = j;
         }
     }
     return n;
@@ -104,57 +106,124 @@ static bool spot_near(iso_map_t *m, const uint8_t *seen, int c, int r, uint8_t t
     return false;
 }
 
-static void build_random(iso_map_t *m, const battle_def_t *b, uint8_t spots[3][2], uint8_t foes[6][2])
+// The realm's own ground on a big island (none on a small one): the earth's high hills crowned with rocks, the
+// water's lakes, the fire's lava pits (its water is lava), the air's winding chasms (cells with nothing in them: the
+// sky far below). None can be walked on or through. Away from the island's middle, where the first wave fights.
+static void features(iso_map_t *m, const battle_def_t *b, const theme_t *th)
+{
+    const int el = g_realms[b->realm].element, n = m->cols / 6 - 1;          // 24: 3, 36: 5
+    const float cx = (m->cols - 1) / 2.0f, cy = (m->rows - 1) / 2.0f;
+    for (int k = 0; k < n; k++) {
+        int c0 = -1, r0 = 0;
+        for (int tries = 0; tries < 60 && c0 < 0; tries++) {
+            const int c = 3 + (int)(rnd() % (m->cols - 6)), r = 3 + (int)(rnd() % (m->rows - 6));
+            if ((fabsf(c - cx) < 8 && fabsf(r - cy) < 8) || !iso_cell(m, c, r)->h) continue;
+            c0 = c, r0 = r;
+        }
+        if (c0 < 0) continue;
+        if (el == EL_AIR) {                                      // a chasm winding across the land
+            int c = c0, r = r0, dir = (int)(rnd() % 4);
+            const int len = 12 + (int)(rnd() % 10);
+            static const int8_t dc[4] = { 1, 0, -1, 0 }, dr[4] = { 0, 1, 0, -1 };
+            for (int s = 0; s < len; s++) {
+                for (int w = 0; w < 1 + (rnd() % 4 == 0); w++) {
+                    const int cc = c + w * dr[dir], rr = r + w * dc[dir];
+                    if (iso_inside(m, cc, rr) && !(fabsf(cc - cx) < 7 && fabsf(rr - cy) < 7))
+                        *iso_cell(m, cc, rr) = (iso_cell_t){ 0, ISO_NONE, ISO_NONE, ISO_NONE, 0, 0 };
+                }
+                if (rnd() % 3 == 0) dir = (dir + (rnd() % 2 ? 1 : 3)) % 4;   // a bend
+                c += dc[dir], r += dr[dir];
+                if (c < 1 || r < 1 || c >= m->cols - 1 || r >= m->rows - 1) break;
+            }
+            continue;
+        }
+        const float rad = el == EL_EARTH ? 2.0f + rndf() * 1.2f : el == EL_FIRE ? 1.3f + rndf() * 1.0f : 1.8f + rndf() * 1.4f;
+        for (int r = r0 - 4; r <= r0 + 4; r++)
+            for (int c = c0 - 4; c <= c0 + 4; c++) {
+                const float d = sqrtf((float)((c - c0) * (c - c0) + (r - r0) * (r - r0))) + (rndf() - 0.5f) * 0.6f;
+                if (d > rad || !iso_inside(m, c, r) || (fabsf(c - cx) < 7 && fabsf(r - cy) < 7)) continue;
+                if (el == EL_EARTH) {                            // a high hill, rocks all over its top
+                    paint(m, th, c, r, 5 - (int)(d * 0.8f), false);
+                    iso_cell(m, c, r)->obj = rnd() % 3 ? tile(65) : tile(54);
+                } else {                                         // a lake, or a pit of lava
+                    paint(m, th, c, r, 0, false);
+                }
+            }
+    }
+}
+
+// An island of hills from the battle's seed and an attempt: a gentle island round the middle (smaller in the water
+// realm, its hills taller in the air realm), a few bumps for every 12 x 12 of it.
+static void island(iso_map_t *m, const battle_def_t *b, const theme_t *th, uint32_t attempt)
+{
+    s_rng = 0x9e3779b9u ^ (b->seed * 2654435761u) ^ (attempt * 40503u);
+    if (!s_rng) s_rng = 1;
+    enum { HILLS = 48 };
+    float hx[HILLS], hy[HILLS], hh[HILLS], hr[HILLS];
+    int nh = 3 + rnd() % 3;
+    if (m->cols * m->rows > 14 * 14) nh = nh * m->cols * m->rows / 144;   // (a small island's as it always was)
+    if (nh > HILLS) nh = HILLS;
+    const float shore = b->realm == EL_WATER - 1 ? 0.86f : 0.98f, tall = b->realm == EL_AIR - 1 ? 3.6f : 2.6f;
+    for (int k = 0; k < nh; k++) {
+        hx[k] = rndf() * m->cols;
+        hy[k] = rndf() * m->rows;
+        hh[k] = 1.0f + rndf() * tall;
+        hr[k] = 2.0f + rndf() * 3.5f;
+    }
+    const float cx = (m->cols - 1) / 2.0f, cy = (m->rows - 1) / 2.0f;
+    for (int r = 0; r < m->rows; r++)
+        for (int c = 0; c < m->cols; c++) {
+            const float dx = (c - cx) / (cx + 0.5f), dy = (r - cy) / (cy + 0.5f);
+            const float edge = sqrtf(dx * dx + dy * dy) + (rndf() - 0.5f) * 0.18f;
+            if (edge > shore) {
+                paint(m, th, c, r, 0, false);
+                continue;
+            }
+            float h = 1.0f;
+            for (int k = 0; k < nh; k++) {
+                const float d = sqrtf((c - hx[k]) * (c - hx[k]) + (r - hy[k]) * (r - hy[k]));
+                if (d < hr[k]) h += hh[k] * (1.0f - d / hr[k]);
+            }
+            int hi = (int)h;
+            if (hi > 5) hi = 5;
+            paint(m, th, c, r, hi, (int)(rnd() % th->obj_chance) == 0);
+        }
+    if (m->cols * m->rows > 14 * 14) features(m, b, th);
+}
+
+// Where the heroes gather and where the enemies wait: the near and far corners of a small island; on a big one,
+// near its middle, about as far apart as on a small one (fourteen steps), the rest of the island room round them.
+static void meeting(const iso_map_t *m, int *hc, int *hr, int *fc, int *fr)
+{
+    if (m->cols <= 14) {
+        *hc = m->cols / 4, *hr = m->rows - 1 - m->rows / 4, *fc = m->cols - 1 - m->cols / 4, *fr = m->rows / 4;
+        return;
+    }
+    *hc = m->cols / 2 - 4, *hr = m->rows / 2 + 4;
+    *fc = *hc + 7, *fr = *hr - 7;
+}
+
+static void build_random(iso_map_t *m, const battle_def_t *b, uint8_t spots[PARTY_MAX][2], uint8_t foes[FOES_MAX][2])
 {
     theme_t th;
     theme_of(b->theme, &th);
-    static uint8_t seen[16 * 16];
+    static uint8_t seen[36 * 36];
     for (uint32_t attempt = 0; attempt < 12; attempt++) {
-        s_rng = 0x9e3779b9u ^ (b->seed * 2654435761u) ^ (attempt * 40503u);
-        if (!s_rng) s_rng = 1;
-        // Hills: a few bumps over a gentle island.
-        float hx[5], hy[5], hh[5], hr[5];
-        const int nh = 3 + rnd() % 3;
-        // The water realm's islands are smaller (more sea round them), the air realm's hills taller.
-        const float shore = b->realm == EL_WATER - 1 ? 0.86f : 0.98f, tall = b->realm == EL_AIR - 1 ? 3.6f : 2.6f;
-        for (int k = 0; k < nh; k++) {
-            hx[k] = rndf() * m->cols;
-            hy[k] = rndf() * m->rows;
-            hh[k] = 1.0f + rndf() * tall;
-            hr[k] = 2.0f + rndf() * 3.5f;
-        }
-        const float cx = (m->cols - 1) / 2.0f, cy = (m->rows - 1) / 2.0f;
-        for (int r = 0; r < m->rows; r++)
-            for (int c = 0; c < m->cols; c++) {
-                const float dx = (c - cx) / (cx + 0.5f), dy = (r - cy) / (cy + 0.5f);
-                const float edge = sqrtf(dx * dx + dy * dy) + (rndf() - 0.5f) * 0.18f;
-                if (edge > shore) {
-                    paint(m, &th, c, r, 0, false);
-                    continue;
-                }
-                float h = 1.0f;
-                for (int k = 0; k < nh; k++) {
-                    const float d = sqrtf((c - hx[k]) * (c - hx[k]) + (r - hy[k]) * (r - hy[k]));
-                    if (d < hr[k]) h += hh[k] * (1.0f - d / hr[k]);
-                }
-                int hi = (int)h;
-                if (hi > 5) hi = 5;
-                paint(m, &th, c, r, hi, (int)(rnd() % th.obj_chance) == 0);
-            }
-        // Heroes in the lower-left corner (toward the viewer), enemies in the upper-right one.
-        const int hc = m->cols / 4, hr2 = m->rows - 1 - m->rows / 4, fc = m->cols - 1 - m->cols / 4, fr = m->rows / 4;
+        island(m, b, &th, attempt);
+        int hc, hr2, fc, fr;
+        meeting(m, &hc, &hr2, &fc, &fr);
         uint8_t start[2];
         uint8_t none[1][2];
         if (!spot_near(m, (memset(seen, 1, sizeof(seen)), seen), hc, hr2, none, 0, start)) continue;
         if (reach_count(m, start[0], start[1], seen) < m->cols * m->rows / 3) continue;   // too broken up
-        uint8_t taken[9][2];
+        uint8_t taken[PARTY_MAX + FOES_MAX][2];
         int nt = 0;
         bool ok = true;
-        for (int k = 0; k < 3 && ok; k++) {
+        for (int k = 0; k < PARTY_MAX && ok; k++) {
             ok = spot_near(m, seen, hc, hr2, taken, nt, spots[k]);
             if (ok) memcpy(taken[nt++], spots[k], 2);
         }
-        for (int k = 0; k < b->n && ok; k++) {
+        for (int k = 0; k < (b->n1 ? b->n1 : b->n) && ok; k++) {    // (a second wave comes later, elsewhere)
             ok = spot_near(m, seen, fc, fr, taken, nt, foes[k]);
             if (ok) memcpy(taken[nt++], foes[k], 2);
         }
@@ -163,21 +232,27 @@ static void build_random(iso_map_t *m, const battle_def_t *b, uint8_t spots[3][2
     // No good island from this seed: a flat one.
     for (int r = 0; r < m->rows; r++)
         for (int c = 0; c < m->cols; c++) paint(m, &th, c, r, 1, false);
-    for (int k = 0; k < 3; k++) spots[k][0] = 1 + k, spots[k][1] = m->rows - 2;
-    for (int k = 0; k < b->n; k++) foes[k][0] = m->cols - 2 - k, foes[k][1] = 1;
+    for (int k = 0; k < PARTY_MAX; k++) spots[k][0] = 1 + k, spots[k][1] = m->rows - 2;
+    for (int k = 0; k < (b->n1 ? b->n1 : b->n); k++) foes[k][0] = m->cols - 2 - k, foes[k][1] = 1;
 }
 
-static void build_fixed(iso_map_t *m, const battle_def_t *b, uint8_t spots[3][2], uint8_t foes[6][2])
+// A map drawn by hand (an arena: acols x arows); on a bigger map, set in the middle of an island of the battle's
+// size, its own water giving way to the island's ground.
+static void build_fixed(iso_map_t *m, const battle_def_t *b, uint8_t spots[PARTY_MAX][2], uint8_t foes[FOES_MAX][2])
 {
     theme_t th;
     theme_of(b->theme, &th);
+    const int ac = b->acols ? b->acols : m->cols, ar = b->arows ? b->arows : m->rows;
+    const int ox = (m->cols - ac) / 2, oy = (m->rows - ar) / 2;
+    if (ox || oy) island(m, b, &th, 0);
     s_rng = 12345;
-    for (int r = 0; r < m->rows; r++)
-        for (int c = 0; c < m->cols; c++) {
+    for (int r = 0; r < ar; r++)
+        for (int c = 0; c < ac; c++) {
             const int h = b->heights[r][c] - '0';
             const char o = b->objects ? b->objects[r][c] : '.';
-            paint(m, &th, c, r, h, false);
-            iso_cell_t *cell = iso_cell(m, c, r);
+            if ((ox || oy) && h <= 0) continue;                  // (the island's ground round the arena)
+            paint(m, &th, c + ox, r + oy, h, false);
+            iso_cell_t *cell = iso_cell(m, c + ox, r + oy);
             if (h > 0 && o == 'r') cell->obj = tile(65);
             else if (h > 0 && o == 'p') cell->obj = tile(43);
             else if (h > 0 && o == 's') cell->obj = tile(52);
@@ -186,8 +261,8 @@ static void build_fixed(iso_map_t *m, const battle_def_t *b, uint8_t spots[3][2]
                 cell->bob = (uint8_t)(o == 'b' ? 1 : o == 'B' ? 2 : 0);
             }
         }
-    for (int k = 0; k < 3; k++) memcpy(spots[k], b->heroes[k], 2);
-    for (int k = 0; k < b->n; k++) foes[k][0] = b->foes[k].c, foes[k][1] = b->foes[k].r;
+    for (int k = 0; k < PARTY_MAX; k++) spots[k][0] = b->heroes[k][0] + ox, spots[k][1] = b->heroes[k][1] + oy;
+    for (int k = 0; k < (b->n1 ? b->n1 : b->n); k++) foes[k][0] = b->foes[k].c + ox, foes[k][1] = b->foes[k].r + oy;
 }
 
 // One scenery pixel through the realm's colours.
@@ -245,7 +320,7 @@ static void shore(iso_map_t *m)
     for (int r = 0; r < m->rows; r++)
         for (int c = 0; c < m->cols; c++) {
             iso_cell_t *cell = iso_cell(m, c, r);
-            if (cell->h > 0) continue;
+            if (cell->h > 0 || (cell->top == ISO_NONE && cell->fill == ISO_NONE)) continue;   // (land, a chasm)
             bool land = false;
             for (int dr = -1; dr <= 1 && !land; dr++)
                 for (int dc = -1; dc <= 1 && !land; dc++)
@@ -289,10 +364,51 @@ static void stage(iso_map_t *m, const battle_def_t *b)
         if (iso_inside(m, props[k].c, props[k].r)) iso_cell(m, props[k].c, props[k].r)->obj = (uint16_t)prop(props[k].name);
 }
 
-void map_build(iso_map_t *m, const battle_def_t *b, uint8_t spots[3][2], uint8_t foes[6][2])
+void map_build(iso_map_t *m, const battle_def_t *b, uint8_t spots[PARTY_MAX][2], uint8_t foes[FOES_MAX][2])
 {
     if (b->map == MAP_FIXED) build_fixed(m, b, spots, foes);
     else build_random(m, b, spots, foes);
     if (b->show) stage(m, b);
     shore(m);
+}
+
+// The first fase's end: the island grows round the arena to size x size. The arena's land stays as it is; the new
+// land (an island of the second fase's kind, its shore) is listed to rise out of the sea in waves from the old
+// island outward: cells (r * cols + c) and each one's delay (ms). Returns how many (0: no room, or the map could
+// not grow).
+int map_grow(iso_map_t *m, const battle_def_t *b, int size, uint16_t *cells, uint16_t *delay, int max)
+{
+    theme_t th;
+    theme_of(b->theme, &th);
+    const iso_cell_t sea = { 0, th.water, th.water, ISO_NONE, 0, 0 };
+    const int oc = m->cols, orr = m->rows, dc = (size - oc) / 2, dr = (size - orr) / 2;
+    iso_cell_t *keep = malloc((size_t)oc * orr * sizeof(iso_cell_t));
+    if (!keep) return 0;
+    memcpy(keep, m->cells, (size_t)oc * orr * sizeof(iso_cell_t));
+    if (!iso_resize(m, size, size, dc, dr, &sea)) {
+        free(keep);
+        return 0;
+    }
+    battle_def_t big = *b;
+    big.cols = big.rows = (uint8_t)size;
+    big.seed = (uint16_t)(b->seed * 7 + 101);
+    island(m, &big, &th, 0);
+    for (int r = 0; r < orr; r++)                                // the arena's land as it was
+        for (int c = 0; c < oc; c++)
+            if (keep[r * oc + c].h) *iso_cell(m, c + dc, r + dr) = keep[r * oc + c];
+    shore(m);
+    // The new land, nearest the old island first, a little jitter in each wave.
+    const float cx = (size - 1) / 2.0f, cy = (size - 1) / 2.0f;
+    int n = 0;
+    for (int r = 0; r < size && n < max; r++)
+        for (int c = 0; c < size && n < max; c++) {
+            const int oc2 = c - dc, or2 = r - dr;
+            const bool was = oc2 >= 0 && or2 >= 0 && oc2 < oc && or2 < orr && keep[or2 * oc + oc2].h;
+            if (was || !iso_cell(m, c, r)->h) continue;
+            const float d = sqrtf((c - cx) * (c - cx) + (r - cy) * (r - cy)) - oc / 2.0f;
+            cells[n] = (uint16_t)(r * size + c);
+            delay[n++] = (uint16_t)((d < 0 ? 0 : d) * 170 + (rnd() % 160));
+        }
+    free(keep);
+    return n;
 }

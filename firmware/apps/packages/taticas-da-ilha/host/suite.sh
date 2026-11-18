@@ -4,10 +4,10 @@
 #
 #   host/suite.sh [--device] [GROUP...]      from the package's folder; no group: quick; "all": every group
 #
-# Groups: views water scenery float facing cutaway effects fx spells overlays boss colors summary show stress
+# Groups: views water scenery float facing cutaway effects fx spells overlays boss colors summary party4 show grow stress
 # (host/tests/GROUP.script), and regress (the older host scripts). Sets: quick = views scenery float facing
 # effects; engine = views water scenery float facing effects stress; game = fx spells overlays boss colors summary
-# show regress. Each group writes its screenshots and a contact sheet (sheet.png) to host/out/suite/GROUP/ and fails on
+# party4 show grow regress. Each group writes its screenshots and a contact sheet (sheet.png) to host/out/suite/GROUP/ and fails on
 # a write outside the frame (guard), a command the game did not take, a layer that differs from a full build
 # ("check: layer differs"), a layer check that never reported, or a crash.
 # --device runs the group scripts on the FH1 (FH1_CODE, FH1_HOST; host/device.py), saving off, with the frame times
@@ -20,10 +20,10 @@ groups="$*"
 expand() {
     for g in "$@"; do
         case $g in
-        all) echo views water scenery float facing cutaway effects fx spells overlays boss colors summary show stress regress ;;
+        all) echo views water scenery float facing cutaway effects fx spells overlays boss colors summary party4 show grow stress regress ;;
         quick) echo views scenery float facing effects ;;
         engine) echo views water scenery float facing cutaway effects stress ;;
-        game) echo fx spells overlays boss colors summary show regress ;;
+        game) echo fx spells overlays boss colors summary party4 show grow regress ;;
         *) echo "$g" ;;
         esac
     done
@@ -47,13 +47,13 @@ for g in $groups; do
     for s in $scripts; do
         if [ $device = 1 ]; then
             { printf 'op stop\nsleep 1.5\nop start "" taticas-da-ilha\nsleep 2.5\ninfo\n'; cat "$s"; printf 'sleep 3\nop stop\n'; } > "$out/device.script"
-            timeout 600 /usr/bin/python3 host/device.py "$out/device.script" "$out" >> "$out/log.txt" 2>&1
+            timeout 600 /usr/bin/python3 host/device.py "$out/device.script" "$out" --host "${FH1_HOST:-fh1.local}" >> "$out/log.txt" 2>&1
         else
             timeout 300 host/host "$s" "$out" >> "$out/log.txt" 2>&1
         fi
         echo "exit $?" >> "$out/log.txt"
     done
-    bad=$(grep -E 'guard|outside the frame|^\? |not understood|layer differs|Traceback|did not start|exit [1-9]' "$out/log.txt" | head -3)
+    bad=$(grep -E 'OUTSIDE THE FRAME|^\? |not understood|layer differs|Traceback|did not start|exit [1-9]' "$out/log.txt" | head -3)
     checks=$(grep -c 'check: layer ok' "$out/log.txt")
     asked=0
     for s in $scripts; do asked=$((asked + $(grep -c '^checklayer' "$s"))); done

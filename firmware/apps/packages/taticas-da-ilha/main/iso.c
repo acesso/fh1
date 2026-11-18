@@ -45,6 +45,12 @@ void iso_free(iso_map_t *m)
     free(m->chg_of);
     free(m->bcells);
     free(m->scratch);
+    free(m->em_cell);
+    free(m->em_start);
+    free(m->em_of);
+    m->em_cell = m->em_start = NULL;
+    m->em_of = NULL;
+    m->nem = 0;
     m->chg_of = NULL;
     m->bcells = NULL;
     m->scratch = NULL;
@@ -188,6 +194,7 @@ void iso_grade(iso_map_t *m, uint16_t (*fn)(uint16_t v, void *user), void *user)
 static const iso_cell_t *shown_cell(const iso_map_t *m, int c, int r)
 {
     const int i = r * m->cols + c;
+    if (m->em_of && m->em_of[i]) return &m->em_sea;                          // still under the water
     return m->chg_of && m->chg_of[i] ? &m->chg[m->chg_of[i] - 1].shown : &m->cells[i];
 }
 
@@ -296,6 +303,8 @@ static bool collect_anim(iso_map_t *m)
     return true;
 }
 
+static bool s_keep_window;                           // iso_check_layer: build the window where it is
+
 bool iso_build_layer(iso_map_t *m)
 {
     int maxh = 0;
@@ -309,11 +318,30 @@ bool iso_build_layer(iso_map_t *m)
     }
     m->maxh = maxh;
     const int vcols = view_cols(m), vrows = view_rows(m);
-    const int lx = -vrows * ISO_HW, ly = -(maxh + 1) * ISO_STEP - 2 * ISO_HH;
-    const int lw = (vcols + vrows) * ISO_HW, lh = (vcols + vrows) * ISO_HH + 2 * ISO_HH - ly;
-    if (!m->layer || lw * lh > m->lw * m->lh) {
+    m->fx = -vrows * ISO_HW;
+    m->fy = -(maxh + 1) * ISO_STEP - 2 * ISO_HH;
+    m->fw = (vcols + vrows) * ISO_HW;
+    m->fh = (vcols + vrows) * ISO_HH + 2 * ISO_HH - m->fy;
+    int lw = m->fw, lh = m->fh, lx = m->fx, ly = m->fy;
+    const bool keep = m->windowed && m->layer && s_keep_window;   // (a check: the window where it is)
+    m->windowed = (size_t)lw * lh * 2 > ISO_LAYER_MAX;
+    if (keep) {
+        lx = m->lx, ly = m->ly, lw = m->lw, lh = m->lh;
+    } else if (m->windowed) {                        // a window round the camera
+        const int sw = m->scr_w ? m->scr_w : 320, sh = m->scr_h ? m->scr_h : 240;
+        if (lw > sw + 2 * ISO_WIN_X) lw = sw + 2 * ISO_WIN_X;
+        if (lh > sh + 2 * ISO_WIN_Y) lh = sh + 2 * ISO_WIN_Y;
+        lx = m->camx + sw / 2 - lw / 2;
+        ly = m->camy + sh / 2 - lh / 2;
+        if (lx > m->fx + m->fw - lw) lx = m->fx + m->fw - lw;
+        if (lx < m->fx) lx = m->fx;
+        if (ly > m->fy + m->fh - lh) ly = m->fy + m->fh - lh;
+        if (ly < m->fy) ly = m->fy;
+    }
+    if (!m->layer || (size_t)lw * lh > m->lcap) {
         free(m->layer);
         m->layer = malloc((size_t)lw * lh * 2);
+        m->lcap = m->layer ? (size_t)lw * lh : 0;
         if (!m->layer) return false;
     }
     m->lx = lx;
@@ -325,6 +353,8 @@ bool iso_build_layer(iso_map_t *m)
     const fart_clip_t clip = { 0, 0, lw, lh };
     for (int vr = 0; vr < vrows; vr++)               // back to front: a cell is drawn after the ones behind it
         for (int vc = 0; vc < vcols; vc++) {
+            const int cx = (vc - vr) * ISO_HW - lx, by = (vc + vr) * ISO_HH - ly;
+            if (cx + m->col_l <= 0 || cx - m->col_l >= lw || by + m->col_dn <= 0) continue;   // (a window's outside)
             int c, r;
             from_view(m, vc, vr, &c, &r);
             draw_column(m, m->layer, lw, &clip, c, r, lx, ly);
@@ -357,6 +387,50 @@ static void redraw_box(iso_map_t *m, int x0, int y0, int x1, int y1)
         }
 }
 
+// A window layer follows the camera: when the screen nears its edge, it is centred on the screen again, the part
+// both show moved, the strips coming in drawn.
+static void follow_window(iso_map_t *m, int w, int h)
+{
+    m->scr_w = w;
+    m->scr_h = h;
+    if (!m->windowed || !m->layer) return;
+    const int edge = 24;
+    if (m->camx >= m->lx + edge && m->camx + w <= m->lx + m->lw - edge && m->camy >= m->ly + edge &&
+        m->camy + h <= m->ly + m->lh - edge)
+        return;
+    int nx = m->camx + w / 2 - m->lw / 2, ny = m->camy + h / 2 - m->lh / 2;
+    if (nx > m->fx + m->fw - m->lw) nx = m->fx + m->fw - m->lw;
+    if (nx < m->fx) nx = m->fx;
+    if (ny > m->fy + m->fh - m->lh) ny = m->fy + m->fh - m->lh;
+    if (ny < m->fy) ny = m->fy;
+    const int dx = nx - m->lx, dy = ny - m->ly;
+    if (!dx && !dy) return;
+    const int ox = m->lx, oy = m->ly;
+    if (abs(dx) < m->lw && abs(dy) < m->lh) {        // what both show: moved by (-dx, -dy) in the buffer
+        const int n = m->lw - abs(dx);
+        for (int k = 0; k < m->lh - abs(dy); k++) {
+            const int y = dy > 0 ? k : m->lh - 1 - k;               // (rows in the order that keeps the source)
+            memmove(m->layer + y * m->lw + (dx < 0 ? -dx : 0), m->layer + (y + dy) * m->lw + (dx > 0 ? dx : 0), n * 2);
+        }
+    }
+    m->lx = nx;
+    m->ly = ny;
+    // Animated cells: the strips show them at their frame now, the part kept at the one it had; each on screen is
+    // drawn whole again at the next tick.
+    if (m->aframe) memset(m->aframe, 0xFF, (size_t)m->nacells * 3);
+    if (abs(dx) >= m->lw || abs(dy) >= m->lh) {
+        redraw_box(m, nx, ny, nx + m->lw, ny + m->lh);
+        return;
+    }
+    // The strips coming in (world): a column of new x, a row of new y.
+    if (dx > 0) redraw_box(m, ox + m->lw, ny, nx + m->lw, ny + m->lh);
+    if (dx < 0) redraw_box(m, nx, ny, ox, ny + m->lh);
+    if (dy > 0) redraw_box(m, nx, oy + m->lh, nx + m->lw, ny + m->lh);
+    if (dy < 0) redraw_box(m, nx, ny, nx + m->lw, oy);
+}
+
+static int s_seen[4] = { 1 << 30, 1 << 30, -(1 << 30), -(1 << 30) };   // the screen at the last tick (world)
+
 // The animated cells on screen whose frame changed: drawn again into the layer (the rest wait until they show).
 static void tick_scenery(iso_map_t *m, int w, int h)
 {
@@ -369,10 +443,14 @@ static void tick_scenery(iso_map_t *m, int w, int h)
             continue;
         uint8_t f[3];
         cell_frames(m, c, r, f);
-        if (!memcmp(f, m->aframe + k * 3, 3)) continue;
+        // Drawn again when its frame changed, or when it has just come into view (while it was out of view, a
+        // neighbour's redraw may have drawn part of it at another frame).
+        const bool was = !(x + m->col_l < s_seen[0] || x - m->col_l >= s_seen[2] || top >= s_seen[3] || y + m->col_dn < s_seen[1]);
+        if (was && !memcmp(f, m->aframe + k * 3, 3)) continue;
         memcpy(m->aframe + k * 3, f, 3);
         redraw_box(m, x - m->col_l, top, x + m->col_l, y + m->col_dn);
     }
+    s_seen[0] = m->camx, s_seen[1] = m->camy, s_seen[2] = m->camx + w, s_seen[3] = m->camy + h;
 }
 
 int iso_check_layer(iso_map_t *m, int w, int h, int box[4])
@@ -381,7 +459,9 @@ int iso_check_layer(iso_map_t *m, int w, int h, int box[4])
     if (!fresh) return -1;
     const int lw = m->lw, lh = m->lh, lx = m->lx, ly = m->ly;
     m->layer = fresh;
+    s_keep_window = true;
     const bool built = iso_build_layer(m) && m->lw == lw && m->lh == lh && m->lx == lx && m->ly == ly;
+    s_keep_window = false;
     m->layer = kept;
     int n = 0;
     box[0] = box[1] = 1 << 30;
@@ -411,6 +491,113 @@ void iso_redraw_animated(iso_map_t *m)
         pos(m, c, r, 0, &x, &y);
         const int top = y - (m->cells[m->acells[k]].h + 1) * ISO_STEP - m->col_up;
         redraw_box(m, x - m->col_l, top, x + m->col_l, y + m->col_dn);
+    }
+}
+
+// ── The map growing ──
+
+bool iso_resize(iso_map_t *m, int cols, int rows, int dc, int dr, const iso_cell_t *sea)
+{
+    if (m->nem || m->turn_ms || cols < 1 || rows < 1) return false;
+    for (int k = 0; k < ISO_CHANGES; k++)
+        if (m->chg[k].len) return false;
+    iso_cell_t *cells = ps_calloc(cols * rows * sizeof(iso_cell_t));
+    uint8_t *mark = ps_calloc(cols * rows), *chg = ps_calloc(cols * rows);
+    if (!cells || !mark || !chg) {
+        free(cells);
+        free(mark);
+        free(chg);
+        return false;
+    }
+    for (int i = 0; i < cols * rows; i++) cells[i] = *sea;
+    for (int r = 0; r < m->rows; r++)
+        for (int c = 0; c < m->cols; c++) {
+            const int nc = c + dc, nr = r + dr;
+            if (nc >= 0 && nr >= 0 && nc < cols && nr < rows) cells[nr * cols + nc] = m->cells[r * m->cols + c];
+        }
+    int x0, y0, x1, y1;
+    pos(m, 0, 0, 0, &x0, &y0);                       // (an old cell, to keep where it is on screen)
+    free(m->cells);
+    free(m->mark);
+    free(m->chg_of);
+    free(m->acells);
+    free(m->aframe);
+    free(m->bcells);
+    m->acells = m->bcells = NULL;
+    m->aframe = NULL;
+    m->nacells = m->nbcells = 0;
+    m->cells = cells;
+    m->mark = mark;
+    m->chg_of = chg;
+    m->cols = cols;
+    m->rows = rows;
+    for (int i = 0; i < m->nunits; i++) {
+        iso_unit_t *u = &m->units[i];
+        u->c += dc, u->r += dr, u->fc += dc, u->fr += dr;
+    }
+    m->turn_c += dc, m->turn_r += dr;
+    pos(m, dc, dr, 0, &x1, &y1);
+    m->camx += x1 - x0;
+    m->camy += y1 - y0;
+    return true;
+}
+
+// A cell's part of the layer drawn again (as the layer has it now).
+static void redraw_cell(iso_map_t *m, int i)
+{
+    const int c = i % m->cols, r = i / m->cols;
+    int x, y;
+    pos(m, c, r, 0, &x, &y);
+    const int top = y - (m->cells[i].h + 1) * ISO_STEP - m->col_up;
+    redraw_box(m, x - m->col_l, top, x + m->col_l, y + m->col_dn);
+}
+
+bool iso_emerge(iso_map_t *m, const uint16_t *cells, const uint16_t *delay_ms, int n, int rise_ms, const iso_cell_t *sea)
+{
+    if (m->nem || n <= 0) return false;
+    m->em_cell = ps_malloc(n * sizeof(uint16_t));
+    m->em_start = ps_malloc(n * sizeof(uint16_t));
+    m->em_of = ps_calloc(m->cols * m->rows);
+    if (!m->em_cell || !m->em_start || !m->em_of) {
+        free(m->em_cell);
+        free(m->em_start);
+        free(m->em_of);
+        m->em_cell = m->em_start = NULL;
+        m->em_of = NULL;
+        return false;
+    }
+    memcpy(m->em_cell, cells, n * sizeof(uint16_t));
+    memcpy(m->em_start, delay_ms, n * sizeof(uint16_t));
+    m->nem = n;
+    m->em_done = 0;
+    m->em_t = 0;
+    m->em_rise = (uint16_t)(rise_ms > 0 ? rise_ms : 1);
+    m->em_sea = *sea;
+    for (int k = 0; k < n; k++) m->em_of[cells[k]] = 1;
+    if (m->layer)
+        for (int k = 0; k < n; k++) redraw_cell(m, cells[k]);
+    return true;
+}
+
+// The rise moves on: a cell up joins the layer; all up, the lists go.
+static void emerge_step(iso_map_t *m, uint32_t dt_ms)
+{
+    if (!m->nem) return;
+    m->em_t += dt_ms;
+    for (int k = 0; k < m->nem; k++) {
+        const int i = m->em_cell[k];
+        if (!m->em_of[i] || m->em_t < (uint32_t)m->em_start[k] + m->em_rise) continue;
+        m->em_of[i] = 0;
+        m->em_done++;
+        if (m->layer) redraw_cell(m, i);
+    }
+    if (m->em_done >= m->nem) {
+        free(m->em_cell);
+        free(m->em_start);
+        free(m->em_of);
+        m->em_cell = m->em_start = NULL;
+        m->em_of = NULL;
+        m->nem = m->em_done = 0;
     }
 }
 
@@ -725,7 +912,7 @@ bool iso_set_view(iso_map_t *m, int view)
 
 void iso_turn(iso_map_t *m, int by, int c, int r)
 {
-    if (m->turn_ms || !by || !iso_inside(m, c, r)) return;
+    if (m->turn_ms || !by || !iso_inside(m, c, r) || m->nem) return;
     for (int k = 0; k < ISO_CHANGES; k++)
         if (m->chg[k].len) return;                                // the scenery changing: turn once it is done
     m->turn_ms = 1;
@@ -829,6 +1016,7 @@ void iso_update(iso_map_t *m, uint32_t dt_ms)
 {
     turn_step(m, dt_ms);
     changes_step(m, dt_ms);
+    emerge_step(m, dt_ms);
     for (int i = 0; i < m->nunits; i++) {
         iso_unit_t *u = &m->units[i];
         u->t += dt_ms;
@@ -1300,6 +1488,7 @@ static void draw_spun_layer(const iso_map_t *m, uint16_t *px, int w, int h)
 void iso_draw(iso_map_t *m, uint16_t *px, int w, int h, int cc, int cr, uint32_t now_ms)
 {
     m->now = now_ms;
+    follow_window(m, w, h);
     tick_scenery(m, w, h);
     const bool spinning = m->turn_ms && m->turn_style == ISO_TURN_SPIN;
     if (spinning) draw_spun_layer(m, px, w, h);
@@ -1353,7 +1542,8 @@ void iso_draw(iso_map_t *m, uint16_t *px, int w, int h, int cc, int cr, uint32_t
 
     // Units and moving scenery, back to front in the view; while stepping, a unit counts as being on the nearer of
     // its two cells; on one cell, the scenery first (a unit rides a rising column), a dropped image last.
-    int ent[ISO_UNITS + ISO_CHANGES + ISO_BOBS], key[ISO_UNITS + ISO_CHANGES + ISO_BOBS], n = 0;
+    enum { EM0 = ISO_UNITS + ISO_CHANGES + ISO_BOBS };
+    int ent[EM0 + ISO_EMERGE], key[EM0 + ISO_EMERGE], n = 0;
     for (int i = 0; i < m->nunits; i++) {
         const iso_unit_t *u = &m->units[i];
         int c0, r0, c1, r1;
@@ -1375,6 +1565,15 @@ void iso_draw(iso_map_t *m, uint16_t *px, int w, int h, int cc, int cr, uint32_t
         ent[n] = ISO_UNITS + ISO_CHANGES + k;
         key[n++] = ((vc + vr) * 256 + vc) * 4;
     }
+    for (int k = 0, shown = 0; k < m->nem && shown < ISO_EMERGE && !spinning; k++) {   // cells rising now
+        const int i = m->em_cell[k];
+        if (!m->em_of[i] || m->em_t < m->em_start[k]) continue;
+        int vc, vr;
+        to_view(m, i % m->cols, i / m->cols, &vc, &vr);
+        ent[n] = EM0 + k;
+        key[n++] = ((vc + vr) * 256 + vc) * 4;
+        shown++;
+    }
     for (int i = 1; i < n; i++)
         for (int j = i; j > 0 && key[j - 1] > key[j]; j--) {
             int t = key[j - 1];
@@ -1385,6 +1584,19 @@ void iso_draw(iso_map_t *m, uint16_t *px, int w, int h, int cc, int cr, uint32_t
             ent[j] = t;
         }
     for (int k = 0; k < n; k++) {
+        if (ent[k] >= EM0) {                              // rising out of the water: its foot cut at the water line
+            const int e = ent[k] - EM0, i = m->em_cell[e], c = i % m->cols, r = i / m->cols;
+            const iso_cell_t *cell = &m->cells[i];
+            const uint32_t age = m->em_t - m->em_start[e];
+            const float p = ease((float)age / m->em_rise);
+            const int depth = (cell->h + 1) * ISO_STEP + 2 * ISO_HH;
+            int x, y;
+            pos(m, c, r, 0, &x, &y);
+            const fart_clip_t water = { 0, 0, w, y - m->camy + ISO_HH < h ? y - m->camy + ISO_HH : h };
+            draw_column_at(m, px, w, &water, c, r, m->camx, m->camy - (int)((1 - p) * depth), cell);
+            draw_dust(px, w, h, x - m->camx, y - m->camy, age, m->em_rise * 2 / 3, rgb565(0xd8f0ff), i);
+            continue;
+        }
         if (ent[k] >= ISO_UNITS + ISO_CHANGES) {
             const int i = m->bcells[ent[k] - ISO_UNITS - ISO_CHANGES], c = i % m->cols, r = i / m->cols;
             int dx = 0, dy = 0;

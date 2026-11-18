@@ -209,6 +209,7 @@ static void trans_apply(uint16_t *px, int w, int h, uint32_t dt)
 void battle_host_place(int i, int c, int r, int dir);
 void battle_host_act(int a, int act, int what, int b);
 void battle_host_counter(int i);
+void battle_host_guard(int i);
 void battle_host_target(int a, int act, int what, int c, int r);
 void battle_host_gear(int i, int weapon, int armour);
 void battle_host_end(bool won);
@@ -240,7 +241,7 @@ static screen_t s_dev_next = SCR_QUIT;            // a screen a dev command asks
 // gear UNIT WEAPON ARMOUR, ranged UNIT RANGE, cam X Y, xp SLOT N, hp UNIT N, win, lose, log (battle only); info,
 // nosave (anywhere: the save is not written until the game closes); outside a battle: go REALM FASE BATTLE (to
 // its loading screen), won REALM FASE N (battles won in a fase), level HERO N (a roster hero's level), coins N,
-// give GOODS N (into the bag), screen NAME (title, party, realms, path, shop). False if unknown or not here.
+// give GOODS N (into the bag), inparty HERO 0|1 (in the party or out), screen NAME (title, party, realms, path, shop). False if unknown or not here.
 bool dev_command(const char *line)
 {
     char cmd[16] = "", a[16] = "";
@@ -280,6 +281,8 @@ bool dev_command(const char *line)
             g_save.heroes[n[0]].level = (uint8_t)(n[1] < 1 ? 1 : n[1] > LEVEL_MAX ? LEVEL_MAX : n[1]);
             g_save.heroes[n[0]].xp = 0;
         } else if (!strcmp(cmd, "coins") && sscanf(line, "%*s %d", &n[0]) == 1) g_save.coins = (uint32_t)n[0];
+        else if (!strcmp(cmd, "inparty") && sscanf(line, "%*s %d %d", &n[0], &n[1]) == 2 && n[0] >= 0 && n[0] < ROSTER)
+            g_save.heroes[n[0]].in_party = n[1] != 0;
         else if (!strcmp(cmd, "give") && sscanf(line, "%*s %d %d", &n[0], &n[1]) == 2 && n[0] >= 0 && n[0] < g_ngoods)
             g_save.bag[n[0]] = (uint8_t)n[1];
         else if (!strcmp(cmd, "screen") && sscanf(line, "%*s %15s", a) == 1) {
@@ -298,6 +301,7 @@ bool dev_command(const char *line)
     else if (!strcmp(cmd, "act") && sscanf(line, "%*s %d %d %d %d", &n[0], &n[1], &n[2], &n[3]) == 4)
         battle_host_act(n[0], n[1], n[2], n[3]);
     else if (!strcmp(cmd, "counter") && sscanf(line, "%*s %d", &n[0]) == 1) battle_host_counter(n[0]);
+    else if (!strcmp(cmd, "guard") && sscanf(line, "%*s %d", &n[0]) == 1) battle_host_guard(n[0]);
     else if (!strcmp(cmd, "target") && sscanf(line, "%*s %d %d %d %d %d", &n[0], &n[1], &n[2], &n[3], &n[4]) == 5)
         battle_host_target(n[0], n[1], n[2], n[3], n[4]);
     else if (!strcmp(cmd, "gear") && sscanf(line, "%*s %d %d %d", &n[0], &n[1], &n[2]) == 3) battle_host_gear(n[0], n[1], n[2]);

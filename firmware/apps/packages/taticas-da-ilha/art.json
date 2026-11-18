@@ -173,6 +173,230 @@
    }
   }
  ],
+ "creatures": [
+  {
+   "name": "sapphilit",
+   "sheet": "../../../../assets/packs/ragnarok-enemies/Sapphilit.png",
+   "death": [
+    2,
+    3,
+    4
+   ],
+   "pack": "agua"
+  },
+  {
+   "name": "rubylit",
+   "sheet": "../../../../assets/packs/ragnarok-enemies/Rubylit.png",
+   "death": [
+    2,
+    3,
+    4
+   ],
+   "pack": "fogo"
+  },
+  {
+   "name": "topalit",
+   "sheet": "../../../../assets/packs/ragnarok-enemies/Topalit.png",
+   "death": [
+    2,
+    3,
+    4
+   ],
+   "pack": "ar"
+  },
+  {
+   "name": "esmeralit",
+   "sheet": "../../../../assets/packs/ragnarok-enemies/Sapphilit.png",
+   "death": [
+    2,
+    3,
+    4
+   ],
+   "recolor": {
+    "hue": [
+     205,
+     45
+    ],
+    "to": 128,
+    "sat": 1.1
+   },
+   "pack": "terra"
+  },
+  {
+   "name": "spirit.fogo",
+   "sheet": "../../../../assets/packs/ragnarok-enemies/Ifrit.png",
+   "split": [
+    1131
+   ],
+   "frames": {
+    "idle.sw": "0-5",
+    "idle.ne": "9-14",
+    "run.sw": "idle.sw",
+    "run.ne": "idle.ne",
+    "bite.sw": "16-21",
+    "bite.ne": "23-28",
+    "hit.sw": "29-30",
+    "hit.ne": "41-42",
+    "death.sw": "31-37",
+    "death.ne": "43-49"
+   },
+   "ms": {
+    "idle": 160
+   },
+   "pack": "fogo"
+  },
+  {
+   "name": "spirit.agua",
+   "sheet": "../../../../assets/packs/ragnarok-enemies/AquaElemental.png",
+   "frames": {
+    "idle.sw": "3-8",
+    "idle.ne": "9-14",
+    "run.sw": "15-22",
+    "run.ne": "24-31",
+    "bite.sw": "32-38,40,42",
+    "bite.ne": "43-49,51,54",
+    "hit.sw": "56-57",
+    "hit.ne": "63-64",
+    "death.sw": "58-62",
+    "death.ne": "65-69"
+   },
+   "scale": 0.7,
+   "recolor": {
+    "hue": [
+     245,
+     90
+    ],
+    "to": 208,
+    "sat": 3.2,
+    "min_sat": 0.03,
+    "light": 0.95
+   },
+   "pack": "agua"
+  },
+  {
+   "name": "spirit.terra",
+   "sheet": "../../../../assets/packs/ragnarok-enemies/AncientTree.png",
+   "frames": {
+    "idle.sw": "2-7",
+    "idle.ne": "8-13",
+    "run.sw": "15-20",
+    "run.ne": "21-26",
+    "bite.sw": "28-37",
+    "bite.ne": "39-46",
+    "hit.sw": "54-55",
+    "hit.ne": "61-62",
+    "death.sw": "56-58",
+    "death.ne": "63-65"
+   },
+   "pack": "terra"
+  },
+  {
+   "name": "spirit.ar",
+   "sheet": "../../../../assets/packs/ragnarok-enemies/AquaElemental.png",
+   "frames": {
+    "idle.sw": "3-8",
+    "idle.ne": "9-14",
+    "run.sw": "15-22",
+    "run.ne": "24-31",
+    "bite.sw": "32-38,40,42",
+    "bite.ne": "43-49,51,54",
+    "hit.sw": "56-57",
+    "hit.ne": "63-64",
+    "death.sw": "58-62",
+    "death.ne": "65-69"
+   },
+   "scale": 0.7,
+   "recolor": {
+    "hue": [
+     245,
+     90
+    ],
+    "to": 46,
+    "sat": 2.2,
+    "min_sat": 0.03
+   },
+   "pack": "ar"
+  },
+  {
+   "name": "golemfogo",
+   "sheet": "../../../../assets/packs/ragnarok-enemies/FireGolem.png",
+   "frames": {
+    "idle.sw": "0-4",
+    "idle.ne": "6-10",
+    "run.sw": "11,13,15,17,19,21",
+    "run.ne": "23,25,27,30,32,34",
+    "bite.sw": "36-40",
+    "bite.ne": "42-46",
+    "hit.sw": "47",
+    "hit.ne": "54",
+    "death.sw": "48-52",
+    "death.ne": "55-59"
+   },
+   "pack": "fogo"
+  },
+  {
+   "name": "golem",
+   "sheet": "../../../../assets/packs/ragnarok-enemies/Golem.png",
+   "frames": {
+    "idle.sw": "0-4",
+    "idle.ne": "5-9",
+    "run.sw": "11,13,15,17,19,21",
+    "run.ne": "23,25,27,29,31,33",
+    "bite.sw": "36-40",
+    "bite.ne": "41-45",
+    "hit.sw": "47",
+    "hit.ne": "58",
+    "death.sw": "48-52",
+    "death.ne": "59-63"
+   },
+   "pack": "terra"
+  },
+  {
+   "name": "titagelo",
+   "sheet": "../../../../assets/packs/ragnarok-enemies/IceTitan.png",
+   "frames": {
+    "idle.sw": "1-6",
+    "idle.ne": "13-18",
+    "run.sw": "26-30",
+    "run.ne": "37-41",
+    "bite.sw": "48-53",
+    "bite.ne": "60-64",
+    "hit.sw": "78",
+    "hit.ne": "77",
+    "death.sw": "79-84",
+    "death.ne": "88-92"
+   },
+   "scale": 0.45,
+   "pack": "agua"
+  },
+  {
+   "name": "titavento",
+   "sheet": "../../../../assets/packs/ragnarok-enemies/IceTitan.png",
+   "frames": {
+    "idle.sw": "1-6",
+    "idle.ne": "13-18",
+    "run.sw": "26-30",
+    "run.ne": "37-41",
+    "bite.sw": "48-53",
+    "bite.ne": "60-64",
+    "hit.sw": "78",
+    "hit.ne": "77",
+    "death.sw": "79-84",
+    "death.ne": "88-92"
+   },
+   "scale": 0.45,
+   "recolor": {
+    "hue": [
+     262,
+     45
+    ],
+    "to": 48,
+    "sat": 0.9,
+    "light": 1.08
+   },
+   "pack": "ar"
+  }
+ ],
  "anims": [
   {
    "name": "knight.walk",
@@ -1217,131 +1441,6 @@
    }
   },
   {
-   "name": "king.fogo.idle",
-   "files": {
-    "sw": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Idle Down.png",
-    "ne": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Idle Up.png"
-   },
-   "grid": [
-    64,
-    64
-   ],
-   "anchor": [
-    31,
-    50
-   ],
-   "ms": 160,
-   "recolor": {
-    "hue": [
-     285,
-     45
-    ],
-    "to": 10,
-    "sat": 2.0,
-    "light": 0.85
-   }
-  },
-  {
-   "name": "king.fogo.run",
-   "files": {
-    "sw": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Walk Down.png",
-    "ne": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Walk Up.png"
-   },
-   "grid": [
-    64,
-    64
-   ],
-   "anchor": [
-    31,
-    50
-   ],
-   "ms": 90,
-   "recolor": {
-    "hue": [
-     285,
-     45
-    ],
-    "to": 10,
-    "sat": 2.0,
-    "light": 0.85
-   }
-  },
-  {
-   "name": "king.fogo.bite",
-   "files": {
-    "sw": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Attack Down.png",
-    "ne": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Attack Up.png"
-   },
-   "grid": [
-    64,
-    64
-   ],
-   "anchor": [
-    31,
-    50
-   ],
-   "ms": 80,
-   "recolor": {
-    "hue": [
-     285,
-     45
-    ],
-    "to": 10,
-    "sat": 2.0,
-    "light": 0.85
-   }
-  },
-  {
-   "name": "king.fogo.death",
-   "files": {
-    "sw": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Death Down.png",
-    "ne": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Death Up.png"
-   },
-   "grid": [
-    64,
-    64
-   ],
-   "anchor": [
-    31,
-    50
-   ],
-   "ms": 120,
-   "recolor": {
-    "hue": [
-     285,
-     45
-    ],
-    "to": 10,
-    "sat": 2.0,
-    "light": 0.85
-   }
-  },
-  {
-   "name": "king.fogo.hit",
-   "files": {
-    "sw": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Get Hit Down.png",
-    "ne": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Get Hit Up.png"
-   },
-   "grid": [
-    64,
-    64
-   ],
-   "anchor": [
-    31,
-    50
-   ],
-   "ms": 120,
-   "recolor": {
-    "hue": [
-     285,
-     45
-    ],
-    "to": 10,
-    "sat": 2.0,
-    "light": 0.85
-   }
-  },
-  {
    "name": "slime.agua.idle",
    "files": {
     "sw": "../../../../assets/packs/free-slimes/Blue Slime/blue slime-Idle Down.png",
@@ -1417,86 +1516,6 @@
    ],
    "anchor": [
     32,
-    50
-   ],
-   "ms": 120
-  },
-  {
-   "name": "king.agua.idle",
-   "files": {
-    "sw": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Idle Down.png",
-    "ne": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Idle Up.png"
-   },
-   "grid": [
-    64,
-    64
-   ],
-   "anchor": [
-    31,
-    50
-   ],
-   "ms": 160
-  },
-  {
-   "name": "king.agua.run",
-   "files": {
-    "sw": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Walk Down.png",
-    "ne": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Walk Up.png"
-   },
-   "grid": [
-    64,
-    64
-   ],
-   "anchor": [
-    31,
-    50
-   ],
-   "ms": 90
-  },
-  {
-   "name": "king.agua.bite",
-   "files": {
-    "sw": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Attack Down.png",
-    "ne": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Attack Up.png"
-   },
-   "grid": [
-    64,
-    64
-   ],
-   "anchor": [
-    31,
-    50
-   ],
-   "ms": 80
-  },
-  {
-   "name": "king.agua.death",
-   "files": {
-    "sw": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Death Down.png",
-    "ne": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Death Up.png"
-   },
-   "grid": [
-    64,
-    64
-   ],
-   "anchor": [
-    31,
-    50
-   ],
-   "ms": 120
-  },
-  {
-   "name": "king.agua.hit",
-   "files": {
-    "sw": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Get Hit Down.png",
-    "ne": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Get Hit Up.png"
-   },
-   "grid": [
-    64,
-    64
-   ],
-   "anchor": [
-    31,
     50
    ],
    "ms": 120
@@ -1582,86 +1601,6 @@
    "ms": 120
   },
   {
-   "name": "king.terra.idle",
-   "files": {
-    "sw": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Idle Down.png",
-    "ne": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Idle Up.png"
-   },
-   "grid": [
-    64,
-    64
-   ],
-   "anchor": [
-    31,
-    50
-   ],
-   "ms": 160
-  },
-  {
-   "name": "king.terra.run",
-   "files": {
-    "sw": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Walk Down.png",
-    "ne": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Walk Up.png"
-   },
-   "grid": [
-    64,
-    64
-   ],
-   "anchor": [
-    31,
-    50
-   ],
-   "ms": 90
-  },
-  {
-   "name": "king.terra.bite",
-   "files": {
-    "sw": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Attack Down.png",
-    "ne": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Attack Up.png"
-   },
-   "grid": [
-    64,
-    64
-   ],
-   "anchor": [
-    31,
-    50
-   ],
-   "ms": 80
-  },
-  {
-   "name": "king.terra.death",
-   "files": {
-    "sw": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Death Down.png",
-    "ne": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Death Up.png"
-   },
-   "grid": [
-    64,
-    64
-   ],
-   "anchor": [
-    31,
-    50
-   ],
-   "ms": 120
-  },
-  {
-   "name": "king.terra.hit",
-   "files": {
-    "sw": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Get Hit Down.png",
-    "ne": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Get Hit Up.png"
-   },
-   "grid": [
-    64,
-    64
-   ],
-   "anchor": [
-    31,
-    50
-   ],
-   "ms": 120
-  },
-  {
    "name": "slime.ar.idle",
    "files": {
     "sw": "../../../../assets/packs/free-slimes/Yellow Slime/yellow slime-Idle Down.png",
@@ -1742,6 +1681,306 @@
    "ms": 120
   },
   {
+   "name": "king.fogo.idle",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Idle Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Idle Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 160,
+   "recolor": {
+    "hue": [
+     285,
+     45
+    ],
+    "to": 10,
+    "sat": 2.0,
+    "light": 0.85
+   },
+   "pack": "fogo"
+  },
+  {
+   "name": "king.fogo.run",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Walk Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Walk Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 90,
+   "recolor": {
+    "hue": [
+     285,
+     45
+    ],
+    "to": 10,
+    "sat": 2.0,
+    "light": 0.85
+   },
+   "pack": "fogo"
+  },
+  {
+   "name": "king.fogo.bite",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Attack Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Attack Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 80,
+   "recolor": {
+    "hue": [
+     285,
+     45
+    ],
+    "to": 10,
+    "sat": 2.0,
+    "light": 0.85
+   },
+   "pack": "fogo"
+  },
+  {
+   "name": "king.fogo.death",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Death Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Death Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 120,
+   "recolor": {
+    "hue": [
+     285,
+     45
+    ],
+    "to": 10,
+    "sat": 2.0,
+    "light": 0.85
+   },
+   "pack": "fogo"
+  },
+  {
+   "name": "king.fogo.hit",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Get Hit Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Purple King Slime/king purple slime-Get Hit Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 120,
+   "recolor": {
+    "hue": [
+     285,
+     45
+    ],
+    "to": 10,
+    "sat": 2.0,
+    "light": 0.85
+   },
+   "pack": "fogo"
+  },
+  {
+   "name": "king.agua.idle",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Idle Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Idle Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 160,
+   "pack": "agua"
+  },
+  {
+   "name": "king.agua.run",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Walk Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Walk Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 90,
+   "pack": "agua"
+  },
+  {
+   "name": "king.agua.bite",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Attack Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Attack Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 80,
+   "pack": "agua"
+  },
+  {
+   "name": "king.agua.death",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Death Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Death Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 120,
+   "pack": "agua"
+  },
+  {
+   "name": "king.agua.hit",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Get Hit Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Blue King Slime/king blue slime-Get Hit Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 120,
+   "pack": "agua"
+  },
+  {
+   "name": "king.terra.idle",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Idle Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Idle Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 160,
+   "pack": "terra"
+  },
+  {
+   "name": "king.terra.run",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Walk Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Walk Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 90,
+   "pack": "terra"
+  },
+  {
+   "name": "king.terra.bite",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Attack Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Attack Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 80,
+   "pack": "terra"
+  },
+  {
+   "name": "king.terra.death",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Death Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Death Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 120,
+   "pack": "terra"
+  },
+  {
+   "name": "king.terra.hit",
+   "files": {
+    "sw": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Get Hit Down.png",
+    "ne": "../../../../assets/packs/free-slimes/Green King Slime/king green slime-Get Hit Up.png"
+   },
+   "grid": [
+    64,
+    64
+   ],
+   "anchor": [
+    31,
+    50
+   ],
+   "ms": 120,
+   "pack": "terra"
+  },
+  {
    "name": "king.ar.idle",
    "files": {
     "sw": "../../../../assets/packs/free-slimes/Yellow King Slime/king yellow slime-Idle Down.png",
@@ -1755,7 +1994,8 @@
     31,
     50
    ],
-   "ms": 160
+   "ms": 160,
+   "pack": "ar"
   },
   {
    "name": "king.ar.run",
@@ -1771,7 +2011,8 @@
     31,
     50
    ],
-   "ms": 90
+   "ms": 90,
+   "pack": "ar"
   },
   {
    "name": "king.ar.bite",
@@ -1787,7 +2028,8 @@
     31,
     50
    ],
-   "ms": 80
+   "ms": 80,
+   "pack": "ar"
   },
   {
    "name": "king.ar.death",
@@ -1803,7 +2045,8 @@
     31,
     50
    ],
-   "ms": 120
+   "ms": 120,
+   "pack": "ar"
   },
   {
    "name": "king.ar.hit",
@@ -1819,7 +2062,8 @@
     31,
     50
    ],
-   "ms": 120
+   "ms": 120,
+   "pack": "ar"
   },
   {
    "name": "fx.slash",
@@ -2281,5 +2525,6 @@
     "ms": 80
    }
   }
- ]
+ ],
+ "pack_out": "assets/realm-{}.fart"
 }

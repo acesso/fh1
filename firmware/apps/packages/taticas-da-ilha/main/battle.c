@@ -12,7 +12,7 @@
 #ifdef PC_HOST
 void battle_debug(void);
 #endif
-#define MAXCELLS (16 * 16)
+#define MAXCELLS (36 * 36)               // the biggest islands (the third fase's)
 #define COLS (s_map.cols)
 #define ROWS (s_map.rows)
 
@@ -28,11 +28,15 @@ typedef struct {
     int slot;                        // heroes: the party slot (result_t arrays)
     int range;                       // enemies: how far they attack (1: next to them)
     bool absent;                     // a boss not on the field yet: it drops in once its minions are down
+    bool wave;                       // of the second wave (from the second fase): it teleports in after the first
+    bool guard;                      // heroes: holding their ground (Guarda) until their next turn: half the damage
 } fighter_t;
 
-typedef enum { ST_CHOOSE, ST_MENU, ST_MOVE, ST_TARGET, ST_LIST, ST_BUSY, ST_ENEMY, ST_BATTLE, ST_OVER, ST_SUMMARY, ST_SHOW } state_t;
+typedef enum { ST_CHOOSE, ST_MENU, ST_MOVE, ST_TARGET, ST_LIST, ST_BUSY, ST_ENEMY, ST_BATTLE, ST_OVER, ST_SUMMARY, ST_SHOW,
+               ST_SCENE } state_t;
 enum { ACT_ATTACK, ACT_SPELL, ACT_ITEM };
-enum { M_MOVE, M_ATTACK, M_MAGIC, M_ITEMS, M_EQUIP, M_COUNTER, M_WAIT, M_COUNT };
+enum { M_MOVE, M_ATTACK, M_MAGIC, M_ITEMS, M_EQUIP, M_COUNTER, M_GUARD, M_WAIT, M_COUNT };
+#define GUARD_LEVEL 5                // Guarda: from this level
 enum { L_MAGIC, L_ITEMS, L_EQUIP, L_WEAPON, L_ARMOUR };
 
 static iso_map_t s_map;
@@ -59,13 +63,16 @@ static bool s_show, s_show_end;
 static uint8_t s_fires[FIRES][2];
 static int s_nfires, s_fire_light[FIRES];
 // A portal on the map (the engine's), where its frame stands.
-static portal_t s_portal;
-static int s_portal_c = -1, s_portal_r;
+// Portals on the map: the showcase's (0), the island's growing has two (0 the shadow's, 1 the heroes').
+#define PORTALS 2
+static portal_t s_portal[PORTALS];
+static int s_portal_c[PORTALS] = { -1, -1 }, s_portal_r[PORTALS];
 static void draw_portal(iso_map_t *m, uint16_t *px, int w, int h);
 static int s_show_i, s_show_step, s_show_k;
 static uint32_t s_show_t;
 static bool s_cam_fixed;                        // the PC host holds the camera still
 static int s_boss_in = -1;                      // a boss arriving (its unit), and how far along
+static int32_t s_wave_t = -1;                   // the second wave coming: ms into it (-1: not now)
 static uint32_t s_boss_t;
 static int s_quake;                             // a spell's rocks shake the screen as they land (strength)
 static int s_tier_force;                        // tests: every spell at this tier (0: by its caster's level)
@@ -148,13 +155,19 @@ static void scenery_sound(const iso_map_t *m, int c, int r, int fx, int event)
 bool battle_enter(void)
 {
     const battle_def_t *b = &g_battle;
+    // The realm's creatures (assets/realm-KEY.fart: its crystal spirit, its big ones, its fase 2 spirit) beside the
+    // rest of the art while the battle is on.
+    char pack[96];
+    snprintf(pack, sizeof(pack), "%s/assets/realm-%s.fart", fh1_app_dir(), g_realms[b->realm].key);
+    if (!fart_extend(&g_art, pack)) fh1_log("no creatures pack %s", pack);
     if (!iso_init(&s_map, &g_art, b->cols, b->rows)) return false;
-    uint8_t spots[3][2], foes[6][2], show_h[4][2], show_f[4][2];
+    uint8_t spots[PARTY_MAX][2], foes[FOES_MAX][2] = { { 0 } }, show_h[4][2], show_f[4][2];
     map_build(&s_map, b, spots, foes);
     if (b->show) show_spots(b, show_h, show_f);               // the showcase: all four heroes on its stage
     memset(&g_result, 0, sizeof(g_result));
     int slot = 0;
-    for (int i = 0; i < ROSTER && slot < (b->show ? ROSTER : PARTY_MAX); i++) {
+    const int cap = b->show ? ROSTER : party_cap(b->tier);    // (the first fase: the first three of the party)
+    for (int i = 0; i < ROSTER && slot < cap; i++) {
         hero_t *h = &g_save.heroes[i];
         if (!h->in_party && !b->show) continue;
         const uint8_t *at = b->show ? show_h[slot] : spots[slot];
@@ -197,13 +210,23 @@ bool battle_enter(void)
         snprintf(an, sizeof(an), "%s.hit", foe.art);
         f->hit = fart_anim(&g_art, an);
     }
+    // The second wave (from the second fase) waits off the field until the first is down.
+    s_wave_t = -1;
+    for (int i = 0, k = 0; i < s_map.nunits; i++) {
+        if (s_f[i].hero) continue;
+        if (b->n1 && k >= b->n1) {
+            s_f[i].wave = s_f[i].absent = s_f[i].down = true;
+            s_map.units[i].hidden = true;
+        }
+        k++;
+    }
     // A boss with minions waits off the field: it drops in once they are all down.
     s_boss_in = -1;
     s_quake = 0;
     int minions = 0;
-    for (int i = 0; i < s_map.nunits; i++) minions += !s_f[i].hero && !s_f[i].foe.boss;
+    for (int i = 0; i < s_map.nunits; i++) minions += !s_f[i].hero && !s_f[i].foe.boss && !s_f[i].wave;
     for (int i = 0; i < s_map.nunits && minions; i++)
-        if (!s_f[i].hero && s_f[i].foe.boss) {
+        if (!s_f[i].hero && s_f[i].foe.boss && !s_f[i].wave) {
             s_f[i].absent = s_f[i].down = true;
             s_map.units[i].hidden = true;
         }
@@ -218,16 +241,16 @@ bool battle_enter(void)
     iso_lit(&s_map, fart_image(&g_art, "prop.campfire"));
 
     // A portal's frame on the map: the engine's portal in it, in the realm's colour (opened by the showcase).
-    s_portal_c = -1;
+    s_portal_c[0] = s_portal_c[1] = -1;
     const int frame = fart_image(&g_art, "prop.portal.frame");
     for (int r = 0; r < s_map.rows; r++)
         for (int c = 0; c < s_map.cols; c++)
-            if (frame >= 0 && iso_cell(&s_map, c, r)->obj == frame) s_portal_c = c, s_portal_r = r;
-    if (s_portal_c >= 0 && portal_load(&s_portal, &g_art, "portal.whirl")) {
-        portal_colour(&s_portal, g_elements[g_realms[b->realm].element].rgb);
-        portal_glow(&s_portal, fart_image(&g_art, "prop.portal.glow"));
-        s_map.on_scenery = draw_portal;
-    } else s_portal_c = -1;
+            if (frame >= 0 && iso_cell(&s_map, c, r)->obj == frame) s_portal_c[0] = c, s_portal_r[0] = r;
+    if (s_portal_c[0] >= 0 && portal_load(&s_portal[0], &g_art, "portal.whirl")) {
+        portal_colour(&s_portal[0], g_elements[g_realms[b->realm].element].rgb);
+        portal_glow(&s_portal[0], fart_image(&g_art, "prop.portal.glow"));
+    } else s_portal_c[0] = -1;
+    s_map.on_scenery = draw_portal;
     // The campfires, for their sparks and their light.
     s_nfires = 0;
     const int fire = fart_image(&g_art, "prop.campfire");
@@ -256,7 +279,7 @@ bool battle_enter(void)
         s_show_i = s_show_step = s_show_k = 0;
         s_show_t = 0;
         banner("Mostra dos Heróis", 1800);
-        if (s_portal_c >= 0) portal_open(&s_portal);
+        if (s_portal_c[0] >= 0) portal_open(&s_portal[0]);
     }
     s_map.on_step = footstep;
     s_map.on_change = scenery_sound;
@@ -264,7 +287,11 @@ bool battle_enter(void)
     return true;
 }
 
-void battle_leave(void) { iso_free(&s_map); }
+void battle_leave(void)
+{
+    iso_free(&s_map);
+    fart_shrink(&g_art);                                         // (the realm's creatures go with the battle)
+}
 
 // ── Rules ──
 
@@ -295,7 +322,7 @@ static int face_toward(const iso_unit_t *u, int c, int r)
 static void reward(int by, int target)
 {
     const fighter_t *t = &s_f[target];
-    if (t->hero || g_result.nkills >= 8) return;
+    if (t->hero || g_result.nkills >= (int)(sizeof(g_result.kills) / sizeof(g_result.kills[0]))) return;
     g_result.kills[g_result.nkills].type = (uint8_t)t->type;
     g_result.kills[g_result.nkills].level = (uint8_t)t->level;
     g_result.kills[g_result.nkills].coins = (uint16_t)t->foe.coins;
@@ -321,10 +348,11 @@ static void hurt(int by, int target, int amount)
         if (f->hit) iso_play(&s_map.units[target], f->hit, false);
         return;
     }
+    if (f->guard) amount = (amount + 1) / 2;                     // holding its ground: half (rounded up)
     f->hp -= amount;
     s_map.units[target].flash = 360;
     snprintf(t, sizeof(t), "%d", amount);
-    popup(target, t, 0xffffff);
+    popup(target, t, f->guard ? 0x9fd8ff : 0xffffff);
     if (f->hp <= 0) {
         f->hp = 0;
         f->down = true;
@@ -807,7 +835,7 @@ static int next_hero(int step)
 
 static void open_menu(int i)
 {
-    static const char *items[M_COUNT] = { "Mover", "Atacar", "Magia", "Itens", "Equipar", "Reagir", "Esperar" };
+    static const char *items[M_COUNT] = { "Mover", "Atacar", "Magia", "Itens", "Equipar", "Reagir", "Guarda", "Esperar" };
     s_sel = i;
     cursor_to(i);
     memset(&s_menu, 0, sizeof(s_menu));
@@ -817,7 +845,11 @@ static void open_menu(int i)
     s_menu.notes[M_COUNTER] = "1x";
     const fighter_t *f = &s_f[i];
     s_menu.off = (f->moved ? 1u << M_MOVE : 0) |
-                 (f->acted ? (1u << M_ATTACK) | (1u << M_MAGIC) | (1u << M_ITEMS) | (1u << M_COUNTER) : 0);
+                 (f->acted ? (1u << M_ATTACK) | (1u << M_MAGIC) | (1u << M_ITEMS) | (1u << M_COUNTER) | (1u << M_GUARD) : 0);
+    if (f->h->level < GUARD_LEVEL) {                             // Guarda comes at level 5
+        s_menu.off |= 1u << M_GUARD;
+        s_menu.notes[M_GUARD] = "Nv5";
+    }
     if (!g_classes[f->h->cls].spells) s_menu.off |= 1u << M_MAGIC;
     while (s_menu.off & (1u << s_menu.sel)) s_menu.sel++;
     s_st = ST_MENU;
@@ -974,6 +1006,10 @@ static void new_round(void)
 {
     for (int i = 0; i < s_map.nunits; i++) {
         if (s_f[i].hero) s_map.units[i].counter = false;
+        if (s_f[i].guard) {                                      // its turn again: it stands up
+            s_f[i].guard = false;
+            if (!s_f[i].down) s_map.units[i].once = NULL;
+        }
         s_f[i].moved = s_f[i].acted = s_f[i].done = false;
         if (!s_f[i].down) s_map.units[i].dim = false;
     }
@@ -1067,6 +1103,9 @@ static void move_cursor(int dir, bool reach)
         }
 }
 
+static void scene_start(void);
+static void scene_skip(void);
+
 static void input(void)
 {
     const int dir = g_keys.dir;
@@ -1149,6 +1188,17 @@ static void input(void)
             s_map.units[s_sel].counter = true;
             s_f[s_sel].acted = true;
             hero_done();
+        } else if (r == M_GUARD) {                                // kneeling, holding its ground until its next turn
+            fighter_t *g = &s_f[s_sel];
+            g->guard = true;
+            g->acted = true;
+            if (g->death) iso_play(&s_map.units[s_sel], g->death, true);
+            popup(s_sel, "Guarda", 0x9fd8ff);
+            float x, y;
+            chest(s_sel, &x, &y);
+            fx_sparkle(x, y, 0x9fff, 8);
+            snd_play(S_EQUIP, 200);
+            hero_done();
         } else if (r == M_WAIT) hero_done();
         break;
     }
@@ -1217,8 +1267,13 @@ static void input(void)
     case ST_SUMMARY:
         if (key(FH1_KEY_A)) {
             if (s_summary_t < summary_length()) s_summary_t = summary_length();   // A skips the counting
+            else if (g_result.cleared && g_battle.tier == 0 && !g_battle.show && tier_open(0, 1)) scene_start();   // the
+            // last realm's first fase cleared: the island grows, the fourth hero comes
             else s_ended = true;
         }
+        break;
+    case ST_SCENE:                                                // A: straight to the dark
+        if (key(FH1_KEY_A) || key(FH1_KEY_START)) scene_skip();
         break;
     default:
         break;
@@ -1233,7 +1288,7 @@ static void input(void)
 static int waiting_boss(void)
 {
     for (int i = 0; i < s_map.nunits; i++)
-        if (s_f[i].absent) return i;
+        if (s_f[i].absent && !s_f[i].wave) return i;
     return -1;
 }
 
@@ -1460,7 +1515,7 @@ static void show_update(uint32_t dt)
         banner("Vitória!", 2800);
         snd_play(S_ENCOUNTER, 200);
         s_show_step = SH_END;
-        if (s_portal_c >= 0) portal_close(&s_portal);
+        if (s_portal_c[0] >= 0) portal_close(&s_portal[0]);
         break;
     case SH_END:
         if (s_show_t >= 3000) s_show_end = true;
@@ -1473,22 +1528,25 @@ static void show_update(uint32_t dt)
 // The portal (on the layer, under the units): its vortex where its frame stands, the frame's front bits over it.
 static void draw_portal(iso_map_t *m, uint16_t *px, int w, int h)
 {
-    if (s_portal_c < 0) return;
-    int x, y;
-    iso_world(m, s_portal_c, s_portal_r, &x, &y);
-    x -= m->camx;
-    y -= m->camy + ISO_STEP;                                     // objects stand one level up
-    const fart_clip_t clip = { 0, 0, w, h };
-    const bool mirror = m->view & 1;
-    portal_draw(&s_portal, &g_art, px, w, &clip, x, y, mirror);
-    const int front = fart_image(&g_art, "prop.portal.front");
-    if (front >= 0 && portal_shown(&s_portal)) fart_draw(px, w, &clip, &g_art.img[front], x, y, mirror);
+    for (int k = 0; k < PORTALS; k++) {
+        if (s_portal_c[k] < 0) continue;
+        int x, y;
+        iso_world(m, s_portal_c[k], s_portal_r[k], &x, &y);
+        x -= m->camx;
+        y -= m->camy + ISO_STEP;                                 // objects stand one level up
+        const fart_clip_t clip = { 0, 0, w, h };
+        const bool mirror = m->view & 1;
+        portal_draw(&s_portal[k], &g_art, px, w, &clip, x, y, mirror);
+        const int front = fart_image(&g_art, "prop.portal.front");
+        if (front >= 0 && portal_shown(&s_portal[k])) fart_draw(px, w, &clip, &g_art.img[front], x, y, mirror);
+    }
 }
 
 static void fire_sparks(uint32_t dt)
 {
     static uint32_t acc;
-    if (s_portal_c >= 0) portal_update(&s_portal, dt);
+    for (int k = 0; k < PORTALS; k++)
+        if (s_portal_c[k] >= 0) portal_update(&s_portal[k], dt);
     for (int i = 0; i < s_nfires; i++) {                         // their light, where the view puts them
         int x, y;
         iso_world(&s_map, s_fires[i][0], s_fires[i][1], &x, &y);
@@ -1503,6 +1561,137 @@ static void fire_sparks(uint32_t dt)
     }
 }
 
+// ── The second wave (from the second fase): the first down, the island grows to the fase's size and the rest of
+// the battle's creatures teleport in, one by one, on the new land farthest from the heroes that can be walked to ──
+
+// The island grows to size round what it is: the new land rising out of the sea (the cursor and the campfires moved
+// with the map). Returns how many cells rise.
+static int grow_island(int size)
+{
+    static uint16_t cells[36 * 36], delay[36 * 36];
+    const int d = (size - s_map.cols) / 2;
+    const int n = map_grow(&s_map, &g_battle, size, cells, delay, size * size);
+    if (!n) return 0;
+    s_cc += d, s_cr += d;
+    for (int i = 0; i < s_nfires; i++) s_fires[i][0] += d, s_fires[i][1] += d;
+    map_grade(&s_map, g_battle.realm);
+    const iso_cell_t sea = *iso_cell(&s_map, 0, 0);
+    iso_emerge(&s_map, cells, delay, n, 650, &sea);
+    iso_build_layer(&s_map);
+    return n;
+}
+
+static bool wave_waiting(void)
+{
+    for (int i = 0; i < s_map.nunits; i++)
+        if (s_f[i].wave && s_f[i].absent) return true;
+    return false;
+}
+
+#define WAVE_GAP 380                                              // between two arriving
+static uint8_t s_wave_spot[FOES_MAX][2];
+static int s_wave_n;
+static int8_t s_wave_ord[ISO_UNITS];                              // each one's turn to come in (-1: not of it)
+static int s_wave_hc, s_wave_hr;                                  // the heroes' middle: where they look
+
+// Where they come in: from the heroes, over ground a step at most a level high (any hero can walk it), the free
+// cell farthest away, then the free cells nearest it.
+static void wave_spots(void)
+{
+    static uint8_t dist[MAXCELLS];
+    static uint16_t q[MAXCELLS];
+    memset(dist, 255, sizeof(dist));
+    int head = 0, tail = 0, far = -1, nh = 0;
+    s_wave_hc = s_wave_hr = 0;
+    for (int i = 0; i < s_map.nunits; i++)
+        if (s_f[i].hero && !s_f[i].down) {
+            s_wave_hc += s_map.units[i].c, s_wave_hr += s_map.units[i].r, nh++;
+            const int k = s_map.units[i].r * COLS + s_map.units[i].c;
+            if (dist[k] == 255) dist[k] = 0, q[tail++] = (uint16_t)k;
+        }
+    while (head < tail) {
+        const int k = q[head++], c = k % COLS, r = k / COLS;
+        static const int8_t dc[4] = { 1, 0, -1, 0 }, dr[4] = { 0, 1, 0, -1 };
+        for (int d = 0; d < 4; d++) {
+            const int nc = c + dc[d], nr = r + dr[d], j = nr * COLS + nc;
+            if (!iso_inside(&s_map, nc, nr) || dist[j] != 255) continue;
+            const iso_cell_t *a = iso_cell(&s_map, c, r), *b = iso_cell(&s_map, nc, nr);
+            if (!b->h || b->obj != ISO_NONE || b->bob || abs((int)a->h - (int)b->h) > 1) continue;
+            dist[j] = (uint8_t)(dist[k] < 254 ? dist[k] + 1 : 254);
+            q[tail++] = (uint16_t)j;
+            if (!iso_unit_at(&s_map, nc, nr) && (far < 0 || dist[j] > dist[far])) far = j;
+        }
+    }
+    if (nh) s_wave_hc /= nh, s_wave_hr /= nh;
+    s_wave_n = 0;
+    for (int i = 0, k = 0; i < s_map.nunits; i++) s_wave_ord[i] = (int8_t)(s_f[i].wave && s_f[i].absent ? k++ : -1);
+    if (far < 0) return;
+    const int fc = far % COLS, fr = far / COLS;
+    for (int rad = 0; rad < COLS + ROWS && s_wave_n < FOES_MAX; rad++)
+        for (int k = 0; k < tail && s_wave_n < FOES_MAX; k++) {
+            const int j = q[k], c = j % COLS, r = j / COLS;
+            if (abs(c - fc) + abs(r - fr) != rad || iso_unit_at(&s_map, c, r)) continue;
+            s_wave_spot[s_wave_n][0] = (uint8_t)c, s_wave_spot[s_wave_n][1] = (uint8_t)r;
+            s_wave_n++;
+        }
+}
+
+static void wave_start(void)
+{
+    grow_island(g_battle.grow);
+    s_wave_t = 0;
+    s_wave_n = -1;                                                // (the spots once the land is up)
+    banner("A ilha cresce!", 1800);
+    fx_screen(FX_SCREEN_SHAKE, 1600, 1);
+    snd_play(S_EARTH, 210);
+}
+
+static void wave_step(uint32_t dt)
+{
+    s_wave_t += (int32_t)dt;
+    if (iso_emerging(&s_map) && s_wave_t < 9000) return;
+    if (s_wave_n < 0) {
+        wave_spots();
+        s_wave_t = 0;
+        if (s_wave_n > 0) {
+            s_cc = s_wave_spot[0][0], s_cr = s_wave_spot[0][1];  // the camera to where they come
+            banner("Reforços!", 1600);
+        }
+    }
+    const int el = g_realms[g_battle.realm].element;
+    int pending = 0;
+    for (int i = 0; i < s_map.nunits; i++) {
+        if (!s_f[i].wave || !s_f[i].absent || s_wave_ord[i] < 0) continue;
+        const int k = s_wave_ord[i];
+        if (k >= s_wave_n) {                                      // nowhere to stand: it stays away (not counted)
+            s_f[i].wave = false;
+            continue;
+        }
+        pending++;
+        const int32_t at = 500 + k * WAVE_GAP;
+        iso_unit_t *u = &s_map.units[i];
+        int x, y;
+        iso_world(&s_map, s_wave_spot[k][0], s_wave_spot[k][1], &x, &y);
+        if (s_wave_t >= at - 350 && s_wave_t - (int32_t)dt < at - 350) {   // a circle of its element first
+            char an[16];
+            snprintf(an, sizeof(an), "fx.circle.%d", el);
+            fx_play(fart_anim(&g_art, an), (float)x, (float)y, false, 0);
+        }
+        if (s_wave_t >= at) {                                     // then it is there
+            u->c = u->fc = s_wave_spot[k][0];
+            u->r = u->fr = s_wave_spot[k][1];
+            u->aim = (int8_t)iso_aim8(u, s_wave_hc, s_wave_hr);
+            u->hidden = false;
+            s_f[i].absent = s_f[i].down = false;
+            fx_burst((float)x, (float)y - 12, el_565(el, false), el_565(el, true), 16, 1.0f);
+            fx_sparkle((float)x, (float)y - 10, el_565(el, true), 10);
+            snd_play(S_ENCOUNTER, 150);
+            pending--;
+        }
+    }
+    if (!pending && s_wave_t >= 500 + s_wave_n * WAVE_GAP + 600) s_wave_t = -1;   // all here: the battle goes on
+}
+
 static void update(uint32_t dt)
 {
     fire_sparks(dt);
@@ -1514,11 +1703,19 @@ static void update(uint32_t dt)
         boss_step(dt);
         return;
     }
+    if (s_wave_t >= 0) {
+        wave_step(dt);
+        return;
+    }
     if (s_st == ST_BUSY) {
         bool busy = s_nq > 0 || fx_busy();
         for (int i = 0; i < s_map.nunits; i++) busy |= iso_busy(&s_map.units[i]);
         if (busy) return;
         if (!side_left(false)) {
+            if (wave_waiting()) {                                 // the first wave down: the island grows, more come
+                wave_start();
+                return;
+            }
             const int boss = waiting_boss();                     // its minions down: the boss comes
             if (boss >= 0) boss_enter(boss);
             else finish(true);
@@ -1675,6 +1872,302 @@ static void draw_preview(const ui_t *u, int i, int x, int y, bool ok, const effe
 
 static ui_t s_last_ui;                                            // the screen battle_frame drew last (bench)
 
+// ── The island growing: the end of a realm's first fase, the first time. After the summary the arena's island
+// grows out of the sea in waves; a portal opens on the new land and a shadow steps out of it, calling creatures of
+// the second fase onto the island; a portal opens by the heroes, the hero left out of the party steps out and takes
+// them all away; dark, then the party, four strong. A skips to the dark. ──
+
+#define GROW_SIZE 24
+enum { SC_RISE, SC_PORTAL, SC_SHADOW, SC_SUMMON, SC_TAUNT, SC_DOOR, SC_RESCUER, SC_CAST, SC_AWAY, SC_LAST, SC_FADE };
+static struct {
+    int step;
+    uint32_t t;                      // ms into the step
+    int vp[2], vf[2];                // the shadow's portal and the cell before it
+    int hp[2], hf[2];                // the heroes' portal and the cell before it
+    int shadow, rescuer, nsum, sum[4], gone;
+    bool fresh;                      // the step has just begun
+    int hc, hr;                      // the heroes' middle
+} s_sc;
+
+static bool sc_free(int c, int r)
+{
+    if (!iso_inside(&s_map, c, r)) return false;
+    const iso_cell_t *x = iso_cell(&s_map, c, r);
+    return x->h > 0 && x->h <= 4 && x->obj == ISO_NONE && !x->bob && !x->base && !iso_unit_at(&s_map, c, r);
+}
+
+// A portal's cell and the one before it (toward the heroes), as near as can be to dist steps from them; on the new
+// land when away (far), else round them.
+static bool sc_portal_spot(int dist, int out[2], int front[2])
+{
+    int best = 1 << 30;
+    for (int r = 1; r < s_map.rows - 1; r++)
+        for (int c = 1; c < s_map.cols - 1; c++) {
+            const int dc = s_sc.hc - c, dr = s_sc.hr - r, d = abs(dc) + abs(dr);
+            int f0 = c, f1 = r;                                  // a step toward the heroes, along the longer way
+            if (abs(dc) >= abs(dr)) f0 += dc > 0 ? 1 : -1;
+            else f1 += dr > 0 ? 1 : -1;
+            if (abs(d - dist) >= best || !sc_free(c, r) || !sc_free(f0, f1)) continue;
+            best = abs(d - dist);
+            out[0] = c, out[1] = r, front[0] = f0, front[1] = f1;
+        }
+    return best < (1 << 30);
+}
+
+static void sc_go(int step)
+{
+    s_sc.step = step;
+    s_sc.t = 0;
+    s_sc.fresh = true;
+}
+
+static void sc_focus(int c, int r)
+{
+    s_cc = c;
+    s_cr = r;
+}
+
+static int sc_unit(const char *art, bool walk_is_run, int c, int r)
+{
+    fighter_t *f = add_unit(art, walk_is_run, c, r, FART_SW);
+    if (!f) return -1;
+    const int i = s_map.nunits - 1;
+    s_map.units[i].hidden = true;
+    s_map.units[i].aim = (int8_t)iso_aim8(&s_map.units[i], s_sc.hc, s_sc.hr);
+    return i;
+}
+
+static void sc_appear(int i, uint16_t c1, uint16_t c2)
+{
+    if (i < 0) return;
+    int x, y;
+    iso_feet(&s_map, &s_map.units[i], &x, &y);
+    s_map.units[i].hidden = false;
+    fx_burst((float)x, (float)y - 12, c1, c2, 18, 1.0f);
+}
+
+static void sc_vanish(int i)
+{
+    if (i < 0 || s_map.units[i].hidden) return;
+    int x, y;
+    iso_feet(&s_map, &s_map.units[i], &x, &y);
+    s_map.units[i].hidden = true;
+    fx_sparkle((float)x, (float)y - 10, 0xffff, 14);
+}
+
+static void sc_door(int k, const int at[2])
+{
+    if (k == 1 && !portal_load(&s_portal[1], &g_art, "portal.whirl")) return;
+    if (k == 1) {
+        portal_colour(&s_portal[1], 0xf0d070);                   // the heroes' way out: golden
+        portal_glow(&s_portal[1], fart_image(&g_art, "prop.portal.glow"));
+    } else {
+        if (!portal_load(&s_portal[0], &g_art, "portal.whirl")) return;
+        portal_colour(&s_portal[0], 0x7a3cc8);                   // the shadow's: violet
+        portal_glow(&s_portal[0], fart_image(&g_art, "prop.portal.glow"));
+    }
+    iso_set_obj(&s_map, at[0], at[1], fart_image(&g_art, "prop.portal.frame"), ISO_FX_TELEPORT);
+    s_portal_c[k] = at[0], s_portal_r[k] = at[1];
+}
+
+static void scene_start(void)
+{
+    memset(&s_sc, 0, sizeof(s_sc));
+    s_sc.shadow = s_sc.rescuer = -1;
+    s_st = ST_SCENE;
+    s_sel = -1;
+    clear_marks();
+    grow_island(GROW_SIZE);                                      // the arena in the middle of an island of the second fase's
+    int nh = 0;
+    for (int i = 0; i < s_map.nunits; i++)
+        if (s_f[i].hero && !s_f[i].down) s_sc.hc += s_map.units[i].c, s_sc.hr += s_map.units[i].r, nh++;
+    if (nh) s_sc.hc /= nh, s_sc.hr /= nh;
+    else s_sc.hc = s_map.cols / 2, s_sc.hr = s_map.rows / 2;
+    sc_focus(s_sc.hc, s_sc.hr);
+    banner("A ilha desperta...", 2600);
+    fx_screen(FX_SCREEN_SHAKE, 3200, 2);
+    snd_play(S_EARTH, 230);
+}
+
+static void scene_done(void)
+{
+    for (int i = 0; i < ROSTER; i++) g_save.heroes[i].in_party = true;   // the one who came back joins them
+    game_store();
+    s_ended = true;
+}
+
+static void scene_update(uint32_t dt)
+{
+    const bool fresh = s_sc.fresh;                               // (the step's first frame)
+    s_sc.fresh = false;
+    {                                                            // the camera eases to the cell in focus
+        int x, y;
+        iso_world(&s_map, s_cc, s_cr, &x, &y);
+        const int tx = x - s_last_ui.w / 2, ty = y - s_last_ui.h * 2 / 3;   // (below the banners)
+        float k = dt / 450.0f;
+        if (k > 1) k = 1;
+        s_map.camx += (int)((tx - s_map.camx) * k);
+        s_map.camy += (int)((ty - s_map.camy) * k);
+    }
+    s_sc.t += dt;
+    const uint32_t t = s_sc.t;
+    const int el = g_realms[g_battle.realm].element;
+    char line[40];
+    switch (s_sc.step) {
+    case SC_RISE:                                                // the island grows; then to where the portal opens
+        if (!iso_emerging(&s_map) || t > 9000) {
+            if (sc_portal_spot(11, s_sc.vp, s_sc.vf)) {
+                sc_focus(s_sc.vf[0], s_sc.vf[1]);
+                sc_go(SC_PORTAL);
+            } else {
+                sc_go(SC_FADE);
+            }
+        }
+        break;
+    case SC_PORTAL:
+        if (t >= 500 && s_portal_c[0] < 0) sc_door(0, s_sc.vp);
+        if (t >= 1300 && s_portal_c[0] >= 0 && !portal_shown(&s_portal[0])) portal_open(&s_portal[0]);
+        if (t >= 2300) sc_go(SC_SHADOW);
+        break;
+    case SC_SHADOW:                                              // the shadow steps out
+        if (s_sc.shadow < 0) {
+            s_sc.shadow = sc_unit(g_classes[CLS_PALADIN].art, false, s_sc.vf[0], s_sc.vf[1]);
+            if (s_sc.shadow >= 0) s_map.units[s_sc.shadow].shade = villain_shade();
+            sc_appear(s_sc.shadow, 0x380c, 0x7a1f);
+            banner("Uma sombra surge...", 2200);
+            snd_play(S_THUNDER, 200);
+        }
+        if (s_sc.shadow >= 0 && t % 700 < dt) {                   // its eyes: a red glint now and then
+            int x, y;
+            iso_feet(&s_map, &s_map.units[s_sc.shadow], &x, &y);
+            fx_glow((float)x, (float)y - 24, 0xf800);
+        }
+        if (t >= 2400) sc_go(SC_SUMMON);
+        break;
+    case SC_SUMMON:                                              // it calls the second fase's creatures
+        if (fresh) {
+            banner("A ilha é minha!", 2400);
+            const int ring[8][2] = { { -2, 0 }, { 0, -2 }, { 2, 0 }, { 0, 2 }, { -2, -2 }, { 2, -2 }, { 2, 2 }, { -2, 2 } };
+            for (int k = 0; k < 8 && s_sc.nsum < 4; k++) {
+                const int c = s_sc.vf[0] + ring[k][0], r = s_sc.vf[1] + ring[k][1];
+                if (!sc_free(c, r)) continue;
+                foe_t foe;
+                const realm_t *rm = &g_realms[g_battle.realm];
+                foe_make(rm->foes[s_sc.nsum % rm->nfoes], g_battle.realm, 5, false, &foe);
+                const int i = sc_unit(foe.art, true, c, r);
+                if (i < 0) break;
+                s_map.units[i].shade = foe.shade;
+                s_f[i].foe = foe;
+                s_f[i].name = s_f[i].foe.name;
+                s_sc.sum[s_sc.nsum++] = i;
+                int x, y;
+                iso_world(&s_map, c, r, &x, &y);
+                char an[16];
+                snprintf(an, sizeof(an), "fx.circle.%d", el);
+                fx_play(fart_anim(&g_art, an), (float)x, (float)y, false, 250 * k);
+            }
+        }
+        for (int k = 0; k < s_sc.nsum; k++)
+            if (t >= 700 + 250 * (uint32_t)k && s_map.units[s_sc.sum[k]].hidden) {
+                sc_appear(s_sc.sum[k], el_565(el, false), el_565(el, true));
+                snd_play(S_ENCOUNTER, 140);
+            }
+        if (t >= 2900) sc_go(SC_TAUNT);
+        break;
+    case SC_TAUNT:
+        if (fresh) banner("Acabem com eles!", 1800);
+        if (t >= 1600) {
+            if (!sc_portal_spot(2, s_sc.hp, s_sc.hf)) {
+                sc_go(SC_LAST);
+                break;
+            }
+            sc_focus(s_sc.hc, s_sc.hr);
+            sc_go(SC_DOOR);
+        }
+        break;
+    case SC_DOOR:                                                // a golden portal by the heroes
+        if (t >= 600 && s_portal_c[1] < 0) sc_door(1, s_sc.hp);
+        if (t >= 1300 && s_portal_c[1] >= 0 && !portal_shown(&s_portal[1])) portal_open(&s_portal[1]);
+        if (t >= 2200) sc_go(SC_RESCUER);
+        break;
+    case SC_RESCUER:                                             // the hero left out steps out of it
+        if (s_sc.rescuer < 0) {
+            int who = -1;
+            for (int i = 0; i < ROSTER && who < 0; i++)
+                if (!g_save.heroes[i].in_party) who = i;
+            if (who < 0) {
+                sc_go(SC_LAST);
+                break;
+            }
+            hero_t *h = &g_save.heroes[who];
+            s_sc.rescuer = sc_unit(g_classes[h->cls].art, false, s_sc.hf[0], s_sc.hf[1]);
+            if (s_sc.rescuer >= 0) {
+                s_f[s_sc.rescuer].hero = true;
+                s_f[s_sc.rescuer].h = h;
+                s_f[s_sc.rescuer].slot = PARTY_MAX;              // (not one of the battle's party)
+                dress(s_sc.rescuer);
+                sc_appear(s_sc.rescuer, 0xffe0, 0xffff);
+            }
+            snprintf(line, sizeof(line), "%s: Segurem-se!", h->name);
+            banner(line, 2200);
+            snd_play(S_REVIVE, 200);
+        }
+        if (t >= 2000) sc_go(SC_CAST);
+        break;
+    case SC_CAST:                                                // a teleport for them all: circles under each
+        if (fresh) {
+            snd_play(S_HEAL, 220);
+            for (int i = 0; i < s_map.nunits; i++) {
+                if (!s_f[i].hero || s_map.units[i].hidden) continue;
+                int x, y;
+                iso_world(&s_map, s_map.units[i].c, s_map.units[i].r, &x, &y);
+                fx_play(fart_anim(&g_art, "fx.circle.0"), (float)x, (float)y, false, 0);
+            }
+        }
+        if (t >= 1100) sc_go(SC_AWAY), s_sc.gone = 0;
+        break;
+    case SC_AWAY:                                                // one by one into the light, the rescuer last
+        if (t >= (uint32_t)s_sc.gone * 260) {
+            int k = 0, next = -1;
+            for (int i = 0; i < s_map.nunits && next < 0; i++)
+                if (s_f[i].hero && i != s_sc.rescuer && !s_map.units[i].hidden && k++ >= 0) next = i;
+            if (next < 0) next = s_sc.rescuer;
+            if (next >= 0 && !s_map.units[next].hidden) sc_vanish(next);
+            else if (s_portal_c[1] >= 0 && portal_shown(&s_portal[1])) portal_close(&s_portal[1]);
+            s_sc.gone++;
+        }
+        if (t >= 3200) sc_go(SC_LAST);
+        break;
+    case SC_LAST:
+        if (fresh) {
+            if (s_sc.shadow >= 0) sc_focus(s_sc.vf[0], s_sc.vf[1]);
+            banner("Fujam, por ora...", 2200);
+        }
+        if (t >= 2400) sc_go(SC_FADE);
+        break;
+    case SC_FADE:
+        if (t >= 900) scene_done();
+        break;
+    }
+}
+
+static void scene_skip(void)
+{
+    if (s_sc.step != SC_FADE && s_sc.t > 300) sc_go(SC_FADE);
+}
+
+// The dark at the end (a fade over the whole screen).
+static void scene_draw(const ui_t *u)
+{
+    if (s_sc.step != SC_FADE) return;
+    int k = 256 - (int)(s_sc.t * 256 / 900);
+    if (k < 0) k = 0;
+    for (int i = 0; i < u->w * u->h; i++) {
+        const uint16_t v = u->px[i];
+        u->px[i] = (uint16_t)(((((v >> 11) * k) >> 8) << 11) | (((((v >> 5) & 63) * k) >> 8) << 5) | (((v & 31) * k) >> 8));
+    }
+}
+
 screen_t battle_frame(const ui_t *u, uint32_t dt)
 {
     s_last_ui = *u;
@@ -1690,6 +2183,7 @@ screen_t battle_frame(const ui_t *u, uint32_t dt)
     }
     if (s_leave) return SCR_QUIT;                                 // the loop's closing frees the battle
     if (s_st == ST_SUMMARY) s_summary_t += dt;
+    if (s_st == ST_SCENE) scene_update(dt);
     actions_update(dt);
     ambient(dt);
     fx_update(dt);
@@ -1697,7 +2191,7 @@ screen_t battle_frame(const ui_t *u, uint32_t dt)
     iso_update(&s_map, dt);
     int cx, cy;
     iso_world(&s_map, s_cc, s_cr, &cx, &cy);
-    if (!s_cam_fixed) iso_follow(&s_map, cx, cy, u->w, u->h, dt);
+    if (!s_cam_fixed && s_st != ST_SCENE) iso_follow(&s_map, cx, cy, u->w, u->h, dt);   // (a scene moves its own)
     const bool show_cursor = s_st == ST_CHOOSE || s_st == ST_MOVE;
     int shx, shy;                                                 // the screen shaking: the camera, while drawing
     fx_screen_offset(&shx, &shy);
@@ -1735,7 +2229,7 @@ screen_t battle_frame(const ui_t *u, uint32_t dt)
         ui_text(u, x - s_map.camx - 3, y - s_map.camy - 52 - (int)((g_t / 150) % 3), "v", 0xffe060);
     }
     const int shown = s_sel >= 0 ? s_sel : unit_index(iso_unit_at(&s_map, s_cc, s_cr));
-    if (shown >= 0 && s_st != ST_OVER && s_st != ST_SUMMARY) draw_panel(u, shown, 4, u->h - 54);
+    if (shown >= 0 && s_st != ST_OVER && s_st != ST_SUMMARY && s_st != ST_SCENE) draw_panel(u, shown, 4, u->h - 54);
     if (s_st == ST_TARGET) {                                    // the target's card, with what the action would do
         const int b = unit_index(iso_unit_at(&s_map, s_cc, s_cr));
         effect_t e;
@@ -1778,6 +2272,7 @@ screen_t battle_frame(const ui_t *u, uint32_t dt)
         ui_hints(u, (u->w - 120) / 2 + 12, u->h / 2 + 7, "{A} continuar", 0xf0f0f0);
     }
     if (s_st == ST_SUMMARY) summary_draw(u, s_summary_t);
+    if (s_st == ST_SCENE) scene_draw(u);
     return SCR_BATTLE;
 }
 
@@ -1814,6 +2309,12 @@ void battle_host_act(int a, int act, int what, int b)
     }
 }
 void battle_host_counter(int i) { s_map.units[i].counter = true; }
+void battle_host_guard(int i)
+{
+    if (i < 0 || i >= s_map.nunits || !s_f[i].hero) return;
+    s_f[i].guard = true;
+    if (s_f[i].death) iso_play(&s_map.units[i], s_f[i].death, true);
+}
 void battle_host_hp(int i, int hp) { if (i >= 0 && i < s_map.nunits) s_f[i].hp = hp; }
 void battle_host_log(void)
 {

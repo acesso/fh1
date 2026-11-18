@@ -1,0 +1,67 @@
+# Progression from the second fase: a fase 2 battle (Fogo's) begins on a small island; its first wave down
+# (kill -1, then any action ends the turn), the island grows to 24 x 24 and the second wave teleports in at its far
+# side, each in a circle of the realm's element; the layer checked after the camera goes across it. A fase 3 boss
+# battle's arena. Guarda: a hero holding its ground kneels and takes half (a boar's 3 becomes 2). Then the last
+# realm's first fase won (Água's, every other realm's cleared): after the summary the arena's island rises to 24 x 24,
+# a violet portal opens on the new land, the shadow steps out and calls four creatures round it, a golden portal opens
+# by the heroes, the hero left out of the party (Nara) steps out and takes them away; dark, the party screen with four.
+nosave
+won 0 0 3
+won 2 0 3
+won 3 0 3
+won 1 0 2
+go 0 1 0
+wait 150
+shot g00-fase2-first
+kill -1
+wait 2
+act 0 0 0 0
+wait 40
+shot g01-growing
+wait 90
+shot g02-reinforcements
+wait 40
+log
+checklayer
+cam -400 -100
+wait 3
+checklayer
+cam 300 200
+wait 3
+checklayer
+go 2 2 8
+wait 200
+shot g03-fase3-boss
+checklayer
+go 0 0 0
+wait 150
+guard 0
+place 3 2 7 2
+wait 10
+shot g04-guard
+act 3 0 0 0
+wait 70
+log
+go 1 0 2
+wait 160
+win
+wait 40
+key A
+wait 20
+key A
+wait 10
+key A
+wait 30
+shot g05-rising
+wait 120
+shot g06-portal
+wait 70
+shot g07-shadow
+wait 60
+shot g08-summoned
+wait 140
+shot g09-rescuer
+wait 60
+shot g10-away
+wait 260
+shot g11-party

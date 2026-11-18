@@ -154,10 +154,14 @@ void summary_draw(const ui_t *u, uint32_t t)
         const float pop = progress(t, at, 160);
         foe_down(u, &e, cx, fy - (int)(6 * (1.0f - pop)), t - at);
         snprintf(l, sizeof(l), "+%d", g_result.kills[i].coins);
-        coin_icon(u, cx - 14, fy + 4);
-        ui_text(u, cx, fy + 5, l, 0xf8d870);
-        snprintf(l, sizeof(l), "+%d XP", g_result.kills[i].xp);
-        ui_text(u, cx - len8(l) / 2, fy + 16, l, 0x9fd8ff);
+        if (n <= 6) {
+            coin_icon(u, cx - 14, fy + 4);
+            ui_text(u, cx, fy + 5, l, 0xf8d870);
+        } else ui_text(u, cx - len8(l) / 2, fy + 5 + (i % 2) * 10, l, 0xf8d870);   // many: no coin, staggered
+        if (n <= 6) {                                    // more: no room under each, the heroes' rows show it
+            snprintf(l, sizeof(l), "+%d XP", g_result.kills[i].xp);
+            ui_text(u, cx - len8(l) / 2, fy + 16, l, 0x9fd8ff);
+        }
         coins_so_far += g_result.kills[i].coins;
     }
 
@@ -178,7 +182,9 @@ void summary_draw(const ui_t *u, uint32_t t)
         const uint32_t at = t_heroes() + s * T_HERO;
         if (t < at) break;
         const hero_t *h = &g_save.heroes[g_result.hero[s]];
-        const int ry = y0 + 124 + s * 34;
+        // Four heroes: closer rows, a level's gains on the name's line (no line of their own).
+        const bool tight = g_result.nparty > 3;
+        const int ry = y0 + 124 + s * (tight ? 26 : 34);
         const float p = progress(t, at + 150, T_HERO - 300);
         int lv, xp;
         xp_at(g_result.level_before[s], g_result.xp_before[s], (int)(g_result.xp[s] * p), &lv, &xp);
@@ -194,21 +200,22 @@ void summary_draw(const ui_t *u, uint32_t t)
         ui_text(u, x0 + 46, ry + 4, h->name, 0x9fd8ff);
         snprintf(l, sizeof(l), "Nv %d", lv);
         ui_text(u, x0 + 46 + 80, ry + 4, l, lv > g_result.level_before[s] ? 0x80ff90 : 0xe0e0e8);
+        const int ups = lv - g_result.level_before[s];
+        const class_t *c = &g_classes[h->cls];
+        char gain[32];                                   // what the levels gave: a new gear level (every LEVEL_STEP)
+        if (lv / LEVEL_STEP > g_result.level_before[s] / LEVEL_STEP && lv / LEVEL_STEP < GEAR_LEVELS)
+            snprintf(gain, sizeof(gain), "Equip. nível %d!", lv / LEVEL_STEP);
+        else if (c->mp_level) snprintf(gain, sizeof(gain), "PV+%d PM+%d Dano+%d", c->hp_level * ups, c->mp_level * ups, ups);
+        else snprintf(gain, sizeof(gain), "PV+%d Dano+%d", c->hp_level * ups, ups);
+        const bool blink = (t / 200) % 2;
         if (g_result.down[s]) snprintf(l, sizeof(l), "sem XP");          // knocked out: its share went to the others
         else snprintf(l, sizeof(l), "+%d XP", (int)(g_result.xp[s] * p + 0.5f));
-        ui_text(u, u->w - 16 - len8(l), ry + 4, l, g_result.down[s] ? 0xc07070 : 0x9fd8ff);
+        if (tight && ups > 0) ui_text(u, u->w - 16 - len8(gain), ry + 4, gain, blink ? 0x80ff90 : 0xf8d870);
+        else ui_text(u, u->w - 16 - len8(l), ry + 4, l, g_result.down[s] ? 0xc07070 : 0x9fd8ff);
         ui_bar(u, x0 + 46, ry + 15, u->w - 16 - (x0 + 46), xp, xp_next(lv), 0xe0b040);
-        const int ups = lv - g_result.level_before[s];
-        if (ups > 0) {
-            const bool blink = (t / 200) % 2;
+        if (ups > 0 && !tight) {
             ui_text(u, x0 + 46, ry + 22, "Subiu de nível!", blink ? 0x80ff90 : 0xf8d870);
-            const class_t *c = &g_classes[h->cls];
-            // A new gear level (every LEVEL_STEP levels) says so; else what the levels gave.
-            if (lv / LEVEL_STEP > g_result.level_before[s] / LEVEL_STEP && lv / LEVEL_STEP < GEAR_LEVELS)
-                snprintf(l, sizeof(l), "Equip. nível %d!", lv / LEVEL_STEP);
-            else if (c->mp_level) snprintf(l, sizeof(l), "PV+%d PM+%d Dano+%d", c->hp_level * ups, c->mp_level * ups, ups);
-            else snprintf(l, sizeof(l), "PV+%d Dano+%d", c->hp_level * ups, ups);
-            ui_text(u, u->w - 16 - len8(l), ry + 22, l, 0xc8c8d0);
+            ui_text(u, u->w - 16 - len8(gain), ry + 22, gain, 0xc8c8d0);
         }
     }
 

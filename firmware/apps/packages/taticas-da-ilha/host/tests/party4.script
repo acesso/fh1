@@ -1,0 +1,26 @@
+# The score screen with four heroes and many kills: a fase 2 battle's both waves down (kill -1 twice), seven kills
+# with their coins staggered and no XP under each; four closer hero rows, a level's gains on the name's line.
+nosave
+won 0 0 3
+won 2 0 3
+won 3 0 3
+won 1 0 3
+inparty 3 1
+go 0 1 0
+wait 150
+kill -1
+wait 2
+act 0 0 0 0
+wait 300
+kill -1
+wait 2
+xp 0 400
+win
+wait 40
+key A
+wait 200
+shot s00
+wait 200
+shot s01
+wait 200
+shot s02

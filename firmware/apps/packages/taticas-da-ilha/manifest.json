@@ -2,7 +2,7 @@
   "id": "taticas-da-ilha",
   "publisher": "org.fh1",
   "name": "Táticas da Ilha",
-  "version": "0.10.3",
+  "version": "0.13.0",
   "sdk": "0.8",
   "entry": "app.elf",
   "needs": [],

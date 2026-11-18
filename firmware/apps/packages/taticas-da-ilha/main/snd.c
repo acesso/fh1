@@ -25,11 +25,15 @@ static const struct { const char *name; uint8_t set; } s_def[S_COUNT] = {
     [S_EARTH] = { "earth_02", SND_SET_BATTLE },
 };
 
+
 static struct {
     uint32_t rate, frames, offset;   // from the bank's table (frames 0: not in the bank)
     int16_t *pcm;                    // loaded, or NULL
-    uint32_t got;                    // frames read so far while loading
+    uint32_t got;                    // frames read so far while loading (the bank's)
 } s_snd[S_COUNT];
+// Battle sounds from a bank above 32 kHz are kept at half its rate (pairs of samples averaged as they load), room for
+// bigger islands; the bank at 22 kHz (rpg-sfx 2) is kept as it is.
+#define HALVED(k) (s_def[k].set == SND_SET_BATTLE && s_snd[k].rate > 32000)
 static char s_path[128];
 static bool s_open;
 static int s_loading;                // the sets being loaded
@@ -81,19 +85,36 @@ float snd_load_step(uint32_t max_bytes)
     for (int k = 0; k < S_COUNT; k++) {
         if (!(s_def[k].set & s_loading) || !s_snd[k].frames) continue;
         want += s_snd[k].frames;
+        const bool half = HALVED(k);
+        const uint32_t kept = half ? s_snd[k].frames / 2 : s_snd[k].frames;
         // At least 4160 bytes: PSRAM even for a short sound (ESP-IDF serves smaller blocks from internal RAM).
-        if (!s_snd[k].pcm) s_snd[k].pcm = malloc(s_snd[k].frames * 2 < 4160 ? 4160 : s_snd[k].frames * 2);
+        if (!s_snd[k].pcm) s_snd[k].pcm = malloc(kept * 2 < 4160 ? 4160 : kept * 2);
         if (!s_snd[k].pcm) continue;
-        if (s_snd[k].got < s_snd[k].frames && max_bytes >= 2) {
+        if (s_snd[k].got < s_snd[k].frames && max_bytes >= 4) {
             if (!f) f = fopen(s_path, "rb");
             if (f) {
                 uint32_t n = s_snd[k].frames - s_snd[k].got;
                 if (n > max_bytes / 2) n = max_bytes / 2;
                 fseek(f, s_snd[k].offset + s_snd[k].got * 2, SEEK_SET);
-                const size_t r = fread(s_snd[k].pcm + s_snd[k].got, 2, n, f);
+                size_t r;
+                if (!half) {
+                    r = fread(s_snd[k].pcm + s_snd[k].got, 2, n, f);
+                } else {                                                 // in pairs, each pair's mean kept
+                    int16_t buf[256];
+                    r = 0;
+                    n &= ~1u;
+                    while (r < n) {
+                        const uint32_t want = n - r < 256 ? n - r : 256;
+                        const size_t got = fread(buf, 2, want, f) & ~(size_t)1;
+                        for (size_t i = 0; i < got; i += 2)
+                            s_snd[k].pcm[(s_snd[k].got + r + i) / 2] = (int16_t)((buf[i] + buf[i + 1]) / 2);
+                        r += got;
+                        if (got < want) break;
+                    }
+                }
                 s_snd[k].got += r;
                 max_bytes -= r * 2;
-                if (r < n) s_snd[k].got = s_snd[k].frames;              // a short file: what came is what plays
+                if (r < n || s_snd[k].frames - s_snd[k].got < 2) s_snd[k].got = s_snd[k].frames;   // a short file, an odd last
             }
         }
         have += s_snd[k].got;
@@ -116,5 +137,6 @@ void snd_unload(int set)
 void snd_play(snd_t s, uint8_t volume)
 {
     if (s >= S_COUNT || !s_snd[s].pcm || s_snd[s].got < s_snd[s].frames) return;
-    fh1_sfx_play(s_snd[s].pcm, s_snd[s].frames, s_snd[s].rate, volume);
+    if (HALVED(s)) fh1_sfx_play(s_snd[s].pcm, s_snd[s].frames / 2, s_snd[s].rate / 2, volume);
+    else fh1_sfx_play(s_snd[s].pcm, s_snd[s].frames, s_snd[s].rate, volume);
 }

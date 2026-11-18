@@ -67,6 +67,14 @@ static uint16_t s_shade[EL_COUNT][32], s_glow[EL_COUNT][32], s_foe[EL_COUNT][32]
 enum { METAL_STEEL, METAL_GOLD, METAL_MYTH };
 const uint16_t *el_shade(int el) { return el > EL_NONE && el < EL_COUNT ? s_shade[el] : NULL; }
 
+// The shadow of the island (its cutscene): a hero's body all in dark violet.
+const uint16_t *villain_shade(void)
+{
+    static uint16_t ramp[32];
+    if (!ramp[31]) make_glow(ramp, 0x06030c, 0x24123a, 0x5c3c88);
+    return ramp;
+}
+
 // ── The catalogue ──
 
 goods_t g_goods[GOODS_MAX];
@@ -235,35 +243,58 @@ const realm_t g_realms[REALMS] = {
     { "Fogo", "fogo", EL_FIRE, THEME_ROCKS, { "Campos de Cinza", "Encosta Ardente", "Coração do Vulcão" },
       { "Planícies de cinza e rios de lava.", "Ignis arde no coração do vulcão." },
       { "Brasas", "Cinzas", "Fenda", "Gêiser", "Forja", "Caldeira", "Escória", "Fumarola", "Cratera" },
-      { E_WOLF, E_BOAR, E_SLIME }, 3, E_WOLF, "Lobo Alfa", "Ignis", C565(40, 10, 8) },
+      { E_WOLF, E_BOAR, E_SLIME, E_RUBYLIT, E_GOLEM_FOGO }, 5, E_WOLF, "Lobo Alfa", "Ignis", "Ifrit", C565(40, 10, 8) },
     { "Água", "agua", EL_WATER, THEME_MEADOW, { "Praia Alagada", "Lagos Profundos", "Abismo das Marés" },
       { "Praias alagadas e lagos sem fundo.", "Maris dorme sob as marés." },
       { "Orla", "Mangue", "Recife", "Baía", "Delta", "Lagoa", "Estuário", "Gruta", "Maré Alta" },
-      { E_SLIME, E_BADGER, E_WOLF }, 3, E_BOAR, "Javali Rei", "Maris", C565(8, 24, 56) },
+      { E_SLIME, E_BADGER, E_WOLF, E_SAPPHILIT, E_TITA_GELO }, 5, E_BOAR, "Javali Rei", "Maris", "Ondina", C565(8, 24, 56) },
     { "Terra", "terra", EL_EARTH, THEME_FOREST, { "Bosque Antigo", "Raízes Profundas", "Bosque Sagrado" },
       { "Florestas antigas e raízes profundas.", "Gaia guarda o bosque sagrado." },
       { "Clareira", "Trilha", "Toca", "Ravina", "Pedreira", "Raízes", "Musgo", "Cânion", "Colina" },
-      { E_BADGER, E_STAG, E_BOAR, E_SLIME }, 4, E_STAG, "Cervo Rei", "Gaia", C565(14, 30, 12) },
+      { E_BADGER, E_STAG, E_BOAR, E_SLIME, E_ESMERALIT, E_GOLEM }, 6, E_STAG, "Cervo Rei", "Gaia", "Árvore Ancestral",
+      C565(14, 30, 12) },
     { "Ar", "ar", EL_AIR, THEME_ROCKS, { "Colinas do Vento", "Picos Gelados", "Trono das Nuvens" },
       { "Picos altos varridos pelo vento.", "Zéfiro ruge entre as nuvens." },
       { "Colina", "Penhasco", "Planalto", "Desfiladeiro", "Pico", "Mirante", "Garganta", "Aresta", "Cume" },
-      { E_STAG, E_WOLF, E_SLIME }, 3, E_WOLF, "Lobo do Vento", "Zéfiro", C565(70, 96, 128) },
+      { E_STAG, E_WOLF, E_SLIME, E_TOPALIT, E_TITA_VENTO }, 5, E_WOLF, "Lobo do Vento", "Zéfiro", "Sílfide", C565(70, 96, 128) },
 };
 
 bool tier_cleared(int realm, int tier) { return g_save.won[realm][tier] >= g_tier_len[tier]; }
-bool tier_open(int realm, int tier) { return tier == 0 || tier_cleared(realm, tier - 1); }
+// The second fase opens once every realm's first is cleared (the island has grown); the third after the realm's second.
+bool tier_open(int realm, int tier)
+{
+    if (tier == 0) return true;
+    if (tier == 1) {
+        for (int r = 0; r < REALMS; r++)
+            if (!tier_cleared(r, 0)) return false;
+        return true;
+    }
+    return tier_cleared(realm, tier - 1);
+}
 
 // ── Creatures: stats at level 1 and per level; bosses take their realm's art ──
 
 const enemy_t g_enemies[E_COUNT] = {
-    [E_WOLF] = { "Lobo", "Lobos", "wolf", false, true, 8, 3, 0, 0, 4, 1, 1, 1, 1 },
-    [E_BOAR] = { "Javali", "Javalis", "boar", false, true, 11, 4, 1, 1, 3, 1, 1, 1, 1 },
-    [E_BADGER] = { "Texugo", "Texugos", "badger", false, true, 6, 3, 0, 0, 5, 2, 1, 1, 1 },
-    [E_STAG] = { "Cervo", "Cervos", "stag", false, true, 9, 3, 1, 0, 5, 2, 1, 1, 1 },
-    [E_SLIME] = { "Slime", "Slimes", "slime", true, false, 7, 3, 0, 0, 3, 1, 1, 1, 1 },
-    [E_ALPHA] = { "", "", "", false, true, 30, 10, 2, 1, 4, 1, 1, 4, 2 },
-    [E_KING] = { "Rei Slime", "Reis Slime", "king", true, false, 40, 12, 3, 2, 3, 1, 1, 6, 2 },
-    [E_ELEMENTAL] = { "", "", "slime", true, true, 60, 16, 4, 3, 3, 2, 3, 10, 2 },
+    [E_WOLF] = { "Lobo", "Lobos", "wolf", false, true, 8, 3, 0, 0, 4, 1, 1, 1, 1, 0 },
+    [E_BOAR] = { "Javali", "Javalis", "boar", false, true, 11, 4, 1, 1, 3, 1, 1, 1, 1, 0 },
+    [E_BADGER] = { "Texugo", "Texugos", "badger", false, true, 6, 3, 0, 0, 5, 2, 1, 1, 1, 0 },
+    [E_STAG] = { "Cervo", "Cervos", "stag", false, true, 9, 3, 1, 0, 5, 2, 1, 1, 1, 0 },
+    [E_SLIME] = { "Slime", "Slimes", "slime", true, false, 7, 3, 0, 0, 3, 1, 1, 1, 1, 0 },
+    [E_ALPHA] = { "", "", "", false, true, 30, 10, 2, 1, 4, 1, 1, 4, 2, 0 },
+    [E_KING] = { "Rei Slime", "Reis Slime", "king", true, false, 40, 12, 3, 2, 3, 1, 1, 6, 2, 0 },
+    [E_ELEMENTAL] = { "", "", "slime", true, true, 60, 16, 4, 3, 3, 2, 3, 10, 2, 2 },
+    // Spirits hugging their crystal, each realm's own colour (a little sturdier than a slime).
+    [E_SAPPHILIT] = { "Sapphilit", "Sapphilits", "sapphilit", false, false, 9, 3, 0, 1, 3, 1, 1, 1, 1, 0 },
+    [E_RUBYLIT] = { "Rubylit", "Rubylits", "rubylit", false, false, 9, 3, 0, 1, 3, 1, 1, 1, 1, 0 },
+    [E_TOPALIT] = { "Topalit", "Topalits", "topalit", false, false, 9, 3, 0, 1, 3, 1, 1, 1, 1, 0 },
+    [E_ESMERALIT] = { "Esmeralit", "Esmeralits", "esmeralit", false, false, 9, 3, 0, 1, 3, 1, 1, 1, 1, 0 },
+    // Big ones, from the second fase: slow, hard to break.
+    [E_GOLEM_FOGO] = { "Golem de Fogo", "Golems de Fogo", "golemfogo", false, false, 16, 5, 1, 2, 2, 1, 1, 1, 1, 1 },
+    [E_TITA_GELO] = { "Titã de Gelo", "Titãs de Gelo", "titagelo", false, false, 18, 6, 1, 2, 2, 1, 1, 1, 1, 1 },
+    [E_GOLEM] = { "Golem", "Golems", "golem", false, false, 16, 5, 1, 2, 2, 1, 1, 1, 1, 1 },
+    [E_TITA_VENTO] = { "Titã do Vento", "Titãs do Vento", "titavento", false, false, 18, 6, 1, 2, 2, 1, 1, 1, 1, 1 },
+    // The second fase's boss: the realm's spirit (Ifrit, Ondina, Árvore Ancestral, Sílfide), its own art and size.
+    [E_SPIRIT] = { "", "", "spirit", true, false, 44, 13, 3, 2, 3, 1, 1, 6, 1, 1 },
 };
 
 void foe_make(int type, int realm, int level, bool caster, foe_t *f)
@@ -272,7 +303,8 @@ void foe_make(int type, int realm, int level, bool caster, foe_t *f)
     const realm_t *rm = &g_realms[realm];
     memset(f, 0, sizeof(*f));
     const enemy_t *look = type == E_ALPHA ? &g_enemies[rm->alpha] : e;
-    strlcpy(f->name, type == E_ALPHA ? rm->alpha_name : type == E_ELEMENTAL ? rm->elemental : e->name, sizeof(f->name));
+    strlcpy(f->name, type == E_ALPHA ? rm->alpha_name : type == E_ELEMENTAL ? rm->elemental : type == E_SPIRIT ? rm->spirit : e->name,
+            sizeof(f->name));
     if (look->realm_art) snprintf(f->art, sizeof(f->art), "%s.%s", look->art, rm->key);
     else strlcpy(f->art, look->art, sizeof(f->art));
     f->shade = type == E_ELEMENTAL ? s_glow[rm->element] : look->tinted ? s_foe[rm->element] : NULL;
@@ -334,18 +366,32 @@ static const char *const shrine_o[12] = {
     "............", "............", ".r........r.", "............", "............", "............",
     "............", "............", "............", ".r........r.", "............", "............",
 };
-// The arenas: the boss first, then its guards; the heroes' cells.
+// The arenas (the king's lake, the spirit's den, the Elemental's shrine): the boss first, then its guards; the
+// heroes' cells.
 static const struct {
     const char *const *h, *const *o;
-    uint8_t foes[6][2], heroes[3][2];
+    uint8_t foes[6][2], heroes[PARTY_MAX][2];          // (the arenas' first wave: foes 1.. from the second fase)
 } s_arena[TIERS] = {
-    { den_h, den_o, { { 5, 5 }, { 7, 4 }, { 4, 6 }, { 3, 3 } }, { { 2, 9 }, { 3, 9 }, { 2, 8 } } },
-    { pool_h, pool_o, { { 8, 2 }, { 6, 2 }, { 9, 4 }, { 3, 2 }, { 9, 7 } }, { { 2, 9 }, { 3, 9 }, { 1, 8 } } },
-    { shrine_h, shrine_o, { { 5, 5 }, { 4, 3 }, { 7, 4 }, { 3, 6 }, { 6, 7 } }, { { 2, 10 }, { 3, 10 }, { 1, 9 } } },
+    { pool_h, pool_o, { { 8, 2 }, { 6, 2 }, { 9, 4 }, { 3, 2 }, { 9, 7 } }, { { 2, 9 }, { 3, 9 }, { 1, 8 }, { 2, 8 } } },
+    { den_h, den_o, { { 5, 5 }, { 7, 4 }, { 4, 6 }, { 3, 3 } }, { { 2, 9 }, { 3, 9 }, { 2, 8 }, { 3, 8 } } },
+    { shrine_h, shrine_o, { { 5, 5 }, { 4, 3 }, { 7, 4 }, { 3, 6 }, { 6, 7 } }, { { 2, 10 }, { 3, 10 }, { 1, 9 }, { 2, 9 } } },
 };
-static const uint8_t s_count[TIERS][9] = { { 2, 3, 2 }, { 3, 3, 4, 4, 4, 3 }, { 4, 4, 4, 5, 5, 5, 5, 5, 3 } };
-static const char *const s_boss_about[TIERS] = { "O chefe da fase espera no alto.", "O Rei Slime guarda o lago.",
+// Creatures per battle (a boss's guards: the last); from the second fase one more, for the fourth hero.
+static const uint8_t s_count[TIERS][9] = { { 2, 3, 2 }, { 4, 4, 5, 5, 5, 3 }, { 5, 5, 5, 6, 6, 6, 6, 6, 3 } };
+// The islands grow with the fases: 12 x 12, then twice, then three times as wide.
+static const uint8_t s_size[TIERS] = { 12, 24, 36 };
+static const char *const s_boss_about[TIERS] = { "O Rei Slime guarda o lago.", "O espírito do reino espera no alto.",
                                                  "O Elemental do reino desperta." };
+
+// One of the realm's creatures for a fase (the big ones from their own fase on), picked by r.
+static int realm_foe(const realm_t *rm, int tier, uint32_t r)
+{
+    uint8_t ok[6];
+    int n = 0;
+    for (int k = 0; k < rm->nfoes; k++)
+        if (g_enemies[rm->foes[k]].from_tier <= tier) ok[n++] = rm->foes[k];
+    return n ? ok[r % n] : rm->foes[0];
+}
 
 void battle_make(int realm, int tier, int index, battle_def_t *b)
 {
@@ -359,26 +405,50 @@ void battle_make(int realm, int tier, int index, battle_def_t *b)
     const int level = s_tier_lo[tier] + (s_tier_hi[tier] - s_tier_lo[tier]) * index / (n - 1);
     b->boss = index == n - 1;
     const uint32_t mix = (uint32_t)(realm * 7 + tier * 31 + index * 131 + 17) * 2654435761u;
+    // From the second fase a battle has two moments: a first wave on an island of the first fase's size; once it is
+    // down the island grows to the fase's size and a second wave teleports in at its far side.
+    const int more = tier == 1 ? 3 : 4;
     if (b->boss) {
-        static const uint8_t boss[TIERS] = { E_ALPHA, E_KING, E_ELEMENTAL };
-        if (tier == 0) snprintf(b->name, sizeof(b->name), "Covil: %s", rm->alpha_name);
-        else if (tier == 1) snprintf(b->name, sizeof(b->name), "Lago do Rei Slime");
+        static const uint8_t boss[TIERS] = { E_KING, E_SPIRIT, E_ELEMENTAL };
+        if (tier == 0) snprintf(b->name, sizeof(b->name), "Lago do Rei Slime");
+        else if (tier == 1) snprintf(b->name, sizeof(b->name), "Covil: %s", rm->spirit);
         else snprintf(b->name, sizeof(b->name), "Santuário de %s", rm->elemental);
         b->about = s_boss_about[tier];
         b->map = MAP_FIXED;
         b->cols = b->rows = 12;
+        b->acols = b->arows = 12;
+        b->seed = (uint16_t)(1 + realm * 1000 + tier * 100 + index);
         b->heights = s_arena[tier].h;
         b->objects = s_arena[tier].o;
         memcpy(b->heroes, s_arena[tier].heroes, sizeof(b->heroes));
-        b->n = 1 + s_count[tier][index];
-        if (b->n > 5) b->n = 5;
-        for (int k = 0; k < b->n; k++) {
-            b->foes[k].type = k ? rm->foes[(mix >> (k * 3)) % rm->nfoes] : boss[tier];
-            b->foes[k].level = level;
-            b->foes[k].c = s_arena[tier].foes[k][0];
-            b->foes[k].r = s_arena[tier].foes[k][1];
+        if (tier == 0) {                                         // the king and its guards, at once
+            b->n = 1 + s_count[tier][index];
+            if (b->n > 5) b->n = 5;
+            for (int k = 0; k < b->n; k++) {
+                b->foes[k].type = k ? realm_foe(rm, tier, mix >> (k * 3)) : boss[tier];
+                b->foes[k].level = level;
+                b->foes[k].c = s_arena[tier].foes[k][0];
+                b->foes[k].r = s_arena[tier].foes[k][1];
+            }
+            return;
         }
-        if (tier >= 1) b->foes[1].caster = true;                 // one of the boss's guards casts
+        // The guards in the arena first; the boss comes with the second wave.
+        b->grow = s_size[tier];
+        b->n1 = s_count[tier][index] > 4 ? 4 : s_count[tier][index];
+        for (int k = 0; k < b->n1; k++) {
+            b->foes[k].type = realm_foe(rm, tier, mix >> (k * 3));
+            b->foes[k].level = level - 1;
+            b->foes[k].c = s_arena[tier].foes[k + 1][0];
+            b->foes[k].r = s_arena[tier].foes[k + 1][1];
+        }
+        b->foes[0].caster = true;                                // one of the guards casts
+        b->n = b->n1;
+        b->foes[b->n].type = boss[tier];
+        b->foes[b->n++].level = level;
+        for (int k = 0; k < more - 1; k++) {
+            b->foes[b->n].type = realm_foe(rm, tier, mix >> (k * 5 + 2));
+            b->foes[b->n++].level = level - 1;
+        }
         return;
     }
     strlcpy(b->name, rm->places[(index + tier * 3) % 9], sizeof(b->name));
@@ -386,15 +456,20 @@ void battle_make(int realm, int tier, int index, battle_def_t *b)
                                               "Perto do Elemental, tudo é feroz." };
     b->about = about[tier];
     b->map = MAP_RANDOM;
-    b->cols = b->rows = 11 + (index + tier) % 2 + (tier == 2);
+    b->cols = b->rows = 11 + index % 2;
     b->seed = (uint16_t)(1 + realm * 1000 + tier * 100 + index);
     b->n = s_count[tier][index];
+    if (tier) {
+        b->grow = s_size[tier];
+        b->n1 = (uint8_t)b->n;
+        b->n += more;
+    }
     for (int k = 0; k < b->n; k++) {
-        b->foes[k].type = rm->foes[(mix >> (k * 4)) % rm->nfoes];
-        b->foes[k].level = level - (k >= 3);            // the bigger packs: some a level below
+        b->foes[k].type = realm_foe(rm, tier, mix >> (k < 7 ? k * 4 : (k * 4) % 29));   // (the first ones as before)
+        b->foes[k].level = level - (k >= 3 && k < (b->n1 ? b->n1 : b->n));   // the bigger packs: some a level below
         if (b->foes[k].level < 1) b->foes[k].level = 1;
     }
-    if (tier >= 1) b->foes[(mix >> 20) % b->n].caster = true;   // from fase 2: one caster in each pack
+    if (tier >= 1) b->foes[(mix >> 20) % (b->n1 ? b->n1 : b->n)].caster = true;   // from fase 2: one caster in each pack
 }
 
 // The test field (dev `test REALM`): every kind of ground the engine draws, for its end-to-end tests and as a
@@ -426,7 +501,7 @@ void battle_test(int realm, battle_def_t *b)
     b->heights = test_h;
     b->objects = test_o;
     b->boss = true;
-    static const uint8_t heroes[3][2] = { { 3, 8 }, { 4, 9 }, { 3, 10 } };
+    static const uint8_t heroes[PARTY_MAX][2] = { { 3, 8 }, { 4, 9 }, { 3, 10 }, { 4, 8 } };
     memcpy(b->heroes, heroes, sizeof(b->heroes));
     static const uint8_t spots[3][2] = { { 6, 4 }, { 7, 5 }, { 8, 6 } };
     b->n = 3;
@@ -494,7 +569,7 @@ void game_new(void)
         h->level = 1;
         h->weapon = goods_find(KIND_WEAPON, g_classes[h->cls].weapons, 0, EL_NONE);
         h->armour = goods_find(KIND_ARMOUR, g_classes[h->cls].armours, 0, EL_NONE);
-        h->in_party = i < PARTY_MAX;
+        h->in_party = i < 3;
     }
     g_save.bag[item_named("Poção")] = 3;
     g_save.bag[item_named("Éter")] = 1;
@@ -585,6 +660,12 @@ void game_load(void)
     } else game_new();
 }
 
+bool game_saved(void)
+{
+    static union { save_t now; save_v4_t v4; save_v3_t v3; } probe;   // (load refuses a buffer too small)
+    return fh1_state_load("progresso", &probe, sizeof(probe)) > 0;
+}
+
 bool g_nosave;                                  // development: nothing is written (dev command "nosave")
 // Saved into player 1's user's folder: only while that is still whose progress this is (another user who has just
 // taken the controller over gets their own, loaded by the main loop).
@@ -632,6 +713,13 @@ int party_count(void)
     for (int i = 0; i < ROSTER; i++) n += g_save.heroes[i].in_party;
     return n;
 }
+
+int party_limit(void)
+{
+    return tier_open(0, 1) ? 4 : 3;                              // every first fase cleared: a fourth comes
+}
+
+int party_cap(int tier) { return tier ? party_limit() : 3; }
 
 // ── How gear looks ──
 

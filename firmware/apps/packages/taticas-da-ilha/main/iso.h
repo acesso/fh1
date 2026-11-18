@@ -131,12 +131,24 @@ typedef struct {
 } iso_change_t;
 #define ISO_TURN_MS 320              // the narrowing
 
+// The static layer holds the whole map while it takes at most ISO_LAYER_MAX bytes; a bigger map's layer is a
+// window round the camera (the screen and ISO_WIN_X, ISO_WIN_Y more each way), moved as the camera nears its edge
+// (the part kept moved, the strips coming in drawn).
+#define ISO_LAYER_MAX (640 * 1024)
+#define ISO_WIN_X 128
+#define ISO_WIN_Y 96
+#define ISO_EMERGE 160               // cells rising out of the water drawn at once
+
 typedef struct iso_map {
     int cols, rows;
     iso_cell_t *cells;
     fart_t *art;                     // its scenery images may be recoloured (iso_grade)
     uint16_t *layer;                 // the static scenery (PSRAM), lw x lh, its top-left at world (lx, ly)
     int lw, lh, lx, ly;
+    size_t lcap;                     // the layer's room (pixels)
+    bool windowed;                   // the layer is a window (the map's whole picture: fx, fy, fw, fh)
+    int fx, fy, fw, fh;
+    int scr_w, scr_h;                // the screen iso_draw last drew (a window's size)
     uint16_t sky;                    // outside the map
     iso_unit_t units[ISO_UNITS];
     int nunits;
@@ -177,6 +189,14 @@ typedef struct iso_map {
     int8_t turn_by;
     bool turned;
     int16_t turn_c, turn_r;
+    // Cells rising out of the water (iso_emerge): each its start (ms), the time since it all began, how long a rise
+    // takes, per cell 1 while it waits or rises (the layer shows em_sea there), the sea they rise from.
+    uint16_t *em_cell, *em_start;
+    int nem, em_done;
+    uint32_t em_t;
+    uint16_t em_rise;
+    uint8_t *em_of;
+    iso_cell_t em_sea;
 } iso_map_t;
 
 enum { ISO_MARK_NONE, ISO_MARK_MOVE, ISO_MARK_ACT, ISO_MARK_AREA };
@@ -187,6 +207,14 @@ static inline iso_cell_t *iso_cell(iso_map_t *m, int c, int r) { return &m->cell
 static inline bool iso_inside(const iso_map_t *m, int c, int r) { return c >= 0 && r >= 0 && c < m->cols && r < m->rows; }
 // Draws the static layer again (after changing cells).
 bool iso_build_layer(iso_map_t *m);
+// The map grows to cols x rows: its cells move by (dc, dr), the rest is sea (a cell as given); units go with their
+// cells, the camera with them (the view stays as it was). Not while cells change or rise. Then iso_build_layer.
+bool iso_resize(iso_map_t *m, int cols, int rows, int dc, int dr, const iso_cell_t *sea);
+// Cells rising out of the water into what they are now (cells: r * cols + c; delay_ms: when each starts, in ms from
+// now); each takes rise_ms, its foot cut at the water line, a splash round it. Until it rises the layer shows sea
+// there; once up it joins the layer. ISO_EMERGE rise at once (more pop up). false: no memory, or one is under way.
+bool iso_emerge(iso_map_t *m, const uint16_t *cells, const uint16_t *delay_ms, int n, int rise_ms, const iso_cell_t *sea);
+static inline bool iso_emerging(const iso_map_t *m) { return m->nem > 0; }
 // Animates a tile: cells naming image base show a's frames (its se facing), timed by mode (ISO_TA_*). Before
 // iso_build_layer. false: no room (ISO_TANIMS) or memory.
 bool iso_tile_anim(iso_map_t *m, int base, const fart_anim_t *a, int mode);
